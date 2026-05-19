@@ -5,6 +5,7 @@ Obstacle createObstacle(Vector2 position, ObstacleType type) {
     Obstacle obstacle;
     obstacle.position = position;
     obstacle.type = type;
+    obstacle.active = 1;
     
     switch (type) {
         case OBSTACLE_CRAB:
@@ -43,14 +44,10 @@ void updateObstacle(Obstacle* obstacle, Vector2 playerPosition, float deltaTime)
             updateShark(&obstacle->data.shark, playerPosition, deltaTime);
             break;
         case OBSTACLE_BUS:
-            obstacle.data.bus.position = position;
-            obstacle.data.bus.hitbox = (Rectangle){
-                position.x, 
-                position.y, 
-                150,
-                80
-            };
-            obstacle.data.bus.speed = 350.0f;
+            obstacle->position.x -= obstacle->data.bus.speed * deltaTime;
+            obstacle->data.bus.position = obstacle->position;
+            obstacle->data.bus.hitbox.x = obstacle->position.x;
+            obstacle->data.bus.hitbox.y = obstacle->position.y;
             break;
         case OBSTACLE_PIGEON: {
             Pigeon *pigeon = &obstacle->data.pigeon;
@@ -82,10 +79,6 @@ void drawObstacle(Obstacle obstacle, Texture2D crabTexture, Texture2D sharkTextu
         }
         case OBSTACLE_PIGEON:
             drawPigeon(obstacle.data.pigeon);
-            break;
-        
-        case OBSTACLE_SHARK:
-            drawShark(obstacle.data.shark, sharkTexture);
             break;
         default:
             break;
