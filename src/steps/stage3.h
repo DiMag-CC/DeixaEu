@@ -7,6 +7,7 @@
 #define MAX_CLOUDS 2
 #define MAX_BIRDS 3
 #define MAX_BIRD_POOPS 10
+#define MAX_PUDDLES 7
 
 typedef enum {
     STAGE3_APPROACH, // Camera horizontal ate encontrar a torre
@@ -30,8 +31,19 @@ typedef struct {
 typedef struct {
     Vector2 position;
     bool active;
+    bool landed;
     float speedY;
+    float groundTimer;
 } BirdPoop;
+
+typedef struct {
+    Vector2 position;
+    Rectangle hitbox;
+    Vector2 bottlePosition;
+    Rectangle bottleHitbox;
+    bool active;
+    bool canLockPlayer;
+} Puddle;
 
 typedef struct Stage3 {
     Stage3State state;
@@ -41,6 +53,9 @@ typedef struct Stage3 {
     
     float scrollX;
     float scrollY;
+    float puddleLockTimer;
+    float puddlePushVelocity;
+    bool ambientSpawningEnabled;
     
     Rectangle towerHitbox;
     Vector2 towerPosition;
@@ -48,6 +63,7 @@ typedef struct Stage3 {
     Cloud clouds[MAX_CLOUDS];
     Bird birds[MAX_BIRDS];
     BirdPoop poops[MAX_BIRD_POOPS];
+    Puddle puddles[MAX_PUDDLES];
     
 } Stage3;
 

@@ -15,6 +15,8 @@ Player createPlayer(Vector2 initialPosition, float initialSpeed,  int initialLiv
     player.speed = initialSpeed;
     player.lives = initialLives;
     player.score = 0;
+    player.height = PLAYER_STANDING_HEIGHT;
+    player.hitbox = (Rectangle){ initialPosition.x, initialPosition.y, PLAYER_WIDTH, PLAYER_STANDING_HEIGHT };
     player.grounded = true;
 
     player.hasUmbrella = 0;
@@ -31,6 +33,12 @@ void updatePlayer(Player *player, float deltaTime) {
     player->hitbox.y = player->position.y;
     player->hitbox.width = PLAYER_WIDTH;
     player->hitbox.height = player->height;
+
+    if (player->lives <= 0) {
+        player->velocity = (Vector2){0, 0};
+        return;
+    }
+
     if (player->isClimbing) {
         if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) {
             player->position.y -= 200 * deltaTime;

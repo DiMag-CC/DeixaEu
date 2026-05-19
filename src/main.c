@@ -13,6 +13,9 @@
 // ========== CONSTANTES ==========
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 450
+#define WORLD_WIDTH 800.0f
+#define WORLD_HEIGHT 450.0f
+#define CAMERA_VERTICAL_LOOKAHEAD 150.0f
 #define FPS 60
 
 int main(void) {
@@ -146,6 +149,8 @@ int main(void) {
 
         // ========== DESENHO ==========
         BeginDrawing();
+        int screenWidth = GetScreenWidth();
+        int screenHeight = GetScreenHeight();
         // Stage 3 usa fundo azul cel; evita flash branco chamando o clear correto
         ClearBackground(SKYBLUE);
 
@@ -154,11 +159,18 @@ int main(void) {
             drawMenu(menu);
         } 
         else {
-            // ===== DESENHAR JOGO COM CÂMERA (ZOOM OUT PARA VER MAIS DA TELA) =====
+            // ===== DESENHAR JOGO COM CÂMERA RESPONSIVA =====
+            float scaleX = screenWidth / WORLD_WIDTH;
+            float scaleY = screenHeight / WORLD_HEIGHT;
+            float worldScale = (scaleX < scaleY) ? scaleX : scaleY;
+
             Camera2D camera = { 0 };
-            camera.zoom = 0.8f; // Afasta a câmera para ver 25% mais do mapa
-            camera.offset = (Vector2){ SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f };
-            camera.target = (Vector2){ SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f };
+            camera.zoom = worldScale * 0.90f;
+            camera.offset = (Vector2){ screenWidth / 2.0f, screenHeight / 2.0f };
+            camera.target = (Vector2){
+                player.position.x + PLAYER_WIDTH / 2.0f,
+                player.position.y + player.height / 2.0f - CAMERA_VERTICAL_LOOKAHEAD
+            };
             
             BeginMode2D(camera);
             
@@ -186,74 +198,74 @@ int main(void) {
             if (slowedByRain) {
                 char slowText[64];
                 sprintf(slowText, "LENTO! %.1f seg", slowDownTimer);
-                DrawText(slowText, SCREEN_WIDTH - 200, 10, 16, RED);
+                DrawText(slowText, screenWidth - 200, 10, 16, RED);
                 
                 // Desenhar barra visual de lentidão
-                DrawRectangle(SCREEN_WIDTH - 200, 30, 150, 10, RED);
-                DrawRectangle(SCREEN_WIDTH - 200, 30, (int)(150 * (slowDownTimer / 2.0f)), 10, YELLOW);
+                DrawRectangle(screenWidth - 200, 30, 150, 10, RED);
+                DrawRectangle(screenWidth - 200, 30, (int)(150 * (slowDownTimer / 2.0f)), 10, YELLOW);
             }
 
             // ===== HUD - PROTEÇÃO DO GUARDA-CHUVA =====
             if (player.hasUmbrella > 0) {
                 char protectionText[64];
                 sprintf(protectionText, "Protecao: %.1f s", player.umbrellaTimer);
-                DrawText(protectionText, SCREEN_WIDTH - 250, 45, 16, GREEN);
+                DrawText(protectionText, screenWidth - 250, 45, 16, GREEN);
             }
 
             // ===== DESENHAR GAME OVER =====
             if (isGameOver) {
                 // Overlay escuro
-                DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){0, 0, 0, 180});
+                DrawRectangle(0, 0, screenWidth, screenHeight, (Color){0, 0, 0, 180});
                 
                 // Texto "GAME OVER"
                 const char *gameOverText = "GAME OVER";
                 int textWidth = MeasureText(gameOverText, 60);
-                DrawText(gameOverText, (SCREEN_WIDTH - textWidth) / 2, 120, 60, RED);
+                DrawText(gameOverText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.26f), 60, RED);
                 
                 // Pontuação final
                 char finalScoreText[128];
                 sprintf(finalScoreText, "Pontos: %.0f | Tempo: %.1f seg", player.score, totalGameTime);
                 textWidth = MeasureText(finalScoreText, 20);
-                DrawText(finalScoreText, (SCREEN_WIDTH - textWidth) / 2, 200, 20, WHITE);
+                DrawText(finalScoreText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.44f), 20, WHITE);
                 
                 // Instruções
                 const char *restartText = "Pressione ENTER para voltar ao menu";
                 textWidth = MeasureText(restartText, 16);
-                DrawText(restartText, (SCREEN_WIDTH - textWidth) / 2, 250, 16, WHITE);
+                DrawText(restartText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.56f), 16, WHITE);
                 
                 // Timer de auto-reinício
                 if (gameOverTimer > 0) {
                     char timerText[64];
                     sprintf(timerText, "Reiniciando em %.1f segundos", gameOverTimer);
                     textWidth = MeasureText(timerText, 14);
-                    DrawText(timerText, (SCREEN_WIDTH - textWidth) / 2, 300, 14, YELLOW);
+                    DrawText(timerText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.67f), 14, YELLOW);
                 }
             }
             
             // ===== DESENHAR VITORIA =====
             if (stage3.state == STAGE3_FINISHED) {
                 // Overlay escuro com tom dourado sutil
-                DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){10, 10, 30, 210});
+                DrawRectangle(0, 0, screenWidth, screenHeight, (Color){10, 10, 30, 210});
                 
                 // Texto de Vitória ("Valeu a pena, mae.")
                 const char *victoryText = "VALEU A PENA, MAE.";
                 int textWidth = MeasureText(victoryText, 40);
-                DrawText(victoryText, (SCREEN_WIDTH - textWidth) / 2, 120, 40, YELLOW);
+                DrawText(victoryText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.27f), 40, YELLOW);
                 
                 // Pontos e tempo
                 char finalScoreText[128];
                 sprintf(finalScoreText, "Pontos: %.0f | Tempo: %.1f seg", player.score, totalGameTime);
                 textWidth = MeasureText(finalScoreText, 22);
-                DrawText(finalScoreText, (SCREEN_WIDTH - textWidth) / 2, 190, 22, WHITE);
+                DrawText(finalScoreText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.42f), 22, WHITE);
                 
                 // Instruções para retornar ao menu
                 const char *returnText = "Pressione ENTER para voltar ao menu";
                 textWidth = MeasureText(returnText, 18);
-                DrawText(returnText, (SCREEN_WIDTH - textWidth) / 2, 250, 18, GREEN);
+                DrawText(returnText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.56f), 18, GREEN);
             }
 
             // ===== FPS (Debug) =====
-            DrawFPS(SCREEN_WIDTH - 80, 10);
+            DrawFPS(screenWidth - 80, 10);
         }
 
         EndDrawing();
