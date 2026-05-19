@@ -32,6 +32,7 @@ int main(void) {
     float totalGameTime = 0.0f;
     int slowedByRain = 0;      // Flag: player está lento por chuva/fezes?
     float slowDownTimer = 0.0f; // Timer de duração da lentidão
+    int debugMode = 0;  // Pressionar 'D' para togglear
 
     // ========== MENU ==========
     Menu menu = createMenu();
@@ -143,6 +144,15 @@ int main(void) {
             // ===== DESENHAR JOGO =====
             drawStage1(&stage);
             drawPlayer(player);
+            
+            // ===== DEBUG MODE =====
+            if (IsKeyPressed(KEY_D)) {
+                debugMode = !debugMode;
+            }
+            if (debugMode) {
+                drawPlayerDebug(player);
+                DrawText("DEBUG MODE (D para desativar)", 10, 30, 14, RED);
+            }
 
             // ===== HUD - VIDAS =====
             char livesText[32];

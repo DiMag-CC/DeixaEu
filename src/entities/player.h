@@ -28,6 +28,7 @@ typedef struct player {
 Player createPlayer(Vector2 initialPosition, float initialSpeed, int initialLives);
 void updatePlayer(Player *player, float deltaTime);
 void drawPlayer(Player player);
+void drawPlayerDebug(Player player); 
 void unloadPlayer(Player *player);
 
 #endif
