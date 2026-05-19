@@ -15,6 +15,120 @@
 #define SCREEN_HEIGHT 450
 #define FPS 60
 
+// ========== RENDERIZAR HUD ==========
+
+void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, 
+                 int slowedByRain, float slowDownTimer) {
+    
+    const int HUD_Y_START = 10;
+    const int HUD_Y_STEP = 25;
+    
+    // ===== COLUNA ESQUERDA (Informações do Jogador) =====
+    
+    // Vidas
+    char livesText[64];
+    sprintf(livesText, "Vidas: %d / 3", player->lives);
+    DrawText(livesText, 10, HUD_Y_START, 16, BLACK);
+    
+    // Pontos
+    char scoreText[64];
+    sprintf(scoreText, "Pontos: %.0f", player->score);
+    DrawText(scoreText, 10, HUD_Y_START + HUD_Y_STEP, 16, BLACK);
+    
+    // Tempo
+    char timeText[64];
+    sprintf(timeText, "Tempo: %.1f s", totalGameTime);
+    DrawText(timeText, 10, HUD_Y_START + HUD_Y_STEP * 2, 16, BLACK);
+    
+    // Dificuldade
+    char diffText[64];
+    sprintf(diffText, "Dificuldade: x%.1f", stage->difficultyMultiplier);
+    DrawText(diffText, 10, HUD_Y_START + HUD_Y_STEP * 3, 16, DARKBLUE);
+    
+    // ===== COLUNA DIREITA (Status Especiais) =====
+    
+    int rightX = GetScreenWidth() - 300;
+    
+    // Status de Lentidão
+    if (slowedByRain) {
+        char slowText[64];
+        sprintf(slowText, "LENTO! (%.1f s)", slowDownTimer);
+        DrawText(slowText, rightX, HUD_Y_START, 16, RED);
+        
+        // Barra visual de lentidão
+        int barWidth = 150;
+        float barProgress = slowDownTimer / 2.0f;  // Max 2 segundos
+        if (barProgress > 1.0f) barProgress = 1.0f;
+        
+        DrawRectangle(rightX, HUD_Y_START + 25, barWidth, 10, LIGHTGRAY);
+        DrawRectangle(rightX, HUD_Y_START + 25, (int)(barWidth * barProgress), 10, RED);
+        DrawRectangleLinesEx((Rectangle){rightX, HUD_Y_START + 25, barWidth, 10}, 1, BLACK);
+    }
+    
+    // Status de Proteção do Guarda-Chuva
+    if (player->hasUmbrella > 0) {
+        char protectionText[64];
+        sprintf(protectionText, "Protecao: %.1f s", player->umbrellaTimer);
+        DrawText(protectionText, rightX, HUD_Y_START + HUD_Y_STEP * 2, 16, GREEN);
+        
+        // Barra visual de proteção
+        int barWidth = 150;
+        float barProgress = player->umbrellaTimer / 5.0f;  // Max 5 segundos
+        if (barProgress > 1.0f) barProgress = 1.0f;
+        
+        DrawRectangle(rightX, HUD_Y_START + HUD_Y_STEP * 2 + 25, barWidth, 10, LIGHTGRAY);
+        DrawRectangle(rightX, HUD_Y_START + HUD_Y_STEP * 2 + 25, (int)(barWidth * barProgress), 10, GREEN);
+        DrawRectangleLinesEx((Rectangle){rightX, HUD_Y_START + HUD_Y_STEP * 2 + 25, barWidth, 10}, 1, BLACK);
+    }
+    
+    // ===== PROGRESSO DA FASE =====
+    
+    float progressPercent = stage->distanceTraveled / 8000.0f;
+    if (progressPercent > 1.0f) progressPercent = 1.0f;
+    
+    int progressBarY = GetScreenHeight() - 40;
+    int progressBarWidth = GetScreenWidth() - 20;
+    int progressBarHeight = 20;
+    
+    char progressText[64];
+    sprintf(progressText, "Progresso: %.0f / 8000 m", stage->distanceTraveled);
+    DrawText(progressText, 10, progressBarY - 25, 14, BLACK);
+    
+    DrawRectangle(10, progressBarY, progressBarWidth, progressBarHeight, LIGHTGRAY);
+    DrawRectangle(10, progressBarY, (int)(progressBarWidth * progressPercent), progressBarHeight, GREEN);
+    DrawRectangleLinesEx((Rectangle){10, progressBarY, progressBarWidth, progressBarHeight}, 2, BLACK);
+}
+
+// ========== DEBUG: RENDERIZAR PLAYER ==========
+
+void drawPlayerDebug(Player player) {
+    // Desenhar hitbox com linhas tracejadas
+    DrawRectangleLinesEx(player.hitbox, 1, RED);
+    
+    // Desenhar ponto de origem
+    DrawCircle(player.position.x, player.position.y, 3, GREEN);
+    
+    // Desenhar vetor velocidade
+    if (player.velocity.x != 0 || player.velocity.y != 0) {
+        Vector2 velocityEnd = {
+            player.position.x + player.velocity.x * 10,
+            player.position.y + player.velocity.y * 10
+        };
+        DrawLineEx(player.position, velocityEnd, 2, YELLOW);
+    }
+    
+    // Desenhar status na tela
+    char debugText[256];
+    sprintf(debugText, 
+            "Player: (%.0f, %.0f) | Vel: (%.1f, %.1f) | Speed: %.0f | Lives: %d",
+            player.position.x, player.position.y,
+            player.velocity.x, player.velocity.y,
+            player.speed, player.lives);
+    DrawText(debugText, 10, 80, 14, BLACK);
+}
+
+// ========== MAIN ==========
+
 int main(void) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Deixa Eu");
     SetTargetFPS(FPS);
@@ -145,6 +259,9 @@ int main(void) {
             drawStage1(&stage);
             drawPlayer(player);
             
+            // ===== DESENHAR HUD COMPLETO (COMMIT 3) =====
+            drawGameHUD(&stage, &player, totalGameTime, slowedByRain, slowDownTimer);
+            
             // ===== DEBUG MODE =====
             if (IsKeyPressed(KEY_D)) {
                 debugMode = !debugMode;
@@ -152,39 +269,6 @@ int main(void) {
             if (debugMode) {
                 drawPlayerDebug(player);
                 DrawText("DEBUG MODE (D para desativar)", 10, 30, 14, RED);
-            }
-
-            // ===== HUD - VIDAS =====
-            char livesText[32];
-            sprintf(livesText, "Vidas: %d", player.lives);
-            DrawText(livesText, 10, 10, 20, BLACK);
-            
-            // ===== HUD - PONTOS =====
-            char scoreText[64];
-            sprintf(scoreText, "Pontos: %.0f", player.score);
-            DrawText(scoreText, 10, 35, 20, BLACK);
-            
-            // ===== HUD - TEMPO =====
-            char timeText[64];
-            sprintf(timeText, "Tempo: %.1f seg", totalGameTime);
-            DrawText(timeText, 10, 60, 20, BLACK);
-
-            // ===== HUD - STATUS DE LENTIDÃO =====
-            if (slowedByRain) {
-                char slowText[64];
-                sprintf(slowText, "LENTO! %.1f seg", slowDownTimer);
-                DrawText(slowText, SCREEN_WIDTH - 200, 10, 16, RED);
-                
-                // Desenhar barra visual de lentidão
-                DrawRectangle(SCREEN_WIDTH - 200, 30, 150, 10, RED);
-                DrawRectangle(SCREEN_WIDTH - 200, 30, (int)(150 * (slowDownTimer / 2.0f)), 10, YELLOW);
-            }
-
-            // ===== HUD - PROTEÇÃO DO GUARDA-CHUVA =====
-            if (player.hasUmbrella > 0) {
-                char protectionText[64];
-                sprintf(protectionText, "Protecao: %.1f s", player.umbrellaTimer);
-                DrawText(protectionText, SCREEN_WIDTH - 250, 45, 16, GREEN);
             }
 
             // ===== DESENHAR GAME OVER =====
