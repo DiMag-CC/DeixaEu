@@ -17,12 +17,26 @@ void initStage1(Stage1 *stage) {
     stage->stage1Complete = 0;
     stage->difficultyMultiplier = 1.0f;
     
+    // ========== CARREGAR TEXTURAS COM VALIDAÇÃO ==========
     stage->background = LoadTexture("assets/img/background1.png");
+    if (stage->background.id == 0) {
+        fprintf(stderr, "ERRO: Não foi possível carregar background1.png\n");
+        fflush(stderr);
+    }
+    
     for (int i = 0; i < 5; i++) {
         char fileName[128];
         sprintf(fileName, "assets/img/building%d.png", i + 1);
         stage->buildings[i] = LoadTexture(fileName);
+        
+        if (stage->buildings[i].id == 0) {
+            fprintf(stderr, "AVISO: building%d.png não encontrado\n", i + 1);
+            fflush(stderr);
+        }
     }
+    
+    printf("Stage1 inicializado com sucesso. Assets carregados.\n");
+    fflush(stdout);
     
     stage->pigeonCount = 0;
     for (int i = 0; i < MAX_PIGEONS; i++) {
