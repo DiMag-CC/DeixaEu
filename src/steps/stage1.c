@@ -194,12 +194,22 @@ void initStage1(Stage1 *stage) {
     // Inicializar fila de obstáculos
     initObstacleQueue(&stage->obstacleQueue);
 
-    // Carregar background (placeholder se falhar)
+    // Carregar background com parallax
     stage->bgLoaded = 0;
-    stage->backgroundTexture = LoadTexture("assets/img/stage1_bg.png");
+    stage->backgroundTexture = LoadTexture("assets/img/landscapeLevel1.png");
     if (stage->backgroundTexture.id != 0) {
         stage->bgLoaded = 1;
     }
+
+    // Carregar plataforma (chão)
+    stage->platformLoaded = 0;
+    stage->platformTexture = LoadTexture("assets/img/plataformLevel1.png");
+    if (stage->platformTexture.id != 0) {
+        stage->platformLoaded = 1;
+    }
+
+    // Inicializar parallax
+    stage->parallaxOffset = 0.0f;
 }
 
 // ========== ATUALIZAR STAGE 1 ==========
@@ -234,6 +244,9 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     updateRainSystem(&stage->rain, deltaTime);
     updateObstacles(stage, deltaTime);
 
+    // ===== ATUALIZAR PARALLAX (Background move 0.3x speed) =====
+    stage->parallaxOffset = (stage->camera.target.x - screenWidth * 0.25f) * 0.3f;
+
     // ===== COLISÕES =====
     handleCollisions(stage, player);
 
@@ -266,34 +279,46 @@ void drawStage1(Stage1 *stage, Player *player) {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
 
-    // ===== DESENHAR BACKGROUND =====
+    // ===== DESENHAR BACKGROUND COM PARALLAX =====
     if (stage->bgLoaded) {
         float bgTileWidth = stage->backgroundTexture.width;
-        float worldX = stage->camera.target.x - screenWidth;
-        int firstTile = (int)(worldX / bgTileWidth);
+        // Usar parallaxOffset ao invés de target.x para efeito de profundidade
+        float parallaxX = stage->parallaxOffset;
+        int firstTile = (int)(parallaxX / bgTileWidth);
 
         for (int i = -1; i < 3; i++) {
-            float tileX = (firstTile + i) * bgTileWidth;
+            float tileX = (firstTile + i) * bgTileWidth + (stage->parallaxOffset - (int)stage->parallaxOffset / bgTileWidth * bgTileWidth);
             DrawTextureEx(stage->backgroundTexture, (Vector2){ tileX, 0 }, 0, 1.0f, WHITE);
         }
     } else {
         // Placeholder: céu azul
-        float worldWidth = stage->camera.target.x * 2 + screenWidth;
         DrawRectangle(-5000, 0, 10000, GROUND_LEVEL - 50, SKYBLUE);
-    }
-
-    // ===== DESENHAR ESTRADA =====
-    float roadY = GROUND_LEVEL;
-    float roadHeight = 60.0f;
-    float roadX = (int)(stage->camera.target.x / 100) * 100;
-    for (int i = -3; i < 5; i++) {
-        float segmentX = roadX + (i * 100);
-        DrawRectangle(segmentX, roadY, 100, roadHeight, (Color){100, 100, 100, 255});
-        DrawLine(segmentX + 50, roadY, segmentX + 50, roadY + roadHeight, WHITE);
     }
 
     // ===== DESENHAR CHUVA (ATRÁS DE TUDO) =====
     drawRainSystem(stage->rain);
+
+    // ===== DESENHAR PLATAFORMA (CHÃO) COM SCROLL INFINITO =====
+    float platformY = GROUND_LEVEL;
+    if (stage->platformLoaded) {
+        float platformTileWidth = stage->platformTexture.width;
+        float worldX = stage->camera.target.x - screenWidth;
+        int firstTile = (int)(worldX / platformTileWidth);
+
+        for (int i = -1; i < 4; i++) {
+            float tileX = (firstTile + i) * platformTileWidth;
+            DrawTextureEx(stage->platformTexture, (Vector2){ tileX, platformY }, 0, 1.0f, WHITE);
+        }
+    } else {
+        // Placeholder: estrada cinza com linhas
+        float roadHeight = 60.0f;
+        float roadX = (int)(stage->camera.target.x / 100) * 100;
+        for (int i = -3; i < 5; i++) {
+            float segmentX = roadX + (i * 100);
+            DrawRectangle(segmentX, platformY, 100, roadHeight, (Color){100, 100, 100, 255});
+            DrawLine(segmentX + 50, platformY, segmentX + 50, platformY + roadHeight, YELLOW);
+        }
+    }
 
     // ===== DESENHAR OBSTÁCULOS =====
     drawObstacles(stage);
@@ -316,5 +341,10 @@ void unloadStage1(Stage1 *stage) {
     if (stage->bgLoaded) {
         UnloadTexture(stage->backgroundTexture);
         stage->bgLoaded = 0;
+    }
+
+    if (stage->platformLoaded) {
+        UnloadTexture(stage->platformTexture);
+        stage->platformLoaded = 0;
     }
 }

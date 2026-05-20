@@ -27,8 +27,11 @@ typedef struct {
     ObstacleQueue obstacleQueue;    // Fila de obstáculos
 
     // ===== Background/Cenário =====
-    Texture2D backgroundTexture;    // Textura de fundo
-    int bgLoaded;                   // 1 = carregou, 0 = falhou
+    Texture2D backgroundTexture;    // landscapeLevel1.png com parallax
+    Texture2D platformTexture;      // plataformLevel1.png (chão)
+    int bgLoaded;                   // 1 = background carregou, 0 = falhou
+    int platformLoaded;             // 1 = platform carregou, 0 = falhou
+    float parallaxOffset;           // Offset para parallax (0.3x speed)
     Camera2D camera;                // Câmera side-scrolling
 
     // ===== Dificuldade =====
