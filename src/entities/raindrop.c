@@ -31,5 +31,5 @@ void updateRaindrop(Raindrop* raindrop, float deltaTime) {
 
 void drawRaindrop(Raindrop raindrop) {
     if (!raindrop.isActive) return;
-    DrawRectangleRec(raindrop.hitbox, LIGHTBLUE);
+    DrawRectangleRec(raindrop.hitbox, BLUE);  
 }

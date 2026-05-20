@@ -1,4 +1,5 @@
 #include <raylib.h>
+#include <stdio.h>
 #include "player.h"
 
 // #define PLAYER_WIDTH 40
@@ -17,7 +18,7 @@ Player createPlayer(Vector2 initialPosition, float initialSpeed,  int initialLiv
     player.score = 0;
     player.grounded = true;
 
-    player.hasUmbrella - 0;
+    player.hasUmbrella = 0;
     player.umbrellaTimer = 0.0f;
 
     return player;
