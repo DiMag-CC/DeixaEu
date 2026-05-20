@@ -18,6 +18,7 @@ typedef struct {
     Rectangle hitbox;
     ObstacleType type;
     int active;
+    float scale;
     Texture2D texture;
     int spriteLoaded;
 } Obstacle;

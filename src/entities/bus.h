@@ -13,6 +13,7 @@ typedef struct {
     Rectangle hitbox;
     int active;
     float speed;
+    float scale;
     Texture2D texture;
     int spriteLoaded;
 } Bus;

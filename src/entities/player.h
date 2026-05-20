@@ -30,6 +30,7 @@ typedef struct {
     float maxSpeed;             // Velocidade máxima
     float width;                // Largura
     float height;               // Altura
+    float scale;                // Escala do sprite (multiplicador)
 
     int lives;                  // Número de vidas (0-3)
     float score;                // Pontuação

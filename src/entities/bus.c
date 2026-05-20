@@ -8,6 +8,7 @@ Bus createBus(Vector2 position) {
     bus.position = position;
     bus.active = 1;
     bus.speed = 150.0f * BUS_SPEED_MULTIPLIER;
+    bus.scale = 1.0f;
 
     bus.spriteLoaded = 0;
     bus.texture = LoadTexture("assets/img/bus.png");
@@ -47,26 +48,29 @@ void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
 void drawBus(Bus bus) {
     if (!bus.active) return;
 
+    float scaledWidth = BUS_WIDTH * bus.scale;
+    float scaledHeight = BUS_HEIGHT * bus.scale;
+    Vector2 drawPos = { bus.position.x - scaledWidth / 2, bus.position.y - scaledHeight / 2 };
+
     if (bus.spriteLoaded) {
-        DrawTextureEx(bus.texture,
-                     (Vector2){ bus.position.x - BUS_WIDTH / 2, bus.position.y - BUS_HEIGHT / 2 },
-                     0, 1.0f, WHITE);
+        DrawTextureEx(bus.texture, drawPos, 0, bus.scale, WHITE);
     } else {
-        // Placeholder: retângulo amarelo (ônibus)
-        DrawRectangleRec(bus.hitbox, YELLOW);
-        DrawRectangleLinesEx(bus.hitbox, 2, BLACK);
+        // Placeholder: retângulo amarelo (ônibus) escalado
+        DrawRectangle(drawPos.x, drawPos.y, scaledWidth, scaledHeight, YELLOW);
+        DrawRectangleLinesEx((Rectangle){ drawPos.x, drawPos.y, scaledWidth, scaledHeight }, 2, BLACK);
 
-        // Janelas
-        DrawRectangle(bus.hitbox.x + 10, bus.hitbox.y + 5, 10, 8, SKYBLUE);
-        DrawRectangle(bus.hitbox.x + 25, bus.hitbox.y + 5, 10, 8, SKYBLUE);
-        DrawRectangle(bus.hitbox.x + 40, bus.hitbox.y + 5, 10, 8, SKYBLUE);
+        // Janelas escaladas
+        float ww = 10 * bus.scale;
+        float wh = 8 * bus.scale;
+        DrawRectangle(drawPos.x + 10 * bus.scale, drawPos.y + 5 * bus.scale, ww, wh, SKYBLUE);
+        DrawRectangle(drawPos.x + 25 * bus.scale, drawPos.y + 5 * bus.scale, ww, wh, SKYBLUE);
+        DrawRectangle(drawPos.x + 40 * bus.scale, drawPos.y + 5 * bus.scale, ww, wh, SKYBLUE);
 
-        // Rodas
-        DrawCircle(bus.hitbox.x + 15, bus.hitbox.y + BUS_HEIGHT - 3, 3, BLACK);
-        DrawCircle(bus.hitbox.x + BUS_WIDTH - 15, bus.hitbox.y + BUS_HEIGHT - 3, 3, BLACK);
+        // Rodas escaladas
+        float wheelRadius = 3.0f * bus.scale;
+        DrawCircle(drawPos.x + 15 * bus.scale, drawPos.y + scaledHeight - wheelRadius, wheelRadius, BLACK);
+        DrawCircle(drawPos.x + scaledWidth - 15 * bus.scale, drawPos.y + scaledHeight - wheelRadius, wheelRadius, BLACK);
     }
-
-    // DrawRectangleLinesEx(bus.hitbox, 1, RED);
 }
 
 // ========== DESCARREGAR RECURSOS ==========

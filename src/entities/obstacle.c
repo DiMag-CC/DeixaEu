@@ -6,6 +6,7 @@ Obstacle createObstacle(Vector2 position, ObstacleType type) {
     obs.position = position;
     obs.type = type;
     obs.active = 1;
+    obs.scale = 0.7f;
 
     obs.spriteLoaded = 0;
     obs.texture = LoadTexture("assets/img/hole.png");
@@ -45,17 +46,20 @@ void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
 void drawObstacle(Obstacle obs) {
     if (!obs.active) return;
 
+    float scaledRadius = (HOLE_WIDTH / 2) * obs.scale;
+
     if (obs.spriteLoaded) {
         DrawTextureEx(obs.texture,
-                     (Vector2){ obs.position.x - HOLE_WIDTH / 2, obs.position.y - HOLE_HEIGHT / 2 },
-                     0, 1.0f, WHITE);
+                     (Vector2){ obs.position.x - (HOLE_WIDTH * obs.scale) / 2,
+                               obs.position.y - (HOLE_HEIGHT * obs.scale) / 2 },
+                     0, obs.scale, WHITE);
     } else {
-        // Placeholder: círculo preto (buraco)
-        DrawCircle(obs.position.x, obs.position.y, HOLE_WIDTH / 2, BLACK);
-        DrawCircleLines(obs.position.x, obs.position.y, HOLE_WIDTH / 2, RED);
+        // Placeholder: círculo preto com gradiente (buraco)
+        DrawCircle(obs.position.x, obs.position.y, scaledRadius, BLACK);
+        DrawCircleLines(obs.position.x, obs.position.y, scaledRadius - 2.0f, RED);
+        DrawCircle(obs.position.x - scaledRadius / 3, obs.position.y - scaledRadius / 3,
+                  scaledRadius / 4, DARKGRAY);
     }
-
-    // DrawRectangleLinesEx(obs.hitbox, 1, RED);
 }
 
 // ========== DESCARREGAR RECURSOS ==========

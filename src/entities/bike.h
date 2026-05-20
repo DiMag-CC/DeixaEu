@@ -13,6 +13,7 @@ typedef struct {
     Vector2 position;           // Posição da bike (relativa ao player)
     float wheelAngle;           // Ângulo de rotação das rodas (em graus)
     float wheelSpeed;           // Velocidade de rotação das rodas
+    float scale;                // Escala do sprite
     Texture2D bikeTexture;      // Sprite da bike
     int spriteLoaded;           // 1 = carregou, 0 = falhou
 } Bike;

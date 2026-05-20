@@ -19,6 +19,7 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     player.maxSpeed = PLAYER_MAX_SPEED;
     player.width = PLAYER_WIDTH;
     player.height = PLAYER_HEIGHT;
+    player.scale = 1.2f;
 
     player.lives = lives;
     player.score = 0.0f;
@@ -174,16 +175,17 @@ void drawPlayer(Player player) {
     // Se tiver sprite, desenhar com textura
     if (player.spriteLoaded) {
         DrawTextureEx(player.playerTexture,
-                     (Vector2){ player.position.x - player.width / 2, player.position.y - player.height },
-                     0, 1.0f, WHITE);
+                     (Vector2){ player.position.x - (player.width * player.scale) / 2,
+                               player.position.y - (player.height * player.scale) },
+                     0, player.scale, WHITE);
     } else {
-        // Placeholder: retângulo colorido
-        DrawRectangleRec(player.hitbox, ORANGE);
-        DrawRectangleLinesEx(player.hitbox, 2, BLACK);
+        // Placeholder: retângulo colorido escalado
+        Rectangle scaledHitbox = player.hitbox;
+        scaledHitbox.width *= player.scale;
+        scaledHitbox.height *= player.scale;
+        DrawRectangleRec(scaledHitbox, ORANGE);
+        DrawRectangleLinesEx(scaledHitbox, 2, BLACK);
     }
-
-    // Debug: desenhar hitbox
-    // DrawRectangleLinesEx(player.hitbox, 1, RED);
 }
 
 // ========== DANIFICAR JOGADOR ==========

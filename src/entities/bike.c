@@ -7,6 +7,7 @@ Bike createBike(void) {
     bike.position = (Vector2){ 0, 0 };
     bike.wheelAngle = 0.0f;
     bike.wheelSpeed = 0.0f;
+    bike.scale = 0.8f;
 
     bike.spriteLoaded = 0;
     bike.bikeTexture = LoadTexture("assets/img/bike.png");
@@ -40,25 +41,31 @@ void drawBike(Bike bike, Player player) {
     float bikeY = player.position.y;
 
     if (bike.spriteLoaded) {
+        float scaledWidth = BIKE_WIDTH * bike.scale;
+        float scaledHeight = BIKE_HEIGHT * bike.scale;
         DrawTextureEx(bike.bikeTexture,
-                     (Vector2){ bikeX - BIKE_WIDTH / 2, bikeY - BIKE_HEIGHT },
-                     0, 1.0f, WHITE);
+                     (Vector2){ bikeX - scaledWidth / 2, bikeY - scaledHeight },
+                     0, bike.scale, WHITE);
     } else {
         // Placeholder: desenhar bicicleta como formas simples
+        float scaledWidth = BIKE_WIDTH * bike.scale;
+        float scaledHeight = BIKE_HEIGHT * bike.scale;
+        float scaledWheelRadius = WHEEL_RADIUS * bike.scale;
+
         // Quadro
-        DrawRectangle(bikeX - BIKE_WIDTH / 2, bikeY - BIKE_HEIGHT, BIKE_WIDTH, BIKE_HEIGHT / 2, ORANGE);
+        DrawRectangle(bikeX - scaledWidth / 2, bikeY - scaledHeight, scaledWidth, scaledHeight / 2, ORANGE);
 
         // Roda dianteira
-        DrawCircleLines(bikeX + BIKE_WIDTH / 4, bikeY, WHEEL_RADIUS, BLACK);
-        float wheelX1 = bikeX + BIKE_WIDTH / 4 + WHEEL_RADIUS * cosf((bike.wheelAngle * PI) / 180.0f);
-        float wheelY1 = bikeY + WHEEL_RADIUS * sinf((bike.wheelAngle * PI) / 180.0f);
-        DrawLine(bikeX + BIKE_WIDTH / 4, bikeY, wheelX1, wheelY1, BLACK);
+        DrawCircleLines(bikeX + scaledWidth / 4, bikeY, scaledWheelRadius, BLACK);
+        float wheelX1 = bikeX + scaledWidth / 4 + scaledWheelRadius * cosf((bike.wheelAngle * PI) / 180.0f);
+        float wheelY1 = bikeY + scaledWheelRadius * sinf((bike.wheelAngle * PI) / 180.0f);
+        DrawLine(bikeX + scaledWidth / 4, bikeY, wheelX1, wheelY1, BLACK);
 
         // Roda traseira
-        DrawCircleLines(bikeX - BIKE_WIDTH / 4, bikeY, WHEEL_RADIUS, BLACK);
-        float wheelX2 = bikeX - BIKE_WIDTH / 4 + WHEEL_RADIUS * cosf((bike.wheelAngle * PI) / 180.0f);
-        float wheelY2 = bikeY + WHEEL_RADIUS * sinf((bike.wheelAngle * PI) / 180.0f);
-        DrawLine(bikeX - BIKE_WIDTH / 4, bikeY, wheelX2, wheelY2, BLACK);
+        DrawCircleLines(bikeX - scaledWidth / 4, bikeY, scaledWheelRadius, BLACK);
+        float wheelX2 = bikeX - scaledWidth / 4 + scaledWheelRadius * cosf((bike.wheelAngle * PI) / 180.0f);
+        float wheelY2 = bikeY + scaledWheelRadius * sinf((bike.wheelAngle * PI) / 180.0f);
+        DrawLine(bikeX - scaledWidth / 4, bikeY, wheelX2, wheelY2, BLACK);
     }
 }
 
