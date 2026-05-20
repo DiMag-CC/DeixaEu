@@ -42,7 +42,7 @@ void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime,
     
     // Dificuldade
     char diffText[64];
-    sprintf(diffText, "Dificuldade: x%.1f", stage->difficultyMultiplier);
+    sprintf(diffText, "Dificuldade: x%.1f", stage->scrollSpeed);
     DrawText(diffText, 10, HUD_Y_START + HUD_Y_STEP * 3, 16, DARKBLUE);
     
     // ===== COLUNA DIREITA (Status Especiais) =====
