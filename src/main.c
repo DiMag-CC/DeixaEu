@@ -2,11 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "steps/stage1.h"
 #include "steps/stage3.h"
 #include "entities/player.h"
-#include "entities/pigeon.h"
-#include "entities/raindrop.h"
-#include "entities/umbrella.h"
 #include "menu.h"
 #include "structure/stepList.h"
 
@@ -19,99 +17,67 @@
 #define FPS 60
 
 // ========== RENDERIZAR HUD ==========
-
-void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, 
-                 int slowedByRain, float slowDownTimer) {
-    
+void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime) {
     const int HUD_Y_START = 10;
     const int HUD_Y_STEP = 25;
-    
-    // ===== COLUNA ESQUERDA (Informações do Jogador) =====
-    
-    // Vidas
+
+    // ===== VIDAS =====
     char livesText[64];
     sprintf(livesText, "Vidas: %d / 3", player->lives);
     DrawText(livesText, 10, HUD_Y_START, 16, BLACK);
-    
-    // Pontos
+
+    // ===== PONTOS =====
     char scoreText[64];
     sprintf(scoreText, "Pontos: %.0f", player->score);
     DrawText(scoreText, 10, HUD_Y_START + HUD_Y_STEP, 16, BLACK);
-    
-    // Tempo
+
+    // ===== TEMPO =====
     char timeText[64];
     sprintf(timeText, "Tempo: %.1f s", totalGameTime);
     DrawText(timeText, 10, HUD_Y_START + HUD_Y_STEP * 2, 16, BLACK);
-    
-    // Dificuldade
+
+    // ===== DIFICULDADE =====
     char diffText[64];
-    sprintf(diffText, "Dificuldade: x%.1f", stage->scrollSpeed);
+    sprintf(diffText, "Dificuldade: x%.1f", stage->difficultyMultiplier);
     DrawText(diffText, 10, HUD_Y_START + HUD_Y_STEP * 3, 16, DARKBLUE);
-    
-    // ===== COLUNA DIREITA (Status Especiais) =====
-    
-    int rightX = GetScreenWidth() - 300;
-    
-    // Status de Lentidão
-    if (slowedByRain) {
-        char slowText[64];
-        sprintf(slowText, "LENTO! (%.1f s)", slowDownTimer);
-        DrawText(slowText, rightX, HUD_Y_START, 16, RED);
-        
-        // Barra visual de lentidão
-        int barWidth = 150;
-        float barProgress = slowDownTimer / 2.0f;  // Max 2 segundos
-        if (barProgress > 1.0f) barProgress = 1.0f;
-        
-        DrawRectangle(rightX, HUD_Y_START + 25, barWidth, 10, LIGHTGRAY);
-        DrawRectangle(rightX, HUD_Y_START + 25, (int)(barWidth * barProgress), 10, RED);
-        DrawRectangleLinesEx((Rectangle){rightX, HUD_Y_START + 25, barWidth, 10}, 1, BLACK);
-    }
-    
-    // Status de Proteção do Guarda-Chuva
+
+    // ===== PROTEÇÃO DE GUARDA-CHUVA =====
     if (player->hasUmbrella > 0) {
         char protectionText[64];
         sprintf(protectionText, "Protecao: %.1f s", player->umbrellaTimer);
-        DrawText(protectionText, rightX, HUD_Y_START + HUD_Y_STEP * 2, 16, GREEN);
-        
-        // Barra visual de proteção
+        DrawText(protectionText, SCREEN_WIDTH - 250, HUD_Y_START, 16, GREEN);
+
         int barWidth = 150;
-        float barProgress = player->umbrellaTimer / 5.0f;  // Max 5 segundos
+        float barProgress = player->umbrellaTimer / 5.0f;
         if (barProgress > 1.0f) barProgress = 1.0f;
-        
-        DrawRectangle(rightX, HUD_Y_START + HUD_Y_STEP * 2 + 25, barWidth, 10, LIGHTGRAY);
-        DrawRectangle(rightX, HUD_Y_START + HUD_Y_STEP * 2 + 25, (int)(barWidth * barProgress), 10, GREEN);
-        DrawRectangleLinesEx((Rectangle){rightX, HUD_Y_START + HUD_Y_STEP * 2 + 25, barWidth, 10}, 1, BLACK);
+
+        DrawRectangle(SCREEN_WIDTH - 250, HUD_Y_START + 25, barWidth, 10, LIGHTGRAY);
+        DrawRectangle(SCREEN_WIDTH - 250, HUD_Y_START + 25, (int)(barWidth * barProgress), 10, GREEN);
+        DrawRectangleLinesEx((Rectangle){SCREEN_WIDTH - 250, HUD_Y_START + 25, barWidth, 10}, 1, BLACK);
     }
-    
+
     // ===== PROGRESSO DA FASE =====
-    
-    float progressPercent = stage->distanceTraveled / 8000.0f;
+    float progressPercent = stage->distanceTraveled / STAGE1_TARGET_DISTANCE;
     if (progressPercent > 1.0f) progressPercent = 1.0f;
-    
-    int progressBarY = GetScreenHeight() - 40;
-    int progressBarWidth = GetScreenWidth() - 20;
+
+    int progressBarY = SCREEN_HEIGHT - 40;
+    int progressBarWidth = SCREEN_WIDTH - 20;
     int progressBarHeight = 20;
-    
+
     char progressText[64];
-    sprintf(progressText, "Progresso: %.0f / 8000 m", stage->distanceTraveled);
+    sprintf(progressText, "Progresso: %.0f / %.0f m", stage->distanceTraveled, STAGE1_TARGET_DISTANCE);
     DrawText(progressText, 10, progressBarY - 25, 14, BLACK);
-    
+
     DrawRectangle(10, progressBarY, progressBarWidth, progressBarHeight, LIGHTGRAY);
     DrawRectangle(10, progressBarY, (int)(progressBarWidth * progressPercent), progressBarHeight, GREEN);
     DrawRectangleLinesEx((Rectangle){10, progressBarY, progressBarWidth, progressBarHeight}, 2, BLACK);
 }
 
-// ========== DEBUG: RENDERIZAR PLAYER ==========
-
+// ========== DEBUG MODE ==========
 void drawPlayerDebug(Player player) {
-    // Desenhar hitbox com linhas tracejadas
     DrawRectangleLinesEx(player.hitbox, 1, RED);
-    
-    // Desenhar ponto de origem
     DrawCircle(player.position.x, player.position.y, 3, GREEN);
-    
-    // Desenhar vetor velocidade
+
     if (player.velocity.x != 0 || player.velocity.y != 0) {
         Vector2 velocityEnd = {
             player.position.x + player.velocity.x * 10,
@@ -119,10 +85,9 @@ void drawPlayerDebug(Player player) {
         };
         DrawLineEx(player.position, velocityEnd, 2, YELLOW);
     }
-    
-    // Desenhar status na tela
+
     char debugText[256];
-    sprintf(debugText, 
+    sprintf(debugText,
             "Player: (%.0f, %.0f) | Vel: (%.1f, %.1f) | Speed: %.0f | Lives: %d",
             player.position.x, player.position.y,
             player.velocity.x, player.velocity.y,
@@ -131,14 +96,14 @@ void drawPlayerDebug(Player player) {
 }
 
 // ========== MAIN ==========
-
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Deixa Eu");
     SetTargetFPS(FPS);
 
-    // ========== INICIALIZAR STAGE 3 ==========
-    Stage3 stage3;
+    // ========== INICIALIZAR STAGE 1 ==========
+    Stage1 stage1;
+    initStage1(&stage1);
 
     // ========== INICIALIZAR PLAYER ==========
     Player player = createPlayer((Vector2){ SCREEN_WIDTH / 2, GROUND_LEVEL }, 150, 3);
@@ -147,9 +112,7 @@ int main(void) {
     int isGameOver = 0;
     float gameOverTimer = 0.0f;
     float totalGameTime = 0.0f;
-    int slowedByRain = 0;      // Flag: player está lento por chuva/fezes?
-    float slowDownTimer = 0.0f; // Timer de duração da lentidão
-    int debugMode = 0;  // Pressionar 'D' para togglear
+    int debugMode = 0;
 
     // ========== MENU ==========
     Menu menu = createMenu();
@@ -157,12 +120,11 @@ int main(void) {
 
     // ========== FASES (Lista Circular) ==========
     Phase *phaseList = NULL;
-    
-    Phase *phase3 = createPhase(3, "Parque das Esculturas");
-    
-    insertPhase(&phaseList, phase3);
-    
-    Phase *currentPhase = phase3;
+
+    Phase *phase1 = createPhase(1, "Recife Chuvoso");
+    insertPhase(&phaseList, phase1);
+
+    Phase *currentPhase = phase1;
     printf("Fase atual: %s (numero %d)\n", currentPhase->phaseName, currentPhase->phaseNumber);
     fflush(stdout);
 
@@ -178,17 +140,18 @@ int main(void) {
         // ===== MENU =====
         if (inMenu) {
             updateMenu(&menu);
-            
+
             if (menu.screen == MENU_MAIN && IsKeyPressed(KEY_ENTER)) {
                 if (menu.selectedOption == 0) {
                     // Iniciar jogo
                     inMenu = 0;
                     totalGameTime = 0.0f;
                     isGameOver = 0;
-                    slowedByRain = 0;
-                    slowDownTimer = 0.0f;
-                    
-                    initStage3(&stage3, &player);
+
+                    // Reinicializar stage
+                    unloadStage1(&stage1);
+                    initStage1(&stage1);
+                    player = createPlayer((Vector2){ SCREEN_WIDTH / 2, GROUND_LEVEL }, 150, 3);
                 }
                 else if (menu.selectedOption == 2) {
                     // Sair do jogo
@@ -199,22 +162,8 @@ int main(void) {
         // ===== JOGO =====
         else {
             // ===== ATUALIZAR STAGE E PLAYER =====
-            updateStage3(&stage3, &player, deltaTime);
+            updateStage1(&stage1, &player, deltaTime);
             updatePlayer(&player, deltaTime);
-
-            // ===== SISTEMA DE LENTIDÃO =====
-            // Se o player estava lento, decrementar timer
-            if (slowedByRain) {
-                slowDownTimer -= deltaTime;
-                
-                if (slowDownTimer <= 0.0f) {
-                    slowedByRain = 0;
-                    slowDownTimer = 0.0f;
-                    
-                    // Restaurar velocidade normal
-                    player.speed = 150.0f;  // Velocidade original
-                }
-            }
 
             // ===== VERIFICAR GAME OVER =====
             if (player.lives <= 0 && !isGameOver) {
@@ -225,39 +174,36 @@ int main(void) {
             // ===== GAME OVER SCREEN =====
             if (isGameOver) {
                 gameOverTimer -= deltaTime;
-                
+
                 if (IsKeyPressed(KEY_ENTER) || gameOverTimer <= 0) {
                     // Reset do jogo e voltar para o menu
                     player = createPlayer((Vector2){ SCREEN_WIDTH / 2, GROUND_LEVEL }, 150, 3);
-                    unloadStage3(&stage3);
+                    unloadStage1(&stage1);
+                    initStage1(&stage1);
                     isGameOver = 0;
                     totalGameTime = 0.0f;
-                    slowedByRain = 0;
-                    slowDownTimer = 0.0f;
-                    
+
                     menu = createMenu();
                     inMenu = 1;
                 }
             }
-            
-            // ===== VICTORY REDIRECTION =====
-            if (stage3.state == STAGE3_FINISHED) {
+
+            // ===== VICTORY CHECK =====
+            if (stage1.stage1Complete && !isGameOver) {
                 if (IsKeyPressed(KEY_ENTER)) {
                     // Reset do jogo e voltar para o menu
                     player = createPlayer((Vector2){ SCREEN_WIDTH / 2, GROUND_LEVEL }, 150, 3);
-                    unloadStage3(&stage3);
-                    isGameOver = 0;
+                    unloadStage1(&stage1);
+                    initStage1(&stage1);
                     totalGameTime = 0.0f;
-                    slowedByRain = 0;
-                    slowDownTimer = 0.0f;
-                    
+
                     menu = createMenu();
                     inMenu = 1;
                 }
             }
-            
-            // ===== CONTAR TEMPO (se não está game over/venceu) =====
-            if (!isGameOver && stage3.state != STAGE3_FINISHED) {
+
+            // ===== CONTAR TEMPO =====
+            if (!isGameOver && !stage1.stage1Complete) {
                 totalGameTime += deltaTime;
             }
         }
@@ -266,50 +212,20 @@ int main(void) {
         BeginDrawing();
         int screenWidth = GetScreenWidth();
         int screenHeight = GetScreenHeight();
-        // Stage 3 usa fundo azul cel; evita flash branco chamando o clear correto
         ClearBackground(SKYBLUE);
 
         if (inMenu) {
             // ===== DESENHAR MENU =====
             drawMenu(menu);
-        } 
-<<<<<<< HEAD
+        }
         else {
             // ===== DESENHAR JOGO =====
-            drawStage1(&stage, &player);
+            drawStage1(&stage1, &player);
             drawPlayer(player);
-=======
-        else {
-            // ===== DESENHAR JOGO COM CÂMERA RESPONSIVA =====
-            float scaleX = screenWidth / WORLD_WIDTH;
-            float scaleY = screenHeight / WORLD_HEIGHT;
-            float worldScale = (scaleX < scaleY) ? scaleX : scaleY;
 
-            Camera2D camera = { 0 };
-            camera.zoom = worldScale * 0.90f;
-            camera.offset = (Vector2){ screenWidth / 2.0f, screenHeight / 2.0f };
-            camera.target = (Vector2){
-                player.position.x + PLAYER_WIDTH / 2.0f,
-                player.position.y + player.height / 2.0f - CAMERA_VERTICAL_LOOKAHEAD
-            };
-            
-            BeginMode2D(camera);
-            
-            drawStage3(&stage3, &player);
-            drawPlayer(player);
-            
-            EndMode2D();
+            // ===== DESENHAR HUD =====
+            drawGameHUD(&stage1, &player, totalGameTime);
 
-            // ===== HUD - VIDAS =====
-            char livesText[32];
-            sprintf(livesText, "Vidas: %d", player.lives);
-            DrawText(livesText, 10, 10, 20, BLACK);
->>>>>>> fase3
-            
-            // ===== DESENHAR HUD COMPLETO (COMMIT 3) =====
-            drawGameHUD(&stage, &player, totalGameTime, slowedByRain, slowDownTimer);
-            
-<<<<<<< HEAD
             // ===== DEBUG MODE =====
             if (IsKeyPressed(KEY_D)) {
                 debugMode = !debugMode;
@@ -317,53 +233,30 @@ int main(void) {
             if (debugMode) {
                 drawPlayerDebug(player);
                 DrawText("DEBUG MODE (D para desativar)", 10, 30, 14, RED);
+                DrawFPS(10, screenHeight - 30);
             }
-=======
-            // ===== HUD - TEMPO =====
-            char timeText[64];
-            sprintf(timeText, "Tempo: %.1f seg", totalGameTime);
-            DrawText(timeText, 10, 60, 20, BLACK);
-
-            // ===== HUD - STATUS DE LENTIDÃO =====
-            if (slowedByRain) {
-                char slowText[64];
-                sprintf(slowText, "LENTO! %.1f seg", slowDownTimer);
-                DrawText(slowText, screenWidth - 200, 10, 16, RED);
-                
-                // Desenhar barra visual de lentidão
-                DrawRectangle(screenWidth - 200, 30, 150, 10, RED);
-                DrawRectangle(screenWidth - 200, 30, (int)(150 * (slowDownTimer / 2.0f)), 10, YELLOW);
-            }
-
-            // ===== HUD - PROTEÇÃO DO GUARDA-CHUVA =====
-            if (player.hasUmbrella > 0) {
-                char protectionText[64];
-                sprintf(protectionText, "Protecao: %.1f s", player.umbrellaTimer);
-                DrawText(protectionText, screenWidth - 250, 45, 16, GREEN);
-            }
->>>>>>> fase3
 
             // ===== DESENHAR GAME OVER =====
             if (isGameOver) {
                 // Overlay escuro
                 DrawRectangle(0, 0, screenWidth, screenHeight, (Color){0, 0, 0, 180});
-                
+
                 // Texto "GAME OVER"
                 const char *gameOverText = "GAME OVER";
                 int textWidth = MeasureText(gameOverText, 60);
                 DrawText(gameOverText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.26f), 60, RED);
-                
+
                 // Pontuação final
                 char finalScoreText[128];
                 sprintf(finalScoreText, "Pontos: %.0f | Tempo: %.1f seg", player.score, totalGameTime);
                 textWidth = MeasureText(finalScoreText, 20);
                 DrawText(finalScoreText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.44f), 20, WHITE);
-                
+
                 // Instruções
                 const char *restartText = "Pressione ENTER para voltar ao menu";
                 textWidth = MeasureText(restartText, 16);
                 DrawText(restartText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.56f), 16, WHITE);
-                
+
                 // Timer de auto-reinício
                 if (gameOverTimer > 0) {
                     char timerText[64];
@@ -372,49 +265,40 @@ int main(void) {
                     DrawText(timerText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.67f), 14, YELLOW);
                 }
             }
-            
-            // ===== DESENHAR VITORIA =====
-            if (stage3.state == STAGE3_FINISHED) {
-                // Overlay escuro com tom dourado sutil
-                DrawRectangle(0, 0, screenWidth, screenHeight, (Color){10, 10, 30, 210});
-                
-                // Texto de Vitória ("Valeu a pena, mae.")
-                const char *victoryText = "VALEU A PENA, MAE.";
-                int textWidth = MeasureText(victoryText, 40);
-                DrawText(victoryText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.27f), 40, YELLOW);
-                
-                // Pontos e tempo
+
+            // ===== DESENHAR VITÓRIA =====
+            if (stage1.stage1Complete && !isGameOver) {
+                // Overlay escuro
+                DrawRectangle(0, 0, screenWidth, screenHeight, (Color){0, 0, 0, 180});
+
+                // Texto "VITÓRIA"
+                const char *victoryText = "VITÓRIA!";
+                int textWidth = MeasureText(victoryText, 60);
+                DrawText(victoryText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.26f), 60, GREEN);
+
+                // Pontuação final
                 char finalScoreText[128];
                 sprintf(finalScoreText, "Pontos: %.0f | Tempo: %.1f seg", player.score, totalGameTime);
-                textWidth = MeasureText(finalScoreText, 22);
-                DrawText(finalScoreText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.42f), 22, WHITE);
-                
-                // Instruções para retornar ao menu
-                const char *returnText = "Pressione ENTER para voltar ao menu";
-                textWidth = MeasureText(returnText, 18);
-                DrawText(returnText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.56f), 18, GREEN);
-            }
+                textWidth = MeasureText(finalScoreText, 20);
+                DrawText(finalScoreText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.44f), 20, WHITE);
 
-            // ===== FPS (Debug) =====
-            DrawFPS(screenWidth - 80, 10);
+                // Instruções
+                const char *continueText = "Pressione ENTER para voltar ao menu";
+                textWidth = MeasureText(continueText, 16);
+                DrawText(continueText, (screenWidth - textWidth) / 2, (int)(screenHeight * 0.56f), 16, WHITE);
+            }
         }
 
         EndDrawing();
     }
 
-<<<<<<< HEAD
-    unloadStage1(&stage);
-    unloadPlayer(player);
-=======
     // ========== LIMPEZA ==========
-    unloadStage3(&stage3);
->>>>>>> fase3
-
+    unloadStage1(&stage1);
+    unloadPlayerResources(&player);
     if (phaseList != NULL) {
-        free(phase3);
+        freePhaseList(phaseList);
     }
 
     CloseWindow();
-
     return 0;
 }
