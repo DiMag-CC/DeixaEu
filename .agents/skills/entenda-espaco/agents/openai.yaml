@@ -1,0 +1,4 @@
+interface:
+  display_name: "Entenda Espaço"
+  short_description: "Mapeia diretório e resume a lógica"
+  default_prompt: "Use $entenda-espaco para entender esse espaço, mapear o diretório atual e explicar a lógica do projeto."
