@@ -10,19 +10,23 @@
 // #define PLAYER_CROUCH_HEIGHT 35
 // #define PLAYER_STANDING_HEIGHT PLAYER_HEIGHT
 
-Player createPlayer(Vector2 initialPosition, float initialSpeed,  int initialLives) {
+Player createPlayer(Vector2 initialPosition, float initialSpeed, int initialLives) {
     Player player;
     player.position = initialPosition;
     player.speed = initialSpeed;
     player.lives = initialLives;
     player.score = 0;
     player.grounded = true;
-
+    
+    player.texture = LoadTexture("src/assets/img/characterMoving1.png");
+    if (player.texture.id == 0) {
+        fprintf(stderr, "AVISO: characterMoving1.png não encontrado\n");
+    }
+    
     player.hasUmbrella = 0;
     player.umbrellaTimer = 0.0f;
 
     return player;
-
 }
 
 void updatePlayer(Player *player, float deltaTime) {
@@ -66,14 +70,28 @@ void updatePlayer(Player *player, float deltaTime) {
 
 
 void drawPlayer(Player player) {
-    DrawRectangleRec(player.hitbox, (Color){0, 100, 200, 255});
-    
-    DrawRectangleLinesEx(player.hitbox, 2, BLACK);
-    
-    char livesStr[4];
-    sprintf(livesStr, "%d", player.lives);
-    DrawText(livesStr, 
-             player.hitbox.x + player.hitbox.width/2 - 5,
-             player.hitbox.y + player.hitbox.height/2 - 10,
-             20, WHITE);
+    if (player.texture.id != 0) {
+        // Desenhar sprite do player
+        DrawTextureRec(player.texture,
+                      (Rectangle){0, 0, player.texture.width, player.texture.height},
+                      player.position,
+                      WHITE);
+    } else {
+        // Fallback: desenhar retângulo se sprite não carregar
+        DrawRectangleRec(player.hitbox, (Color){0, 100, 200, 255});
+        DrawRectangleLinesEx(player.hitbox, 2, BLACK);
+        
+        char livesStr[4];
+        sprintf(livesStr, "%d", player.lives);
+        DrawText(livesStr, 
+                 player.hitbox.x + player.hitbox.width/2 - 5,
+                 player.hitbox.y + player.hitbox.height/2 - 10,
+                 20, WHITE);
+    }
+}
+
+void unloadPlayer(Player player) {
+    if (player.texture.id != 0) {
+        UnloadTexture(player.texture);
+    }
 }

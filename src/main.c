@@ -308,8 +308,8 @@ int main(void) {
         EndDrawing();
     }
 
-    // ========== LIMPEZA ==========
     unloadStage1(&stage);
+    unloadPlayer(player);
 
     if (phaseList != NULL) {
         free(phase1);
