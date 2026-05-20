@@ -5,6 +5,7 @@
 #include "../entities/obstacle.h"
 #include "../entities/bus.h"
 #include "../entities/pigeon.h"
+#include "../entities/umbrella.h"
 
 // ========== TIPOS DE OBSTÁCULO STAGE1 ==========
 typedef enum {
@@ -25,6 +26,7 @@ typedef struct {
         Obstacle hole;
         Bus bus;
         Pigeon pigeon;
+        Umbrella umbrella;
     } data;
 } QueueObstacle;
 
