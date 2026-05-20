@@ -51,6 +51,11 @@ typedef struct {
     float knockbackSpeed;       // Velocidade de knockback
     float knockbackTimer;       // Timer de knockback
 
+    // Stage3 específico
+    int isClimbing;             // 1 = escalando, 0 = não
+    int movementControlledExternally;  // 1 = stage controla, 0 = player controla
+    int grounded;               // Alias para isGrounded (compatibilidade stage3)
+
     // Sprites e texturas
     Texture2D playerTexture;    // Sprite do jogador
     int spriteLoaded;           // 1 = textura carregou, 0 = falhou

@@ -35,7 +35,7 @@ static void spawnRandomObstacle(Stage1 *stage) {
 }
 
 // ========== HELPER: ATUALIZAR OBSTÁCULOS ==========
-static void updateObstacles(Stage1 *stage, Player *player, float deltaTime) {
+static void updateObstacles(Stage1 *stage, float deltaTime) {
     QueueNode *cur = stage->obstacleQueue.front;
 
     while (cur != NULL) {
@@ -79,7 +79,6 @@ static void handleCollisions(Stage1 *stage, Player *player) {
         }
 
         Rectangle obstacleHitbox;
-        int hasCollision = 0;
 
         switch (qobs->type) {
             case QUEUE_OBS_HOLE:
@@ -88,7 +87,6 @@ static void handleCollisions(Stage1 *stage, Player *player) {
                     damagePlayer(player, 200.0f);
                     qobs->data.hole.active = 0;
                     qobs->active = 0;
-                    hasCollision = 1;
                 }
                 break;
 
@@ -98,7 +96,6 @@ static void handleCollisions(Stage1 *stage, Player *player) {
                     damagePlayer(player, 300.0f);
                     qobs->data.bus.active = 0;
                     qobs->active = 0;
-                    hasCollision = 1;
                 }
                 break;
 
@@ -109,7 +106,6 @@ static void handleCollisions(Stage1 *stage, Player *player) {
                     damagePlayer(player, 100.0f);
                     qobs->data.pigeon.active = 0;
                     qobs->active = 0;
-                    hasCollision = 1;
                 }
 
                 // Colisão com fezes do pombo
@@ -228,7 +224,7 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     // ===== ATUALIZAR ENTIDADES =====
     updateBike(&stage->bike, player, deltaTime);
     updateRainSystem(&stage->rain, deltaTime);
-    updateObstacles(stage, player, deltaTime);
+    updateObstacles(stage, deltaTime);
 
     // ===== COLISÕES =====
     handleCollisions(stage, player);

@@ -38,6 +38,10 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     player.knockbackSpeed = 0.0f;
     player.knockbackTimer = 0.0f;
 
+    player.isClimbing = 0;
+    player.movementControlledExternally = 0;
+    player.grounded = 1;
+
     // Hitbox
     player.hitbox = (Rectangle){
         player.position.x - player.width / 2,
@@ -110,11 +114,13 @@ void updatePlayer(Player *player, float deltaTime) {
         player->position.y = GROUND_LEVEL;
         player->velocity.y = 0;
         player->isGrounded = 1;
+        player->grounded = 1;
         player->isJumping = 0;
         player->state = PLAYER_STATE_RUNNING;
         player->fallSpeed = 0.0f;
     } else {
         player->isGrounded = 0;
+        player->grounded = 0;
         if (player->state != PLAYER_STATE_JUMPING) {
             player->state = PLAYER_STATE_FALLING;
         }
@@ -208,6 +214,7 @@ void addUmbrellaShield(Player *player, float duration) {
 
 // ========== APLICAR DESACELERAÇÃO ==========
 void applySlowDown(Player *player, float amount, float duration) {
+    (void)duration;
     if (player->speed > amount) {
         player->speed -= amount;
     } else {
