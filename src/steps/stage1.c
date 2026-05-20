@@ -1,0 +1,291 @@
+#include "stage1.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+
+// ========== HELPER: SPAWNAR OBSTÁCULOS ==========
+static void spawnRandomObstacle(Stage1 *stage) {
+    int roll = rand() % 100;
+    Vector2 spawnPos = { SCREEN_WIDTH + 50, GROUND_LEVEL };
+
+    QueueObstacle qobs;
+    qobs.position = spawnPos;
+    qobs.active = 1;
+
+    if (roll < 40) {
+        // 40% Buraco
+        qobs.type = QUEUE_OBS_HOLE;
+        qobs.data.hole = createObstacle(spawnPos, OBS_HOLE);
+        enqueueObstacle(&stage->obstacleQueue, qobs);
+    } else if (roll < 70) {
+        // 30% Ônibus
+        qobs.type = QUEUE_OBS_BUS;
+        qobs.data.bus = createBus(spawnPos);
+        enqueueObstacle(&stage->obstacleQueue, qobs);
+    } else if (roll < 95) {
+        // 25% Pombo
+        qobs.type = QUEUE_OBS_PIGEON;
+        qobs.data.pigeon = createPigeon((Vector2){ spawnPos.x, GROUND_LEVEL - 80 });
+        enqueueObstacle(&stage->obstacleQueue, qobs);
+    } else {
+        // 5% Guarda-chuva (power-up)
+        qobs.type = QUEUE_OBS_UMBRELLA;
+        qobs.data.pigeon.position = (Vector2){ spawnPos.x, GROUND_LEVEL - 50 };
+    }
+}
+
+// ========== HELPER: ATUALIZAR OBSTÁCULOS ==========
+static void updateObstacles(Stage1 *stage, Player *player, float deltaTime) {
+    QueueNode *cur = stage->obstacleQueue.front;
+
+    while (cur != NULL) {
+        QueueObstacle *qobs = &cur->obstacle;
+
+        // Atualizar específico por tipo
+        switch (qobs->type) {
+            case QUEUE_OBS_HOLE:
+                updateObstacle(&qobs->data.hole, stage->scrollSpeed, deltaTime);
+                break;
+
+            case QUEUE_OBS_BUS:
+                updateBus(&qobs->data.bus, stage->scrollSpeed, deltaTime);
+                break;
+
+            case QUEUE_OBS_PIGEON:
+                updatePigeon(&qobs->data.pigeon, stage->scrollSpeed, deltaTime);
+                break;
+
+            case QUEUE_OBS_UMBRELLA:
+                // Umbrella é coletável, não obstáculo
+                break;
+        }
+
+        cur = cur->next;
+    }
+
+    // Remover obstáculos fora da tela
+    removeOffscreenObstacles(&stage->obstacleQueue, -100.0f);
+}
+
+// ========== HELPER: COLISÕES COM OBSTÁCULOS ==========
+static void handleCollisions(Stage1 *stage, Player *player) {
+    QueueNode *cur = stage->obstacleQueue.front;
+
+    while (cur != NULL) {
+        QueueObstacle *qobs = &cur->obstacle;
+        if (!qobs->active) {
+            cur = cur->next;
+            continue;
+        }
+
+        Rectangle obstacleHitbox;
+        int hasCollision = 0;
+
+        switch (qobs->type) {
+            case QUEUE_OBS_HOLE:
+                obstacleHitbox = qobs->data.hole.hitbox;
+                if (qobs->data.hole.active && CheckCollisionRecs(player->hitbox, obstacleHitbox)) {
+                    damagePlayer(player, 200.0f);
+                    qobs->data.hole.active = 0;
+                    qobs->active = 0;
+                    hasCollision = 1;
+                }
+                break;
+
+            case QUEUE_OBS_BUS:
+                obstacleHitbox = qobs->data.bus.hitbox;
+                if (qobs->data.bus.active && CheckCollisionRecs(player->hitbox, obstacleHitbox)) {
+                    damagePlayer(player, 300.0f);
+                    qobs->data.bus.active = 0;
+                    qobs->active = 0;
+                    hasCollision = 1;
+                }
+                break;
+
+            case QUEUE_OBS_PIGEON:
+                // Colisão com pombo
+                obstacleHitbox = qobs->data.pigeon.hitbox;
+                if (qobs->data.pigeon.active && CheckCollisionRecs(player->hitbox, obstacleHitbox)) {
+                    damagePlayer(player, 100.0f);
+                    qobs->data.pigeon.active = 0;
+                    qobs->active = 0;
+                    hasCollision = 1;
+                }
+
+                // Colisão com fezes do pombo
+                for (int i = 0; i < MAX_POOPS; i++) {
+                    Poop *poop = &qobs->data.pigeon.poops[i];
+                    if (poop->active && CheckCollisionRecs(player->hitbox, poop->hitbox)) {
+                        applySlowDown(player, 50.0f, 2.0f);
+                        poop->active = 0;
+                    }
+                }
+                break;
+
+            case QUEUE_OBS_UMBRELLA:
+                // TODO: Implementar coletável de guarda-chuva
+                break;
+        }
+
+        cur = cur->next;
+    }
+}
+
+// ========== HELPER: DESENHAR OBSTÁCULOS ==========
+static void drawObstacles(Stage1 *stage) {
+    QueueNode *cur = stage->obstacleQueue.front;
+
+    while (cur != NULL) {
+        QueueObstacle *qobs = &cur->obstacle;
+        if (!qobs->active) {
+            cur = cur->next;
+            continue;
+        }
+
+        switch (qobs->type) {
+            case QUEUE_OBS_HOLE:
+                if (qobs->data.hole.active) {
+                    drawObstacle(qobs->data.hole);
+                }
+                break;
+
+            case QUEUE_OBS_BUS:
+                if (qobs->data.bus.active) {
+                    drawBus(qobs->data.bus);
+                }
+                break;
+
+            case QUEUE_OBS_PIGEON:
+                if (qobs->data.pigeon.active) {
+                    drawPigeon(qobs->data.pigeon);
+                }
+                break;
+
+            case QUEUE_OBS_UMBRELLA:
+                break;
+        }
+
+        cur = cur->next;
+    }
+}
+
+// ========== INICIALIZAR STAGE 1 ==========
+void initStage1(Stage1 *stage) {
+    stage->scrollSpeed = STAGE1_BASE_SCROLL_SPEED;
+    stage->distanceTraveled = 0.0f;
+    stage->spawnInterval = 1.5f;
+    stage->obstacleSpawnTimer = 0.0f;
+    stage->difficultyMultiplier = 1.0f;
+    stage->elapsedTime = 0.0f;
+    stage->stage1Complete = 0;
+    stage->stage1Failed = 0;
+    stage->backgroundScroll = 0.0f;
+
+    // Inicializar bike
+    stage->bike = createBike();
+
+    // Inicializar chuva
+    stage->rain = createRainSystem();
+
+    // Inicializar fila de obstáculos
+    initObstacleQueue(&stage->obstacleQueue);
+
+    // Carregar background (placeholder se falhar)
+    stage->bgLoaded = 0;
+    stage->backgroundTexture = LoadTexture("assets/img/stage1_bg.png");
+    if (stage->backgroundTexture.id != 0) {
+        stage->bgLoaded = 1;
+    }
+}
+
+// ========== ATUALIZAR STAGE 1 ==========
+void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
+    if (stage->stage1Complete || stage->stage1Failed) {
+        return;
+    }
+
+    stage->elapsedTime += deltaTime;
+
+    // ===== AUMENTAR DIFICULDADE =====
+    float progress = stage->distanceTraveled / STAGE1_TARGET_DISTANCE;
+    if (progress > 1.0f) progress = 1.0f;
+    stage->difficultyMultiplier = 1.0f + (progress * 1.0f);
+
+    // ===== SCROLL SPEED DINÂMICO =====
+    stage->scrollSpeed = STAGE1_BASE_SCROLL_SPEED +
+                         (STAGE1_MAX_SCROLL_SPEED - STAGE1_BASE_SCROLL_SPEED) * progress;
+
+    // ===== INTERVALO DE SPAWN DINÂMICO =====
+    stage->spawnInterval = 1.5f - (progress * 0.8f);  // De 1.5s para 0.7s
+
+    // ===== SPAWN DE OBSTÁCULOS =====
+    stage->obstacleSpawnTimer += deltaTime;
+    if (stage->obstacleSpawnTimer >= stage->spawnInterval) {
+        stage->obstacleSpawnTimer = 0.0f;
+        spawnRandomObstacle(stage);
+    }
+
+    // ===== ATUALIZAR ENTIDADES =====
+    updateBike(&stage->bike, player, deltaTime);
+    updateRainSystem(&stage->rain, deltaTime);
+    updateObstacles(stage, player, deltaTime);
+
+    // ===== COLISÕES =====
+    handleCollisions(stage, player);
+
+    // ===== DISTÂNCIA PERCORRIDA =====
+    stage->distanceTraveled += stage->scrollSpeed * deltaTime;
+
+    // ===== BACKGROUND SCROLL =====
+    stage->backgroundScroll -= stage->scrollSpeed * deltaTime;
+    if (stage->backgroundScroll < -SCREEN_WIDTH) {
+        stage->backgroundScroll = 0.0f;
+    }
+
+    // ===== VERIFICAR GAME OVER =====
+    if (player->lives <= 0) {
+        stage->stage1Failed = 1;
+    }
+
+    // ===== VERIFICAR VITÓRIA =====
+    if (stage->distanceTraveled >= STAGE1_TARGET_DISTANCE) {
+        stage->stage1Complete = 1;
+    }
+}
+
+// ========== DESENHAR STAGE 1 ==========
+void drawStage1(Stage1 *stage, Player *player) {
+    // ===== DESENHAR FUNDO =====
+    if (stage->bgLoaded) {
+        DrawTextureEx(stage->backgroundTexture,
+                     (Vector2){ stage->backgroundScroll, 0 },
+                     0, 1.0f, WHITE);
+        DrawTextureEx(stage->backgroundTexture,
+                     (Vector2){ stage->backgroundScroll + SCREEN_WIDTH, 0 },
+                     0, 1.0f, WHITE);
+    } else {
+        // Placeholder: céu e chão
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2, SKYBLUE);
+        DrawRectangle(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2, GRAY);
+    }
+
+    // ===== DESENHAR CHUVA =====
+    drawRainSystem(stage->rain);
+
+    // ===== DESENHAR BIKE =====
+    drawBike(stage->bike, *player);
+
+    // ===== DESENHAR OBSTÁCULOS =====
+    drawObstacles(stage);
+}
+
+// ========== DESCARREGAR RESOURCES STAGE 1 ==========
+void unloadStage1(Stage1 *stage) {
+    unloadBikeResources(&stage->bike);
+    freeObstacleQueue(&stage->obstacleQueue);
+
+    if (stage->bgLoaded) {
+        UnloadTexture(stage->backgroundTexture);
+        stage->bgLoaded = 0;
+    }
+}
