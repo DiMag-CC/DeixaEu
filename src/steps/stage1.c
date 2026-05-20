@@ -241,6 +241,9 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     stage->distanceTraveled += stage->scrollSpeed * deltaTime;
 
     // ===== ATUALIZAR CÂMERA SIDE-SCROLLING =====
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+    stage->camera.offset = (Vector2){ screenWidth * 0.25f, screenHeight * 0.6f };
     stage->camera.target.x = player->position.x + 100.0f;
     stage->camera.target.y = player->position.y - 80.0f;
 
