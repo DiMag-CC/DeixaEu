@@ -2,6 +2,7 @@
 #define PIGEON_H
 
 #include <raylib.h>
+#include "../gfx/animation.h"
 
 #define SCREEN_HEIGHT 450
 #define PIGEON_WIDTH 25.0f
@@ -30,6 +31,10 @@ typedef struct {
     float scale;
     Texture2D texture;
     int spriteLoaded;
+
+    // Animação direcional (pigeon1L/R + pigeon2L/R)
+    DirectionalAnimationSet animation;
+    char direction; // 'L' ou 'R'
 
     // Fezes que o pombo solta
     Poop poops[MAX_POOPS];

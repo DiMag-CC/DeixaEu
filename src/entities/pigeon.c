@@ -1,4 +1,5 @@
 #include "pigeon.h"
+#include "../gfx/animation.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -17,6 +18,10 @@ Pigeon createPigeon(Vector2 position) {
     pigeon.wavePhase = 0.0f;
     pigeon.scale = 0.8f;
     pigeon.poopCount = 0;
+
+    // Carregar animação direcional (pigeon1[LR] + pigeon2[LR]) 12 FPS
+    pigeon.animation = animation_load_directional("pigeon", 12.0f, 1);
+    pigeon.direction = 'L'; // Pombo vem da esquerda para direita (então vira para esquerda)
 
     pigeon.spriteLoaded = 0;
     pigeon.texture = LoadTexture("assets/img/pigeon.png");
@@ -45,6 +50,10 @@ Pigeon createPigeon(Vector2 position) {
 // ========== ATUALIZAR POMBO ==========
 void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
     if (!pigeon->active) return;
+
+    // Atualizar animação com deltaTime
+    directional_animation_update(&pigeon->animation, deltaTime);
+    pigeon->animation.direction = pigeon->direction;
 
     // Movimento horizontal com scroll
     pigeon->position.x -= scrollSpeed * deltaTime;
@@ -110,7 +119,12 @@ void drawPigeon(Pigeon pigeon) {
     float scaledWidth = PIGEON_WIDTH * pigeon.scale;
     float scaledHeight = PIGEON_HEIGHT * pigeon.scale;
 
-    if (pigeon.spriteLoaded) {
+    // Renderizar animação se disponível
+    if (pigeon.animation.left.frame_count > 0) {
+        directional_animation_render((DirectionalAnimationSet*)&pigeon.animation,
+                                    pigeon.position.x, pigeon.position.y, pigeon.scale, WHITE);
+    } else if (pigeon.spriteLoaded) {
+        // Fallback para textura única
         DrawTextureEx(pigeon.texture,
                      (Vector2){ pigeon.position.x - scaledWidth / 2,
                                pigeon.position.y - scaledHeight / 2 },
@@ -160,6 +174,10 @@ void drawPigeon(Pigeon pigeon) {
 
 // ========== DESCARREGAR RECURSOS ==========
 void unloadPigeonResources(Pigeon *pigeon) {
+    // Descarregar animação
+    directional_animation_unload(&pigeon->animation);
+
+    // Descarregar textura (deprecated)
     if (pigeon->spriteLoaded) {
         UnloadTexture(pigeon->texture);
         pigeon->spriteLoaded = 0;
