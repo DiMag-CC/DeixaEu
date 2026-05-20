@@ -15,6 +15,7 @@ Pigeon createPigeon(Vector2 position) {
     pigeon.poopTimer = 0.0f;
     pigeon.poopInterval = POOP_SPAWN_INTERVAL;
     pigeon.wavePhase = 0.0f;
+    pigeon.scale = 0.8f;
     pigeon.poopCount = 0;
 
     pigeon.spriteLoaded = 0;
@@ -105,36 +106,55 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
 void drawPigeon(Pigeon pigeon) {
     if (!pigeon.active) return;
 
+    float scaledWidth = PIGEON_WIDTH * pigeon.scale;
+    float scaledHeight = PIGEON_HEIGHT * pigeon.scale;
+
     if (pigeon.spriteLoaded) {
         DrawTextureEx(pigeon.texture,
-                     (Vector2){ pigeon.position.x - PIGEON_WIDTH / 2, pigeon.position.y - PIGEON_HEIGHT / 2 },
-                     0, 1.0f, WHITE);
+                     (Vector2){ pigeon.position.x - scaledWidth / 2,
+                               pigeon.position.y - scaledHeight / 2 },
+                     0, pigeon.scale, WHITE);
     } else {
-        // Placeholder: triângulo cinzento (pombo)
+        // Placeholder visual melhorado: pombo reconhecível
+        float centerX = pigeon.position.x;
+        float centerY = pigeon.position.y;
+
+        // Corpo (círculo)
+        DrawCircle(centerX, centerY, 6.0f * pigeon.scale, GRAY);
+        DrawCircleLines(centerX, centerY, 6.0f * pigeon.scale, BLACK);
+
+        // Cabeça
+        DrawCircle(centerX + 5.0f * pigeon.scale, centerY - 3.0f * pigeon.scale,
+                  3.0f * pigeon.scale, DARKGRAY);
+
+        // Olho
+        DrawCircle(centerX + 6.5f * pigeon.scale, centerY - 4.0f * pigeon.scale,
+                  1.0f * pigeon.scale, BLACK);
+
+        // Asas (triângulos)
         DrawTriangle(
-            (Vector2){ pigeon.position.x, pigeon.position.y - PIGEON_HEIGHT / 2 },
-            (Vector2){ pigeon.position.x - PIGEON_WIDTH / 2, pigeon.position.y + PIGEON_HEIGHT / 2 },
-            (Vector2){ pigeon.position.x + PIGEON_WIDTH / 2, pigeon.position.y + PIGEON_HEIGHT / 2 },
-            GRAY
+            (Vector2){ centerX - 4.0f * pigeon.scale, centerY },
+            (Vector2){ centerX - 10.0f * pigeon.scale, centerY - 2.0f * pigeon.scale },
+            (Vector2){ centerX - 10.0f * pigeon.scale, centerY + 2.0f * pigeon.scale },
+            LIGHTGRAY
         );
-        DrawTriangleLines(
-            (Vector2){ pigeon.position.x, pigeon.position.y - PIGEON_HEIGHT / 2 },
-            (Vector2){ pigeon.position.x - PIGEON_WIDTH / 2, pigeon.position.y + PIGEON_HEIGHT / 2 },
-            (Vector2){ pigeon.position.x + PIGEON_WIDTH / 2, pigeon.position.y + PIGEON_HEIGHT / 2 },
-            BLACK
+        DrawTriangle(
+            (Vector2){ centerX + 4.0f * pigeon.scale, centerY },
+            (Vector2){ centerX + 10.0f * pigeon.scale, centerY - 2.0f * pigeon.scale },
+            (Vector2){ centerX + 10.0f * pigeon.scale, centerY + 2.0f * pigeon.scale },
+            LIGHTGRAY
         );
     }
 
-    // Desenhar fezes
+    // Desenhar fezes com círculos
     for (int i = 0; i < MAX_POOPS; i++) {
         if (pigeon.poops[i].active) {
-            DrawRectangle(pigeon.poops[i].hitbox.x, pigeon.poops[i].hitbox.y,
-                         POOP_WIDTH, POOP_HEIGHT, BROWN);
-            DrawRectangleLinesEx(pigeon.poops[i].hitbox, 1, DARKBROWN);
+            DrawCircle(pigeon.poops[i].position.x, pigeon.poops[i].position.y,
+                      4.0f, BROWN);
+            DrawCircleLines(pigeon.poops[i].position.x, pigeon.poops[i].position.y,
+                           4.0f, DARKBROWN);
         }
     }
-
-    // DrawRectangleLinesEx(pigeon.hitbox, 1, RED);
 }
 
 // ========== DESCARREGAR RECURSOS ==========

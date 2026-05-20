@@ -27,6 +27,7 @@ typedef struct {
     float poopTimer;
     float poopInterval;
     float wavePhase;
+    float scale;
     Texture2D texture;
     int spriteLoaded;
 
