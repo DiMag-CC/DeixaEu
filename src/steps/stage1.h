@@ -29,7 +29,7 @@ typedef struct {
     // ===== Background/Cenário =====
     Texture2D backgroundTexture;    // Textura de fundo
     int bgLoaded;                   // 1 = carregou, 0 = falhou
-    float backgroundScroll;         // Posição X do background
+    Camera2D camera;                // Câmera side-scrolling
 
     // ===== Dificuldade =====
     float difficultyMultiplier;     // Multiplicador de dificuldade (1.0 -> 2.0)

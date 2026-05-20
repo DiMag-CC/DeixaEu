@@ -175,7 +175,12 @@ void initStage1(Stage1 *stage) {
     stage->elapsedTime = 0.0f;
     stage->stage1Complete = 0;
     stage->stage1Failed = 0;
-    stage->backgroundScroll = 0.0f;
+
+    // Inicializar câmera side-scrolling
+    stage->camera.target = (Vector2){ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.6f };
+    stage->camera.offset = (Vector2){ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.6f };
+    stage->camera.rotation = 0.0f;
+    stage->camera.zoom = 1.0f;
 
     // Inicializar bike
     stage->bike = createBike();
@@ -232,11 +237,9 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     // ===== DISTÂNCIA PERCORRIDA =====
     stage->distanceTraveled += stage->scrollSpeed * deltaTime;
 
-    // ===== BACKGROUND SCROLL =====
-    stage->backgroundScroll -= stage->scrollSpeed * deltaTime;
-    if (stage->backgroundScroll < -SCREEN_WIDTH) {
-        stage->backgroundScroll = 0.0f;
-    }
+    // ===== ATUALIZAR CÂMERA SIDE-SCROLLING =====
+    stage->camera.target.x = player->position.x + 100.0f;
+    stage->camera.target.y = player->position.y - 80.0f;
 
     // ===== VERIFICAR GAME OVER =====
     if (player->lives <= 0) {
@@ -251,28 +254,49 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
 
 // ========== DESENHAR STAGE 1 ==========
 void drawStage1(Stage1 *stage, Player *player) {
-    // ===== DESENHAR FUNDO =====
+    // ===== INICIAR MODO 2D COM CÂMERA =====
+    BeginMode2D(stage->camera);
+
+    // ===== DESENHAR BACKGROUND =====
     if (stage->bgLoaded) {
-        DrawTextureEx(stage->backgroundTexture,
-                     (Vector2){ stage->backgroundScroll, 0 },
-                     0, 1.0f, WHITE);
-        DrawTextureEx(stage->backgroundTexture,
-                     (Vector2){ stage->backgroundScroll + SCREEN_WIDTH, 0 },
-                     0, 1.0f, WHITE);
+        float bgTileWidth = stage->backgroundTexture.width;
+        float worldX = stage->camera.target.x - SCREEN_WIDTH;
+        int firstTile = (int)(worldX / bgTileWidth);
+
+        for (int i = -1; i < 3; i++) {
+            float tileX = (firstTile + i) * bgTileWidth;
+            DrawTextureEx(stage->backgroundTexture, (Vector2){ tileX, 0 }, 0, 1.0f, WHITE);
+        }
     } else {
-        // Placeholder: céu e chão
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2, SKYBLUE);
-        DrawRectangle(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2, GRAY);
+        // Placeholder: céu azul
+        float worldWidth = stage->camera.target.x * 2 + SCREEN_WIDTH;
+        DrawRectangle(-5000, 0, 10000, GROUND_LEVEL - 50, SKYBLUE);
     }
 
-    // ===== DESENHAR CHUVA =====
+    // ===== DESENHAR ESTRADA =====
+    float roadY = GROUND_LEVEL;
+    float roadHeight = 60.0f;
+    float roadX = (int)(stage->camera.target.x / 100) * 100;
+    for (int i = -3; i < 5; i++) {
+        float segmentX = roadX + (i * 100);
+        DrawRectangle(segmentX, roadY, 100, roadHeight, (Color){100, 100, 100, 255});
+        DrawLine(segmentX + 50, roadY, segmentX + 50, roadY + roadHeight, WHITE);
+    }
+
+    // ===== DESENHAR CHUVA (ATRÁS DE TUDO) =====
     drawRainSystem(stage->rain);
+
+    // ===== DESENHAR OBSTÁCULOS =====
+    drawObstacles(stage);
+
+    // ===== DESENHAR PLAYER =====
+    drawPlayer(*player);
 
     // ===== DESENHAR BIKE =====
     drawBike(stage->bike, *player);
 
-    // ===== DESENHAR OBSTÁCULOS =====
-    drawObstacles(stage);
+    // ===== FINALIZAR MODO 2D =====
+    EndMode2D();
 }
 
 // ========== DESCARREGAR RESOURCES STAGE 1 ==========
