@@ -40,6 +40,10 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     player.knockbackSpeed = 0.0f;
     player.knockbackTimer = 0.0f;
 
+    player.slowEffectTimer = 0.0f;
+    player.slowEffectDuration = 0.0f;
+    player.speedMultiplier = 1.0f;
+
     player.isClimbing = 0;
     player.movementControlledExternally = 0;
     player.grounded = 1;
@@ -93,10 +97,22 @@ void updatePlayer(Player *player, float deltaTime) {
     player->acceleration.x = moveInput * accelAmount;
     player->velocity.x += player->acceleration.x * deltaTime;
 
+    // ===== ATUALIZAR DEBUFF DE LENTIDÃO =====
+    if (player->slowEffectTimer > 0.0f) {
+        player->slowEffectTimer -= deltaTime;
+        if (player->slowEffectTimer <= 0.0f) {
+            player->speedMultiplier = 1.0f;
+            player->slowEffectTimer = 0.0f;
+        }
+    }
+
     // ===== APLICAR ATRITO =====
     if (moveInput == 0.0f) {
         player->velocity.x *= FRICTION;
     }
+
+    // ===== APLICAR MULTIPLICADOR DE VELOCIDADE (DEBUFF) =====
+    player->velocity.x *= player->speedMultiplier;
 
     // ===== LIMITAR VELOCIDADE =====
     if (player->velocity.x > player->maxSpeed) {
@@ -266,14 +282,18 @@ void addUmbrellaShield(Player *player, float duration) {
     player->umbrellaTimer = duration;
 }
 
-// ========== APLICAR DESACELERAÇÃO ==========
+// ========== APLICAR DESACELERAÇÃO (DEBUFF TEMPORAL) ==========
 void applySlowDown(Player *player, float amount, float duration) {
-    (void)duration;
-    if (player->speed > amount) {
-        player->speed -= amount;
-    } else {
-        player->speed = 0.0f;
-    }
+    // amount = redução de velocidade (ex: 50.0 = 50%)
+    // duration = quanto tempo dura o efeito
+    player->slowEffectTimer = duration;
+    player->slowEffectDuration = duration;
+
+    // Calcular multiplicador (ex: 50 = 0.5, aplicar 50% de redução)
+    float multiplier = (100.0f - amount) / 100.0f;
+    if (multiplier < 0.1f) multiplier = 0.1f;  // Mínimo 10% de velocidade
+
+    player->speedMultiplier = multiplier;
 }
 
 // ========== DESCARREGAR RECURSOS DO JOGADOR ==========

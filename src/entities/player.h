@@ -53,6 +53,11 @@ typedef struct {
     float knockbackSpeed;       // Velocidade de knockback
     float knockbackTimer;       // Timer de knockback
 
+    // Debuffs
+    float slowEffectTimer;      // Timer de efeito de lentidão
+    float slowEffectDuration;   // Duração total do efeito
+    float speedMultiplier;      // Multiplicador de velocidade (0.5 = metade)
+
     // Stage3 específico
     int isClimbing;             // 1 = escalando, 0 = não
     int movementControlledExternally;  // 1 = stage controla, 0 = player controla

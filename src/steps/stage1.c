@@ -31,7 +31,8 @@ static void spawnRandomObstacle(Stage1 *stage) {
     } else {
         // 5% Guarda-chuva (power-up)
         qobs.type = QUEUE_OBS_UMBRELLA;
-        qobs.data.pigeon.position = (Vector2){ spawnPos.x, GROUND_LEVEL - 50 };
+        qobs.data.umbrella = createUmbrella((Vector2){ spawnPos.x, GROUND_LEVEL - 50 });
+        enqueueObstacle(&stage->obstacleQueue, qobs);
     }
 }
 
@@ -57,7 +58,8 @@ static void updateObstacles(Stage1 *stage, float deltaTime) {
                 break;
 
             case QUEUE_OBS_UMBRELLA:
-                // Umbrella é coletável, não obstáculo
+                // Umbrella é coletável, atualizar como item flutuante
+                updateUmbrella(&qobs->data.umbrella, stage->scrollSpeed, deltaTime);
                 break;
         }
 
@@ -113,14 +115,24 @@ static void handleCollisions(Stage1 *stage, Player *player) {
                 for (int i = 0; i < MAX_POOPS; i++) {
                     Poop *poop = &qobs->data.pigeon.poops[i];
                     if (poop->active && CheckCollisionRecs(player->hitbox, poop->hitbox)) {
-                        applySlowDown(player, 50.0f, 2.0f);
+                        // Se tem umbrella, não aplica debuff
+                        if (player->hasUmbrella <= 0) {
+                            applySlowDown(player, 50.0f, 2.0f);  // 50% slowdown por 2 segundos
+                        }
                         poop->active = 0;
                     }
                 }
                 break;
 
             case QUEUE_OBS_UMBRELLA:
-                // TODO: Implementar coletável de guarda-chuva
+                // Colisão com guarda-chuva (coletável)
+                obstacleHitbox = qobs->data.umbrella.hitbox;
+                if (qobs->data.umbrella.active && CheckCollisionRecs(player->hitbox, obstacleHitbox)) {
+                    // Coletar umbrella
+                    addUmbrellaShield(player, 8.0f);  // 8 segundos de proteção
+                    qobs->data.umbrella.active = 0;
+                    qobs->active = 0;
+                }
                 break;
         }
 
@@ -159,6 +171,9 @@ static void drawObstacles(Stage1 *stage) {
                 break;
 
             case QUEUE_OBS_UMBRELLA:
+                if (qobs->data.umbrella.active) {
+                    drawUmbrella(qobs->data.umbrella);
+                }
                 break;
         }
 
@@ -239,6 +254,10 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
         spawnRandomObstacle(stage);
     }
 
+    // ===== OBTER DIMENSÕES DA TELA =====
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+
     // ===== ATUALIZAR ENTIDADES =====
     updateBike(&stage->bike, player, deltaTime);
     updateRainSystem(&stage->rain, deltaTime);
@@ -254,8 +273,6 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     stage->distanceTraveled += stage->scrollSpeed * deltaTime;
 
     // ===== ATUALIZAR CÂMERA SIDE-SCROLLING =====
-    int screenWidth = GetScreenWidth();
-    int screenHeight = GetScreenHeight();
     stage->camera.offset = (Vector2){ screenWidth * 0.25f, screenHeight * 0.6f };
     stage->camera.target.x = player->position.x + 100.0f;
     stage->camera.target.y = player->position.y - 80.0f;
@@ -277,7 +294,6 @@ void drawStage1(Stage1 *stage, Player *player) {
     BeginMode2D(stage->camera);
 
     int screenWidth = GetScreenWidth();
-    int screenHeight = GetScreenHeight();
 
     // ===== DESENHAR BACKGROUND COM PARALLAX =====
     if (stage->bgLoaded) {
