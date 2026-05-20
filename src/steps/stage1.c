@@ -6,7 +6,8 @@
 // ========== HELPER: SPAWNAR OBSTÁCULOS ==========
 static void spawnRandomObstacle(Stage1 *stage) {
     int roll = rand() % 100;
-    Vector2 spawnPos = { SCREEN_WIDTH + 50, GROUND_LEVEL };
+    int screenWidth = GetScreenWidth();
+    Vector2 spawnPos = { screenWidth + 50, GROUND_LEVEL };
 
     QueueObstacle qobs;
     qobs.position = spawnPos;
@@ -177,8 +178,10 @@ void initStage1(Stage1 *stage) {
     stage->stage1Failed = 0;
 
     // Inicializar câmera side-scrolling
-    stage->camera.target = (Vector2){ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.6f };
-    stage->camera.offset = (Vector2){ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.6f };
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+    stage->camera.target = (Vector2){ screenWidth * 0.25f, screenHeight * 0.6f };
+    stage->camera.offset = (Vector2){ screenWidth * 0.25f, screenHeight * 0.6f };
     stage->camera.rotation = 0.0f;
     stage->camera.zoom = 1.0f;
 
@@ -257,10 +260,13 @@ void drawStage1(Stage1 *stage, Player *player) {
     // ===== INICIAR MODO 2D COM CÂMERA =====
     BeginMode2D(stage->camera);
 
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+
     // ===== DESENHAR BACKGROUND =====
     if (stage->bgLoaded) {
         float bgTileWidth = stage->backgroundTexture.width;
-        float worldX = stage->camera.target.x - SCREEN_WIDTH;
+        float worldX = stage->camera.target.x - screenWidth;
         int firstTile = (int)(worldX / bgTileWidth);
 
         for (int i = -1; i < 3; i++) {
@@ -269,7 +275,7 @@ void drawStage1(Stage1 *stage, Player *player) {
         }
     } else {
         // Placeholder: céu azul
-        float worldWidth = stage->camera.target.x * 2 + SCREEN_WIDTH;
+        float worldWidth = stage->camera.target.x * 2 + screenWidth;
         DrawRectangle(-5000, 0, 10000, GROUND_LEVEL - 50, SKYBLUE);
     }
 

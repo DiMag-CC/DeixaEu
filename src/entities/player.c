@@ -128,11 +128,12 @@ void updatePlayer(Player *player, float deltaTime) {
     }
 
     // ===== LIMITES HORIZONTAIS =====
+    int screenWidth = GetScreenWidth();
     if (player->position.x < PLAYER_WIDTH / 2) {
         player->position.x = PLAYER_WIDTH / 2;
         player->velocity.x = 0;
-    } else if (player->position.x > SCREEN_WIDTH - PLAYER_WIDTH / 2) {
-        player->position.x = SCREEN_WIDTH - PLAYER_WIDTH / 2;
+    } else if (player->position.x > screenWidth - PLAYER_WIDTH / 2) {
+        player->position.x = screenWidth - PLAYER_WIDTH / 2;
         player->velocity.x = 0;
     }
 

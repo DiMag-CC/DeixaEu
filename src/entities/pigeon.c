@@ -89,7 +89,8 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
             };
 
             // Remover fora da tela
-            if (pigeon->poops[i].position.y > SCREEN_HEIGHT + 20) {
+            int screenHeight = GetScreenHeight();
+            if (pigeon->poops[i].position.y > screenHeight + 20) {
                 pigeon->poops[i].active = 0;
                 pigeon->poopCount--;
             }

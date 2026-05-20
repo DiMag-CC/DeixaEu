@@ -27,9 +27,10 @@ void updateRainSystem(RainSystem *rain, float deltaTime) {
     if (rain->spawnTimer >= rain->spawnInterval && rain->count < MAX_RAINDROPS) {
         rain->spawnTimer = 0.0f;
 
+        int screenWidth = GetScreenWidth();
         for (int i = 0; i < MAX_RAINDROPS; i++) {
             if (!rain->drops[i].active) {
-                rain->drops[i].position.x = rand() % SCREEN_WIDTH;
+                rain->drops[i].position.x = rand() % screenWidth;
                 rain->drops[i].position.y = -10.0f;
                 rain->drops[i].speed = RAIN_SPEED + (float)(rand() % 100);
                 rain->drops[i].active = 1;
@@ -40,12 +41,13 @@ void updateRainSystem(RainSystem *rain, float deltaTime) {
     }
 
     // Atualizar gotas
+    int screenHeight = GetScreenHeight();
     for (int i = 0; i < MAX_RAINDROPS; i++) {
         if (rain->drops[i].active) {
             rain->drops[i].position.y += rain->drops[i].speed * deltaTime;
 
             // Remover gota fora da tela
-            if (rain->drops[i].position.y > SCREEN_HEIGHT + 20) {
+            if (rain->drops[i].position.y > screenHeight + 20) {
                 rain->drops[i].active = 0;
                 rain->count--;
             }
