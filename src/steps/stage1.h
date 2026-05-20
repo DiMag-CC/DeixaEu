@@ -9,7 +9,6 @@
 #include "../entities/umbrella.h"
 
 // ========== CONSTANTES ==========
-#define GROUND_LEVEL 380
 #define MAX_OBSTACLES 30
 #define MAX_PIGEONS 5
 #define MAX_RAINDROPS 50
@@ -51,7 +50,7 @@ typedef struct Stage1 {
 
 void initStage1(Stage1 *stage);
 void updateStage1(Stage1 *stage, Player *player, float deltaTime);
-void drawStage1(Stage1 *stage);
+void drawStage1(Stage1 *stage, Player *player);
 void unloadStage1(Stage1 *stage);
 
 #endif

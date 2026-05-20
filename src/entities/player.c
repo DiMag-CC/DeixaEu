@@ -77,30 +77,3 @@ void drawPlayer(Player player) {
              player.hitbox.y + player.hitbox.height/2 - 10,
              20, WHITE);
 }
-
-
-void drawPlayerDebug(Player player) {
-    // Desenhar hitbox com linhas tracejadas
-    DrawRectangleLinesEx(player.hitbox, 1, RED);
-    
-    // Desenhar ponto de origem
-    DrawCircle(player.position.x, player.position.y, 3, GREEN);
-    
-    // Desenhar vetor velocidade
-    if (player.velocity.x != 0 || player.velocity.y != 0) {
-        Vector2 velocityEnd = {
-            player.position.x + player.velocity.x * 10,
-            player.position.y + player.velocity.y * 10
-        };
-        DrawLineEx(player.position, velocityEnd, 2, YELLOW);
-    }
-    
-    // Desenhar status na tela
-    char debugText[256];
-    sprintf(debugText, 
-            "Player: (%.0f, %.0f) | Vel: (%.1f, %.1f) | Speed: %.0f | Lives: %d",
-            player.position.x, player.position.y,
-            player.velocity.x, player.velocity.y,
-            player.speed, player.lives);
-    DrawText(debugText, 10, 80, 14, BLACK);
-}

@@ -256,7 +256,7 @@ int main(void) {
         } 
         else {
             // ===== DESENHAR JOGO =====
-            drawStage1(&stage);
+            drawStage1(&stage, &player);
             drawPlayer(player);
             
             // ===== DESENHAR HUD COMPLETO (COMMIT 3) =====

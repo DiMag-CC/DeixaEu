@@ -116,7 +116,6 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
         if (stage->pigeons[i].isActive) {
             // Pombo se move para esquerda
             stage->pigeons[i].position.x -= stage->scrollSpeed * deltaTime;
-            stage->pigeons[i].hitbox.x = stage->pigeons[i].position.x;
             
             // updatePigeon retorna 1 quando deve soltar fezes
             int shouldPoop = updatePigeon(&stage->pigeons[i], deltaTime);
@@ -292,7 +291,7 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
 
 
 
-void drawStage1(Stage1 *stage) {
+void drawStage1(Stage1 *stage, Player *player) {
     if (stage->background.id > 0) {
         DrawTextureEx(stage->background, (Vector2){0, 0}, 0.0f, 1.0f, WHITE);
     }
