@@ -2,6 +2,7 @@
 #define PLAYER_H
 
 #include <raylib.h>
+#include "../gfx/animation.h"
 
 // ========== CONSTANTES GLOBAIS ==========
 #define SCREEN_WIDTH 800
@@ -58,8 +59,17 @@ typedef struct {
     int grounded;               // Alias para isGrounded (compatibilidade stage3)
 
     // Sprites e texturas
-    Texture2D playerTexture;    // Sprite do jogador
+    Texture2D playerTexture;    // Sprite do jogador (deprecated, usar animations)
     int spriteLoaded;           // 1 = textura carregou, 0 = falhou
+
+    // Animações direcionais
+    DirectionalAnimationSet anim_standing;  // CharacterStanding[L/R]
+    DirectionalAnimationSet anim_moving;    // characterMoving[L/R]1 (sem frame 2)
+    DirectionalAnimationSet anim_bike_standing;  // CharacterBikeStanding[L/R]
+    DirectionalAnimationSet anim_bike_moving;    // CharacterBikeMoving[L/R] (rodas giram)
+
+    char direction; // 'L' ou 'R' - direção atual
+    int on_bike;    // 1 = na bike, 0 = a pé
 
 } Player;
 

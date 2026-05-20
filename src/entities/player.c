@@ -1,4 +1,5 @@
 #include "player.h"
+#include "../gfx/animation.h"
 #include <stdlib.h>
 #include <math.h>
 
@@ -43,6 +44,10 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     player.movementControlledExternally = 0;
     player.grounded = 1;
 
+    // Direção inicial
+    player.direction = 'R';
+    player.on_bike = 0;
+
     // Hitbox
     player.hitbox = (Rectangle){
         player.position.x - player.width / 2,
@@ -51,7 +56,13 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
         player.height
     };
 
-    // Carregar textura (placeholder se falhar)
+    // Carregar animações do player
+    player.anim_standing = animation_load_directional("CharacterStanding", 8.0f, 0);
+    player.anim_moving = animation_load_directional("characterMoving", 12.0f, 1);
+    player.anim_bike_standing = animation_load_directional("CharacterBikeStanding", 8.0f, 0);
+    player.anim_bike_moving = animation_load_directional("CharacterBikeMoving", 15.0f, 1);
+
+    // Carregar textura (placeholder se falhar - deprecated)
     player.spriteLoaded = 0;
     player.playerTexture = LoadTexture("assets/img/player.png");
     if (player.playerTexture.id != 0) {
@@ -160,12 +171,26 @@ void updatePlayer(Player *player, float deltaTime) {
         }
     }
 
-    // ===== ANIMAÇÃO =====
-    player->animationTimer += deltaTime;
-    if (player->animationTimer >= 0.1f) {
-        player->animationTimer = 0.0f;
-        player->animationFrame = (player->animationFrame + 1) % 4;
+    // ===== ATUALIZAR ANIMAÇÕES =====
+    // Atualizar todas as sequências de animação
+    directional_animation_update(&player->anim_standing, deltaTime);
+    directional_animation_update(&player->anim_moving, deltaTime);
+    directional_animation_update(&player->anim_bike_standing, deltaTime);
+    directional_animation_update(&player->anim_bike_moving, deltaTime);
+
+    // Atualizar direção baseado em velocidade
+    if (player->velocity.x > 0.1f) {
+        player->direction = 'R';
+    } else if (player->velocity.x < -0.1f) {
+        player->direction = 'L';
     }
+    // Se velocidade está próxima de 0, manter direção anterior
+
+    // Atualizar direção em todas as animações
+    player->anim_standing.direction = player->direction;
+    player->anim_moving.direction = player->direction;
+    player->anim_bike_standing.direction = player->direction;
+    player->anim_bike_moving.direction = player->direction;
 
     // ===== INCREMENTAR SCORE POR DISTÂNCIA =====
     player->score += player->speed * deltaTime;
@@ -173,14 +198,40 @@ void updatePlayer(Player *player, float deltaTime) {
 
 // ========== DESENHAR JOGADOR ==========
 void drawPlayer(Player player) {
-    // Se tiver sprite, desenhar com textura
-    if (player.spriteLoaded) {
+    // Renderizar com animação apropriada baseado no estado
+    DirectionalAnimationSet* current_anim = NULL;
+
+    if (player.on_bike) {
+        // Na bicicleta
+        if (fabs(player.velocity.x) > 10.0f) {
+            // Pedalando (movimento)
+            current_anim = (DirectionalAnimationSet*)&player.anim_bike_moving;
+        } else {
+            // Parado na bike
+            current_anim = (DirectionalAnimationSet*)&player.anim_bike_standing;
+        }
+    } else {
+        // A pé
+        if (fabs(player.velocity.x) > 10.0f) {
+            // Correndo
+            current_anim = (DirectionalAnimationSet*)&player.anim_moving;
+        } else {
+            // Parado/Idle
+            current_anim = (DirectionalAnimationSet*)&player.anim_standing;
+        }
+    }
+
+    // Renderizar animação se disponível
+    if (current_anim && current_anim->left.frame_count > 0) {
+        directional_animation_render(current_anim, player.position.x, player.position.y, player.scale, WHITE);
+    } else if (player.spriteLoaded) {
+        // Fallback para textura única se animação não carregar
         DrawTextureEx(player.playerTexture,
                      (Vector2){ player.position.x - (player.width * player.scale) / 2,
                                player.position.y - (player.height * player.scale) },
                      0, player.scale, WHITE);
     } else {
-        // Placeholder: retângulo colorido escalado
+        // Placeholder: retângulo colorido
         Rectangle scaledHitbox = player.hitbox;
         scaledHitbox.width *= player.scale;
         scaledHitbox.height *= player.scale;
@@ -227,6 +278,13 @@ void applySlowDown(Player *player, float amount, float duration) {
 
 // ========== DESCARREGAR RECURSOS DO JOGADOR ==========
 void unloadPlayerResources(Player *player) {
+    // Descarregar animações
+    directional_animation_unload(&player->anim_standing);
+    directional_animation_unload(&player->anim_moving);
+    directional_animation_unload(&player->anim_bike_standing);
+    directional_animation_unload(&player->anim_bike_moving);
+
+    // Descarregar textura (deprecated)
     if (player->spriteLoaded) {
         UnloadTexture(player->playerTexture);
         player->spriteLoaded = 0;
