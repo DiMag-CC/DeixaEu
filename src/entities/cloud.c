@@ -24,8 +24,8 @@ CloudSystem createCloudSystem(void) {
 }
 
 // ========== CRIAR NUVEM ==========
-static Cloud createCloudAtPosition(Vector2 position, float depth) {
-    Cloud cloud;
+static CloudEntity createCloudAtPosition(Vector2 position, float depth) {
+    CloudEntity cloud;
     cloud.position = position;
     cloud.active = 1;
     cloud.depth = depth;  // 0.0 = distante (pouco parallax), 1.0 = próxima (muito parallax)
@@ -62,7 +62,7 @@ static Cloud createCloudAtPosition(Vector2 position, float depth) {
 }
 
 // ========== DESENHAR NUVEM (PLACEHOLDER) ==========
-static void drawCloud(Cloud cloud) {
+static void drawCloud(CloudEntity cloud) {
     if (!cloud.active) return;
 
     float scaledWidth = CLOUD_WIDTH * cloud.scale;
@@ -105,7 +105,7 @@ void updateCloudSystem(CloudSystem *system, float scrollSpeed, float deltaTime) 
 
     // Atualizar cada nuvem
     for (int i = 0; i < MAX_CLOUDS; i++) {
-        Cloud *cloud = &system->clouds[i];
+        CloudEntity *cloud = &system->clouds[i];
         if (!cloud->active) continue;
 
         // Movimento horizontal (paralaxe baseado em depth)

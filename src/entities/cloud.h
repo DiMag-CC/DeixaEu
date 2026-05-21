@@ -38,7 +38,7 @@ typedef struct {
     float scale;
     Color color;
 
-} Cloud;
+} CloudEntity;
 
 // ========== SISTEMA DE NUVENS ==========
 typedef struct {

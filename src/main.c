@@ -24,7 +24,6 @@ void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenW
 
     // ===== FONTE DINÂMICA BASEADA EM RESOLUÇÃO =====
     int fontSize = (screenWidth < 1024) ? 14 : 16;
-    int smallFontSize = (screenWidth < 1024) ? 12 : 14;
 
     // ===== VIDAS =====
     char livesText[64];
