@@ -35,6 +35,7 @@ typedef struct {
     int platformLoaded;             // 1 = platform carregou, 0 = falhou
     float parallaxOffset;           // Offset para parallax (0.3x speed)
     Camera2D camera;                // Câmera side-scrolling
+    float cameraDamping;            // Damping factor para câmera suave (0.15 padrão)
 
     // ===== Dificuldade =====
     float difficultyMultiplier;     // Multiplicador de dificuldade (1.0 -> 2.0)

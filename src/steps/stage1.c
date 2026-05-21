@@ -199,6 +199,7 @@ void initStage1(Stage1 *stage) {
     stage->camera.offset = (Vector2){ screenWidth * 0.25f, screenHeight * 0.6f };
     stage->camera.rotation = 0.0f;
     stage->camera.zoom = 1.0f;
+    stage->cameraDamping = 0.15f;  // Damping suave para câmera responsiva
 
     // Inicializar bike
     stage->bike = createBike();
@@ -267,19 +268,29 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     updateCloudSystem(&stage->cloudSystem, stage->scrollSpeed, deltaTime);
     updateObstacles(stage, deltaTime);
 
+    // ===== ATUALIZAR CÂMERA SIDE-SCROLLING COM DAMPING =====
+    float targetX = player->position.x + 100.0f;  // Lookahead
+    float targetY = player->position.y - 80.0f;
+
+    // Aplicar damping suave (interpolação)
+    stage->camera.target.x += (targetX - stage->camera.target.x) * stage->cameraDamping;
+    stage->camera.target.y += (targetY - stage->camera.target.y) * stage->cameraDamping;
+
+    // Manter bounds horizontais
+    if (stage->camera.target.x < screenWidth * 0.5f) {
+        stage->camera.target.x = screenWidth * 0.5f;
+    }
+
+    stage->camera.offset = (Vector2){ screenWidth * 0.25f, screenHeight * 0.6f };
+
     // ===== ATUALIZAR PARALLAX (Background move 0.3x speed) =====
-    stage->parallaxOffset = (stage->camera.target.x - screenWidth * 0.25f) * 0.3f;
+    stage->parallaxOffset = stage->camera.target.x * 0.3f;
 
     // ===== COLISÕES =====
     handleCollisions(stage, player);
 
     // ===== DISTÂNCIA PERCORRIDA =====
     stage->distanceTraveled += stage->scrollSpeed * deltaTime;
-
-    // ===== ATUALIZAR CÂMERA SIDE-SCROLLING =====
-    stage->camera.offset = (Vector2){ screenWidth * 0.25f, screenHeight * 0.6f };
-    stage->camera.target.x = player->position.x + 100.0f;
-    stage->camera.target.y = player->position.y - 80.0f;
 
     // ===== VERIFICAR GAME OVER =====
     if (player->lives <= 0) {
