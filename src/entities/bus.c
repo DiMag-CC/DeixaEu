@@ -1,7 +1,6 @@
 #include "bus.h"
 
-#define BUS_SPEED_MULTIPLIER 1.5f
-
+#define BUS_SPEED_MULTIPLIER 1.2f
 
 Bus createBus(Vector2 position) {
     Bus bus;
@@ -28,16 +27,23 @@ Bus createBus(Vector2 position) {
     return bus;
 }
 
-// ========== ATUALIZAR ÔNIBUS ==========
+
 void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
     if (!bus->active) return;
 
     // Mover com scroll + velocidade própria
-    bus->position.x -= (scrollSpeed + bus->speed) * deltaTime;
+    bus->hitbox.x = bus->position.x - scaledWidth / 2;
+
+    bus->hitbox.y =
+        bus->position.y - scaledHeight;
+
+    bus->hitbox.width = scaledWidth;
+
+    bus->hitbox.height = scaledHeight;
 
     // Atualizar hitbox
     bus->hitbox.x = bus->position.x - BUS_WIDTH / 2;
-    bus->hitbox.y = bus->position.y - BUS_HEIGHT / 2;
+    
 
     // Deativar se sair da tela
     if (bus->position.x < -BUS_WIDTH) {
@@ -45,51 +51,90 @@ void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
     }
 }
 
-// ========== DESENHAR ÔNIBUS ==========
 void drawBus(Bus bus) {
     if (!bus.active) return;
 
-    // Escalar para 150px largura x 60px altura
-    const float BUS_TARGET_WIDTH = 150.0f;
-    const float BUS_TARGET_HEIGHT = 60.0f;
-
-    float scaleX = BUS_TARGET_WIDTH / bus.texture.width;
-    float scaleY = BUS_TARGET_HEIGHT / bus.texture.height;
+    const float BUS_TARGET_WIDTH = 320.0f;
+    const float BUS_TARGET_HEIGHT = 140.0f;
 
     float scaledWidth = BUS_TARGET_WIDTH;
     float scaledHeight = BUS_TARGET_HEIGHT;
 
-    // Alinhar ao chão (GROUND_Y = 380)
-    float busGroundY = 380.0f - scaledHeight / 2;
+    // Posicionar alinhado ao chão
+    float groundY = 520.0f;
+
+    Rectangle dest = {
+        bus.position.x - scaledWidth / 2,
+        groundY - scaledHeight,
+        scaledWidth,
+        scaledHeight
+    };
 
     if (bus.spriteLoaded && bus.texture.id != 0) {
-        Rectangle source = { 0, 0, (float)bus.texture.width, (float)bus.texture.height };
-        Rectangle dest = {
-            bus.position.x - scaledWidth / 2,
-            busGroundY,
-            scaledWidth,
-            scaledHeight
-        };
-        DrawTexturePro(bus.texture, source, dest, (Vector2){0, 0}, 0, WHITE);
-    } else {
-        // Placeholder: retângulo amarelo (ônibus)
-        float drawX = bus.position.x - scaledWidth / 2;
-        float drawY = busGroundY;
-        DrawRectangle((int)drawX, (int)drawY, (int)scaledWidth, (int)scaledHeight, ORANGE);
-        DrawRectangleLinesEx((Rectangle){ drawX, drawY, scaledWidth, scaledHeight }, 2, BLACK);
 
-        // Janelas
-        DrawRectangle((int)(drawX + 15), (int)(drawY + 8), 15, 12, SKYBLUE);
-        DrawRectangle((int)(drawX + 38), (int)(drawY + 8), 15, 12, SKYBLUE);
-        DrawRectangle((int)(drawX + 61), (int)(drawY + 8), 15, 12, SKYBLUE);
+        Rectangle source = {
+            0,
+            0,
+            (float)bus.texture.width,
+            (float)bus.texture.height
+        };
+
+        DrawTexturePro(
+            bus.texture,
+            source,
+            dest,
+            (Vector2){0, 0},
+            0,
+            WHITE
+        );
+
+    } else {
+
+        DrawRectangleRec(dest, ORANGE);
+        DrawRectangleLinesEx(dest, 2, BLACK);
 
         // Rodas
-        DrawCircle((int)(drawX + 25), (int)(drawY + scaledHeight - 8), 6, BLACK);
-        DrawCircle((int)(drawX + scaledWidth - 25), (int)(drawY + scaledHeight - 8), 6, BLACK);
+        DrawCircle(
+            (int)(dest.x + 50),
+            (int)(dest.y + dest.height - 12),
+            14,
+            BLACK
+        );
+
+        DrawCircle(
+            (int)(dest.x + dest.width - 50),
+            (int)(dest.y + dest.height - 12),
+            14,
+            BLACK
+        );
+
+        // Janelas
+        DrawRectangle(
+            (int)(dest.x + 40),
+            (int)(dest.y + 25),
+            45,
+            30,
+            SKYBLUE
+        );
+
+        DrawRectangle(
+            (int)(dest.x + 100),
+            (int)(dest.y + 25),
+            45,
+            30,
+            SKYBLUE
+        );
+
+        DrawRectangle(
+            (int)(dest.x + 160),
+            (int)(dest.y + 25),
+            45,
+            30,
+            SKYBLUE
+        );
     }
 }
 
-// ========== DESCARREGAR RECURSOS ==========
 void unloadBusResources(Bus *bus) {
     if (bus->spriteLoaded) {
         UnloadTexture(bus->texture);
