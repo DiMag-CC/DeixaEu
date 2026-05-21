@@ -8,34 +8,93 @@ static float platformY = 0.0f;
 static float worldScale = 1.0f;
 
 static void spawnRandomObstacle(Stage1 *stage) {
+
     int roll = rand() % 100;
+
     int screenWidth = GetScreenWidth();
-    Vector2 spawnPos = { screenWidth + 50, GROUND_Y };
+
+    float groundY = stage->groundLevel;
+
+    float spawnX = screenWidth + 300.0f;
+
+    Vector2 spawnPos = {
+        spawnX,
+        groundY
+    };
 
     QueueObstacle qobs;
-    qobs.position = spawnPos;
-    qobs.active = 1;
 
+    qobs.position = spawnPos;
+
+    qobs.active = 1;
     if (roll < 40) {
-        // 40% Buraco
+
         qobs.type = QUEUE_OBS_HOLE;
-        qobs.data.hole = createObstacle(spawnPos, OBS_HOLE);
-        enqueueObstacle(&stage->obstacleQueue, qobs);
-    } else if (roll < 70) {
-        // 30% Ônibus
+
+        qobs.data.hole =
+            createObstacle(
+                (Vector2){
+                    spawnX,
+                    groundY
+                },
+                OBS_HOLE
+            );
+
+        enqueueObstacle(
+            &stage->obstacleQueue,
+            qobs
+        );
+    }
+    else if (roll < 70) {
+
         qobs.type = QUEUE_OBS_BUS;
-        qobs.data.bus = createBus(spawnPos);
-        enqueueObstacle(&stage->obstacleQueue, qobs);
-    } else if (roll < 95) {
-        // 25% Pombo
+
+        qobs.data.bus =
+            createBus(
+                (Vector2){
+                    spawnX,
+                    groundY
+                }
+            );
+
+        enqueueObstacle(
+            &stage->obstacleQueue,
+            qobs
+        );
+    }
+    else if (roll < 95) {
+
         qobs.type = QUEUE_OBS_PIGEON;
-        qobs.data.pigeon = createPigeon((Vector2){ spawnPos.x, GROUND_Y - 80 });
-        enqueueObstacle(&stage->obstacleQueue, qobs);
-    } else {
-        // 5% Guarda-chuva (power-up)
+
+        qobs.data.pigeon =
+            createPigeon(
+                (Vector2){
+                    spawnX,
+                    GetScreenHeight() * 0.28f
+                }
+            );
+
+        enqueueObstacle(
+            &stage->obstacleQueue,
+            qobs
+        );
+    }
+    else {
+
         qobs.type = QUEUE_OBS_UMBRELLA;
-        qobs.data.umbrella = createUmbrella((Vector2){ spawnPos.x, GROUND_Y - 50 });
-        enqueueObstacle(&stage->obstacleQueue, qobs);
+
+        qobs.data.umbrella =
+            createUmbrella(
+                (Vector2){
+                    spawnX,
+                    groundY - 120.0f
+                }
+            );
+
+        enqueueObstacle(
+            &stage->obstacleQueue,
+            qobs
+        );
     }
 }
 
