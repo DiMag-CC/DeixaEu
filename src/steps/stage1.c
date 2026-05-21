@@ -303,6 +303,108 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     }
 }
 
+// ========== DESENHAR HUD STAGE 1 ==========
+static void drawStage1HUD(Stage1 *stage, Player *player) {
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+    int fontSize = (screenWidth < 1024) ? 12 : 14;
+
+    // ===== VIDAS E SCORE (canto superior esquerdo) =====
+    char livesText[64];
+    sprintf(livesText, "VIDAS: %d", player->lives);
+    DrawText(livesText, 20, 20, fontSize, RED);
+
+    char scoreText[64];
+    sprintf(scoreText, "PONTOS: %.0f", player->score);
+    DrawText(scoreText, 20, 45, fontSize, WHITE);
+
+    // ===== PROGRESSO (centro superior) =====
+    float progress = stage->distanceTraveled / STAGE1_TARGET_DISTANCE;
+    if (progress > 1.0f) progress = 1.0f;
+
+    char progressText[64];
+    sprintf(progressText, "DISTANCIA: %.0fm / %.0fm", stage->distanceTraveled, STAGE1_TARGET_DISTANCE);
+    int centerX = screenWidth / 2 - MeasureText(progressText, fontSize) / 2;
+    DrawText(progressText, centerX, 20, fontSize, WHITE);
+
+    // Barra de progresso
+    int barY = 50;
+    int barWidth = screenWidth - 40;
+    DrawRectangle(20, barY, barWidth, 15, (Color){50, 50, 50, 200});
+    DrawRectangle(20, barY, (int)(barWidth * progress), 15, (Color){0, 200, 100, 200});
+    DrawRectangleLinesEx((Rectangle){20, barY, barWidth, 15}, 1, WHITE);
+
+    // ===== DIFICULDADE (canto superior direito) =====
+    char diffText[64];
+    sprintf(diffText, "DIFICULDADE: x%.2f", stage->difficultyMultiplier);
+    int rightX = screenWidth - MeasureText(diffText, fontSize) - 20;
+    DrawText(diffText, rightX, 20, fontSize, YELLOW);
+
+    // ===== PROTEÇÃO COM GUARDA-CHUVA =====
+    if (player->hasUmbrella > 0) {
+        char umbrellaText[64];
+        sprintf(umbrellaText, "PROTEGIDO: %.1fs", player->umbrellaTimer);
+        DrawText("☔", 20, screenHeight - 40, 20, LIGHTBLUE);
+        DrawText(umbrellaText, 50, screenHeight - 35, fontSize, LIGHTBLUE);
+
+        // Barra de proteção
+        int protBarWidth = 150;
+        float protProgress = player->umbrellaTimer / 8.0f;
+        DrawRectangle(50, screenHeight - 15, protBarWidth, 10, (Color){50, 50, 100, 200});
+        DrawRectangle(50, screenHeight - 15, (int)(protBarWidth * protProgress), 10, (Color){100, 200, 255, 200});
+        DrawRectangleLinesEx((Rectangle){50, screenHeight - 15, protBarWidth, 10}, 1, LIGHTBLUE);
+    }
+
+    // ===== FPS (canto inferior direito) =====
+    char fpsText[32];
+    sprintf(fpsText, "FPS: %d", GetFPS());
+    DrawText(fpsText, screenWidth - 100, screenHeight - 30, 12, LIME);
+}
+
+// ========== DESENHAR DEBUG OVERLAY ==========
+static void drawStage1Debug(Stage1 *stage, Player *player) {
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+
+    // ===== GRID =====
+    for (int x = 0; x < screenWidth; x += 50) {
+        DrawLine(x, 0, x, screenHeight, (Color){50, 50, 50, 100});
+    }
+    for (int y = 0; y < screenHeight; y += 50) {
+        DrawLine(0, y, screenWidth, y, (Color){50, 50, 50, 100});
+    }
+
+    // ===== PLAYER HITBOX =====
+    DrawRectangleLinesEx(player->hitbox, 2, RED);
+    char playerText[128];
+    sprintf(playerText, "PLAYER: (%.0f, %.0f) | Vel: (%.0f, %.0f) | State: %d",
+            player->position.x, player->position.y,
+            player->velocity.x, player->velocity.y,
+            player->state);
+    DrawText(playerText, 20, 100, 11, RED);
+
+    // ===== ENTIDADES ATIVAS =====
+    int entityCount = 0;
+    QueueNode *cur = stage->obstacleQueue.front;
+    while (cur) {
+        entityCount++;
+        cur = cur->next;
+    }
+    char entityText[64];
+    sprintf(entityText, "ENTIDADES: %d", entityCount);
+    DrawText(entityText, 20, 125, 11, YELLOW);
+
+    // ===== CAMERA =====
+    char cameraText[128];
+    sprintf(cameraText, "CAMERA: (%.0f, %.0f) | Scroll Speed: %.0f",
+            stage->camera.target.x, stage->camera.target.y,
+            stage->scrollSpeed);
+    DrawText(cameraText, 20, 150, 11, LIGHTBLUE);
+
+    // ===== INSTRUÇÃO PARA DESATIVAR =====
+    DrawText("DEBUG MODE - Pressione D para desativar", 20, screenHeight - 50, 12, RED);
+}
+
 // ========== DESENHAR STAGE 1 ==========
 void drawStage1(Stage1 *stage, Player *player) {
     // ===== INICIAR MODO 2D COM CÂMERA =====
@@ -389,6 +491,13 @@ void drawStage1(Stage1 *stage, Player *player) {
 
     // ===== FINALIZAR MODO 2D =====
     EndMode2D();
+
+    // ===== DESENHAR HUD (fora do modo câmera, no espaço de tela) =====
+    // Nota: drawGameHUD em main.c é redundante, aqui temos versão local em stage1
+    drawStage1HUD(stage, player);
+
+    // ===== DEBUG MODE (se ativado externamente via main.c) =====
+    // Debug é controlado por flag em main.c para evitar dependência circular
 }
 
 // ========== DESCARREGAR RESOURCES STAGE 1 ==========
