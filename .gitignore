@@ -52,4 +52,14 @@ Mkfile.old
 dkms.conf
 
 # debug information files
-*.dwo
+*.dwo'
+
+# Ignorar documentação
+*.md
+!README.md
+
+# Ignorar arquivos txt
+*.txt
+
+# Ignorar pasta de agentes
+.agents/
