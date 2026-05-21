@@ -309,11 +309,25 @@ void drawStage1(Stage1 *stage, Player *player) {
     BeginMode2D(stage->camera);
 
     int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
 
-    // ===== DESENHAR BACKGROUND COM PARALLAX =====
+    // ===== CAMADA 1: CÉU (parallax 0.1x - muito distante) =====
+    float parallax_sky = stage->camera.target.x * 0.1f;
+    DrawRectangle(-10000, 0, 20000, GROUND_LEVEL - 100, (Color){135, 206, 235, 255});  // Céu azul
+
+    // Nuvens procedurais no céu
+    int cloudCount = 8;
+    for (int i = 0; i < cloudCount; i++) {
+        float cloudX = ((int)(parallax_sky / 300) % cloudCount + i) * 300 - parallax_sky;
+        float cloudY = 50.0f + (i % 3) * 30;
+        DrawCircle((int)cloudX - 30, (int)cloudY, 20, WHITE);
+        DrawCircle((int)cloudX, (int)cloudY, 25, WHITE);
+        DrawCircle((int)cloudX + 30, (int)cloudY, 20, WHITE);
+    }
+
+    // ===== CAMADA 2: BACKGROUND COM PARALLAX (0.3x) =====
     if (stage->bgLoaded) {
         float bgTileWidth = stage->backgroundTexture.width;
-        // Usar parallaxOffset ao invés de target.x para efeito de profundidade
         float parallaxX = stage->parallaxOffset;
         int firstTile = (int)(parallaxX / bgTileWidth);
 
@@ -322,8 +336,8 @@ void drawStage1(Stage1 *stage, Player *player) {
             DrawTextureEx(stage->backgroundTexture, (Vector2){ tileX, 0 }, 0, 1.0f, WHITE);
         }
     } else {
-        // Placeholder: céu azul
-        DrawRectangle(-5000, 0, 10000, GROUND_LEVEL - 50, SKYBLUE);
+        // Placeholder: cinza para prédios/paisagem
+        DrawRectangle(-5000, 80, 10000, GROUND_LEVEL - 130, (Color){100, 100, 120, 100});
     }
 
     // ===== DESENHAR NUVENS PROCEDURAIS E CHUVA =====
@@ -331,6 +345,16 @@ void drawStage1(Stage1 *stage, Player *player) {
 
     // ===== DESENHAR CHUVA LEGACY (MANTIDA PARA COMPATIBILIDADE) =====
     drawRainSystem(stage->rain);
+
+    // ===== CAMADA 3: ELEMENTOS PRÓXIMOS (parallax 0.6x) =====
+    float parallax_foreground = stage->camera.target.x * 0.6f;
+
+    // Postes de estrada
+    int poleCount = 5;
+    for (int i = 0; i < poleCount; i++) {
+        float poleX = ((int)(parallax_foreground / 400) % poleCount + i) * 400 - parallax_foreground;
+        DrawRectangle((int)poleX - 5, GROUND_LEVEL - 150, 10, 150, (Color){80, 80, 80, 200});
+    }
 
     // ===== DESENHAR PLATAFORMA (CHÃO) COM SCROLL INFINITO =====
     float platformY = GROUND_LEVEL;
