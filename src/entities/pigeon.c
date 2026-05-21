@@ -136,47 +136,47 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
 void drawPigeon(Pigeon pigeon) {
     if (!pigeon.active) return;
 
-    float scaledWidth = PIGEON_WIDTH * pigeon.scale;
-    float scaledHeight = PIGEON_HEIGHT * pigeon.scale;
+    // Escalar para 40px de largura (mantendo aspect ratio)
+    const float PIGEON_TARGET_WIDTH = 40.0f;
+    float scaleRatio = PIGEON_TARGET_WIDTH / PIGEON_WIDTH;
+
+    float scaledWidth = PIGEON_TARGET_WIDTH;
+    float scaledHeight = PIGEON_HEIGHT * scaleRatio;
 
     // Renderizar animação se disponível
     if (pigeon.animation.left.frame_count > 0) {
         directional_animation_render((DirectionalAnimationSet*)&pigeon.animation,
-                                    pigeon.position.x, pigeon.position.y, pigeon.scale, WHITE);
-    } else if (pigeon.spriteLoaded) {
-        // Fallback para textura única
-        DrawTextureEx(pigeon.texture,
-                     (Vector2){ pigeon.position.x - scaledWidth / 2,
-                               pigeon.position.y - scaledHeight / 2 },
-                     0, pigeon.scale, WHITE);
+                                    pigeon.position.x, pigeon.position.y, scaleRatio, WHITE);
+    } else if (pigeon.spriteLoaded && pigeon.texture.id != 0) {
+        Rectangle source = { 0, 0, (float)pigeon.texture.width, (float)pigeon.texture.height };
+        Rectangle dest = {
+            pigeon.position.x - scaledWidth / 2,
+            pigeon.position.y - scaledHeight / 2,
+            scaledWidth,
+            scaledHeight
+        };
+        DrawTexturePro(pigeon.texture, source, dest, (Vector2){0, 0}, 0, WHITE);
     } else {
-        // Placeholder visual melhorado: pombo reconhecível
+        // Placeholder: pombo pequeno reconhecível
         float centerX = pigeon.position.x;
         float centerY = pigeon.position.y;
+        float s = scaleRatio;
 
-        // Corpo (círculo)
-        DrawCircle(centerX, centerY, 6.0f * pigeon.scale, GRAY);
-        DrawCircleLines(centerX, centerY, 6.0f * pigeon.scale, BLACK);
+        // Corpo
+        DrawCircle((int)centerX, (int)centerY, 5.0f * s, GRAY);
+        DrawCircleLines((int)centerX, (int)centerY, 5.0f * s, BLACK);
 
         // Cabeça
-        DrawCircle(centerX + 5.0f * pigeon.scale, centerY - 3.0f * pigeon.scale,
-                  3.0f * pigeon.scale, DARKGRAY);
+        DrawCircle((int)(centerX + 3.0f * s), (int)(centerY - 2.0f * s), 2.0f * s, DARKGRAY);
 
         // Olho
-        DrawCircle(centerX + 6.5f * pigeon.scale, centerY - 4.0f * pigeon.scale,
-                  1.0f * pigeon.scale, BLACK);
+        DrawCircle((int)(centerX + 4.0f * s), (int)(centerY - 3.0f * s), 0.7f * s, BLACK);
 
-        // Asas (triângulos)
+        // Asas
         DrawTriangle(
-            (Vector2){ centerX - 4.0f * pigeon.scale, centerY },
-            (Vector2){ centerX - 10.0f * pigeon.scale, centerY - 2.0f * pigeon.scale },
-            (Vector2){ centerX - 10.0f * pigeon.scale, centerY + 2.0f * pigeon.scale },
-            LIGHTGRAY
-        );
-        DrawTriangle(
-            (Vector2){ centerX + 4.0f * pigeon.scale, centerY },
-            (Vector2){ centerX + 10.0f * pigeon.scale, centerY - 2.0f * pigeon.scale },
-            (Vector2){ centerX + 10.0f * pigeon.scale, centerY + 2.0f * pigeon.scale },
+            (Vector2){ centerX - 3.0f * s, centerY },
+            (Vector2){ centerX - 7.0f * s, centerY - 1.0f * s },
+            (Vector2){ centerX - 7.0f * s, centerY + 1.0f * s },
             LIGHTGRAY
         );
     }

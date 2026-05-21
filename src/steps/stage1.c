@@ -7,7 +7,7 @@
 static void spawnRandomObstacle(Stage1 *stage) {
     int roll = rand() % 100;
     int screenWidth = GetScreenWidth();
-    Vector2 spawnPos = { screenWidth + 50, GROUND_LEVEL };
+    Vector2 spawnPos = { screenWidth + 50, GROUND_Y };
 
     QueueObstacle qobs;
     qobs.position = spawnPos;
@@ -26,12 +26,12 @@ static void spawnRandomObstacle(Stage1 *stage) {
     } else if (roll < 95) {
         // 25% Pombo
         qobs.type = QUEUE_OBS_PIGEON;
-        qobs.data.pigeon = createPigeon((Vector2){ spawnPos.x, GROUND_LEVEL - 80 });
+        qobs.data.pigeon = createPigeon((Vector2){ spawnPos.x, GROUND_Y - 80 });
         enqueueObstacle(&stage->obstacleQueue, qobs);
     } else {
         // 5% Guarda-chuva (power-up)
         qobs.type = QUEUE_OBS_UMBRELLA;
-        qobs.data.umbrella = createUmbrella((Vector2){ spawnPos.x, GROUND_LEVEL - 50 });
+        qobs.data.umbrella = createUmbrella((Vector2){ spawnPos.x, GROUND_Y - 50 });
         enqueueObstacle(&stage->obstacleQueue, qobs);
     }
 }
@@ -220,6 +220,9 @@ void initStage1(Stage1 *stage) {
         stage->bgLoaded = 1;
     }
 
+    // Usar GROUND_Y constante para sincronização
+    stage->groundLevel = GROUND_Y;
+
     // Carregar plataforma (chão)
     stage->platformLoaded = 0;
     stage->platformTexture = LoadTexture("assets/img/plataformLevel1.png");
@@ -261,6 +264,21 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     // ===== OBTER DIMENSÕES DA TELA =====
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
+
+    // ===== SINCRONIZAR PLAYER COM GROUND_Y FIXO =====
+    float playerGroundY = GROUND_Y - player->height;
+
+    // Se o player está muito acima do chão, trazer com gravidade
+    if (player->position.y < playerGroundY - 5.0f) {
+        player->velocity.y += 600.0f * deltaTime;
+    } else if (player->position.y > playerGroundY) {
+        // Player no chão
+        player->position.y = playerGroundY;
+        player->velocity.y = 0;
+        player->isGrounded = 1;
+    } else {
+        player->isGrounded = 1;
+    }
 
     // ===== ATUALIZAR ENTIDADES =====
     updateBike(&stage->bike, player, deltaTime);
@@ -305,60 +323,32 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
 
 // ========== DESENHAR HUD STAGE 1 ==========
 static void drawStage1HUD(Stage1 *stage, Player *player) {
-    int screenWidth = GetScreenWidth();
-    int screenHeight = GetScreenHeight();
-    int fontSize = (screenWidth < 1024) ? 12 : 14;
+    int fontSize = 16;
 
-    // ===== VIDAS E SCORE (canto superior esquerdo) =====
+    // ===== CANTO SUPERIOR ESQUERDO: VIDAS, PONTOS, TEMPO =====
     char livesText[64];
-    sprintf(livesText, "VIDAS: %d", player->lives);
-    DrawText(livesText, 20, 20, fontSize, RED);
+    sprintf(livesText, "LIVES: %d / 3", player->lives);
+    DrawText(livesText, 10, 10, fontSize, WHITE);
 
     char scoreText[64];
-    sprintf(scoreText, "PONTOS: %.0f", player->score);
-    DrawText(scoreText, 20, 45, fontSize, WHITE);
+    sprintf(scoreText, "PUNTOS: %.0f", player->score);
+    DrawText(scoreText, 10, 30, fontSize, WHITE);
 
-    // ===== PROGRESSO (centro superior) =====
-    float progress = stage->distanceTraveled / STAGE1_TARGET_DISTANCE;
-    if (progress > 1.0f) progress = 1.0f;
+    char timeText[64];
+    sprintf(timeText, "TEMPO: %ds", (int)stage->elapsedTime);
+    DrawText(timeText, 10, 50, fontSize, WHITE);
 
-    char progressText[64];
-    sprintf(progressText, "DISTANCIA: %.0fm / %.0fm", stage->distanceTraveled, STAGE1_TARGET_DISTANCE);
-    int centerX = screenWidth / 2 - MeasureText(progressText, fontSize) / 2;
-    DrawText(progressText, centerX, 20, fontSize, WHITE);
-
-    // Barra de progresso
-    int barY = 50;
-    int barWidth = screenWidth - 40;
-    DrawRectangle(20, barY, barWidth, 15, (Color){50, 50, 50, 200});
-    DrawRectangle(20, barY, (int)(barWidth * progress), 15, (Color){0, 200, 100, 200});
-    DrawRectangleLinesEx((Rectangle){20, barY, barWidth, 15}, 1, WHITE);
-
-    // ===== DIFICULDADE (canto superior direito) =====
+    // ===== CANTO SUPERIOR DIREITO: DIFICULDADE =====
     char diffText[64];
-    sprintf(diffText, "DIFICULDADE: x%.2f", stage->difficultyMultiplier);
-    int rightX = screenWidth - MeasureText(diffText, fontSize) - 20;
-    DrawText(diffText, rightX, 20, fontSize, YELLOW);
+    sprintf(diffText, "DIFICULDADE: x%.1f", stage->difficultyMultiplier);
+    DrawText(diffText, 650, 10, fontSize, YELLOW);
 
-    // ===== PROTEÇÃO COM GUARDA-CHUVA =====
+    // ===== PROTEÇÃO COM GUARDA-CHUVA (inferior esquerdo se ativo) =====
     if (player->hasUmbrella > 0) {
         char umbrellaText[64];
-        sprintf(umbrellaText, "PROTEGIDO: %.1fs", player->umbrellaTimer);
-        DrawText("☔", 20, screenHeight - 40, 20, SKYBLUE);
-        DrawText(umbrellaText, 50, screenHeight - 35, fontSize, SKYBLUE);
-
-        // Barra de proteção
-        int protBarWidth = 150;
-        float protProgress = player->umbrellaTimer / 8.0f;
-        DrawRectangle(50, screenHeight - 15, protBarWidth, 10, (Color){50, 50, 100, 200});
-        DrawRectangle(50, screenHeight - 15, (int)(protBarWidth * protProgress), 10, (Color){100, 200, 255, 200});
-        DrawRectangleLinesEx((Rectangle){50, screenHeight - 15, protBarWidth, 10}, 1, SKYBLUE);
+        sprintf(umbrellaText, "UMBRELLA: %.1fs", player->umbrellaTimer);
+        DrawText(umbrellaText, 10, 400, fontSize, SKYBLUE);
     }
-
-    // ===== FPS (canto inferior direito) =====
-    char fpsText[32];
-    sprintf(fpsText, "FPS: %d", GetFPS());
-    DrawText(fpsText, screenWidth - 100, screenHeight - 30, 12, LIME);
 }
 
 // ========== DESENHAR STAGE 1 ==========
@@ -370,7 +360,7 @@ void drawStage1(Stage1 *stage, Player *player) {
 
     // ===== CAMADA 1: CÉU (parallax 0.1x - muito distante) =====
     float parallax_sky = stage->camera.target.x * 0.1f;
-    DrawRectangle(-10000, 0, 20000, GROUND_LEVEL - 100, (Color){135, 206, 235, 255});  // Céu azul
+    DrawRectangle(-10000, 0, 20000, GROUND_Y - 100, (Color){135, 206, 235, 255});  // Céu azul
 
     // Nuvens procedurais no céu
     int cloudCount = 8;
@@ -394,7 +384,7 @@ void drawStage1(Stage1 *stage, Player *player) {
         }
     } else {
         // Placeholder: cinza para prédios/paisagem
-        DrawRectangle(-5000, 80, 10000, GROUND_LEVEL - 130, (Color){100, 100, 120, 100});
+        DrawRectangle(-5000, 80, 10000, GROUND_Y - 130, (Color){100, 100, 120, 100});
     }
 
     // ===== DESENHAR NUVENS PROCEDURAIS E CHUVA =====
@@ -410,11 +400,11 @@ void drawStage1(Stage1 *stage, Player *player) {
     int poleCount = 5;
     for (int i = 0; i < poleCount; i++) {
         float poleX = ((int)(parallax_foreground / 400) % poleCount + i) * 400 - parallax_foreground;
-        DrawRectangle((int)poleX - 5, GROUND_LEVEL - 150, 10, 150, (Color){80, 80, 80, 200});
+        DrawRectangle((int)poleX - 5, GROUND_Y - 150, 10, 150, (Color){80, 80, 80, 200});
     }
 
     // ===== DESENHAR PLATAFORMA (CHÃO) COM SCROLL INFINITO =====
-    float platformY = GROUND_LEVEL;
+    float platformY = GROUND_Y;
     if (stage->platformLoaded) {
         float platformTileWidth = stage->platformTexture.width;
         float worldX = stage->camera.target.x - screenWidth;
@@ -440,9 +430,6 @@ void drawStage1(Stage1 *stage, Player *player) {
 
     // ===== DESENHAR PLAYER =====
     drawPlayer(*player);
-
-    // ===== DESENHAR BIKE =====
-    drawBike(stage->bike, *player);
 
     // ===== FINALIZAR MODO 2D =====
     EndMode2D();

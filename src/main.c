@@ -235,7 +235,6 @@ int main(void) {
         else {
             // ===== DESENHAR JOGO =====
             drawStage1(&stage1, &player);
-            drawPlayer(player);
 
             // ===== DESENHAR HUD =====
             drawGameHUD(&stage1, &player, totalGameTime, screenWidth, screenHeight);

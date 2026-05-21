@@ -46,26 +46,32 @@ void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
 void drawObstacle(Obstacle obs) {
     if (!obs.active) return;
 
-    float scaledWidth = HOLE_WIDTH * obs.scale;
-    float scaledHeight = HOLE_HEIGHT * obs.scale;
+    // Escalar para largura alvo de 60px (mantendo aspect ratio)
+    const float HOLE_TARGET_WIDTH = 60.0f;
+    float scaleX = HOLE_TARGET_WIDTH / obs.texture.width;
+    float scaleY = scaleX;  // Manter aspect ratio
 
-    if (obs.spriteLoaded) {
-        // Usar DrawTexturePro para melhor controle
+    float scaledWidth = HOLE_TARGET_WIDTH;
+    float scaledHeight = obs.texture.height * scaleY;
+
+    if (obs.spriteLoaded && obs.texture.id != 0) {
+        // Alinhar ao chão (GROUND_Y) - altura do buraco
+        float holeGroundY = 380.0f - scaledHeight / 2;  // GROUND_Y = 380
+
         Rectangle source = { 0, 0, (float)obs.texture.width, (float)obs.texture.height };
         Rectangle dest = {
             obs.position.x - scaledWidth / 2,
-            obs.position.y - scaledHeight / 2,
+            holeGroundY,
             scaledWidth,
             scaledHeight
         };
         DrawTexturePro(obs.texture, source, dest, (Vector2){0, 0}, 0, WHITE);
     } else {
-        // Placeholder: círculo preto com gradiente (buraco)
-        float scaledRadius = (HOLE_WIDTH / 2) * obs.scale;
-        DrawCircle((int)obs.position.x, (int)obs.position.y, scaledRadius, BLACK);
-        DrawCircleLines((int)obs.position.x, (int)obs.position.y, scaledRadius - 2.0f, RED);
-        DrawCircle((int)(obs.position.x - scaledRadius / 3), (int)(obs.position.y - scaledRadius / 3),
-                  scaledRadius / 4, DARKGRAY);
+        // Placeholder: círculo preto (buraco)
+        float holeGroundY = 380.0f - 15.0f;  // Altura aprox
+        float radius = 30.0f;
+        DrawCircle((int)obs.position.x, (int)holeGroundY, radius, BLACK);
+        DrawCircleLines((int)obs.position.x, (int)holeGroundY, radius - 2.0f, RED);
     }
 }
 

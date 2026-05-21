@@ -60,18 +60,29 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
         player.height
     };
 
-    // Carregar animações do player
+    // Carregar sprites únicos diretos
+    player.spritesLoaded = 0;
+    player.spriteStandingR = LoadTexture("assets/img/CharacterStandingR.png");
+    player.spriteStandingL = LoadTexture("assets/img/CharacterStandingL.png");
+    player.spriteMovingR = LoadTexture("assets/img/CharacterMovingR1.png");
+    player.spriteMovingL = LoadTexture("assets/img/CharacterMovingL1.png");
+    player.spriteBikeStandingR = LoadTexture("assets/img/CharacterBikeStandingR.png");
+    player.spriteBikeStandingL = LoadTexture("assets/img/CharacterBikeStandingL.png");
+    player.spriteBikeMovingR = LoadTexture("assets/img/CharacterBikeMovingR.png");
+    player.spriteBikeMovingL = LoadTexture("assets/img/CharacterBikeMovingL.png");
+
+    if (player.spriteStandingR.id != 0 && player.spriteStandingL.id != 0 &&
+        player.spriteMovingR.id != 0 && player.spriteMovingL.id != 0 &&
+        player.spriteBikeStandingR.id != 0 && player.spriteBikeStandingL.id != 0 &&
+        player.spriteBikeMovingR.id != 0 && player.spriteBikeMovingL.id != 0) {
+        player.spritesLoaded = 1;
+    }
+
+    // Tentar carregar animações multi-frame (pode falhar se arquivos não existem)
     player.anim_standing = animation_load_directional("CharacterStanding", 8.0f, 0);
-    player.anim_moving = animation_load_directional("characterMoving", 12.0f, 1);
+    player.anim_moving = animation_load_directional("CharacterMoving", 12.0f, 1);
     player.anim_bike_standing = animation_load_directional("CharacterBikeStanding", 8.0f, 0);
     player.anim_bike_moving = animation_load_directional("CharacterBikeMoving", 15.0f, 1);
-
-    // Carregar textura (placeholder se falhar - deprecated)
-    player.spriteLoaded = 0;
-    player.playerTexture = LoadTexture("assets/img/player.png");
-    if (player.playerTexture.id != 0) {
-        player.spriteLoaded = 1;
-    }
 
     return player;
 }
@@ -237,57 +248,63 @@ void updatePlayer(Player *player, float deltaTime) {
 
 // ========== DESENHAR JOGADOR ==========
 void drawPlayer(Player player) {
-    // Renderizar com animação apropriada baseado no estado
-    DirectionalAnimationSet* current_anim = NULL;
-
-    if (player.on_bike) {
-        // Na bicicleta
-        if (fabs(player.velocity.x) > 10.0f) {
-            // Pedalando (movimento)
-            current_anim = (DirectionalAnimationSet*)&player.anim_bike_moving;
-        } else {
-            // Parado na bike
-            current_anim = (DirectionalAnimationSet*)&player.anim_bike_standing;
-        }
-    } else {
-        // A pé
-        if (fabs(player.velocity.x) > 10.0f) {
-            // Correndo
-            current_anim = (DirectionalAnimationSet*)&player.anim_moving;
-        } else {
-            // Parado/Idle
-            current_anim = (DirectionalAnimationSet*)&player.anim_standing;
-        }
-    }
-
     // Determinar cor baseada em estado
     Color drawColor = WHITE;
     if (player.state == PLAYER_STATE_HIT) {
-        // Knockback: piscar branco
         float blinkPhase = fmod(player.knockbackTimer * 20.0f, 1.0f);
         drawColor = (blinkPhase < 0.5f) ? WHITE : (Color){200, 200, 200, 255};
     } else if (player.state == PLAYER_STATE_UMBRELLA_BUFF) {
-        // Proteção: tint levemente azul
         drawColor = (Color){150, 200, 255, 255};
     } else if (player.state == PLAYER_STATE_DEAD) {
-        // Morto: vermelho
         drawColor = (Color){255, 100, 100, 255};
     }
 
-    // Renderizar animação se disponível
-    if (current_anim && current_anim->left.frame_count > 0) {
-        directional_animation_render(current_anim, player.position.x, player.position.y, player.scale, drawColor);
-    } else if (player.spriteLoaded) {
-        // Fallback para textura única se animação não carregar
-        DrawTextureEx(player.playerTexture,
-                     (Vector2){ player.position.x - (player.width * player.scale) / 2,
-                               player.position.y - (player.height * player.scale) },
-                     0, player.scale, drawColor);
-    } else {
-        // Placeholder: retângulo colorido
+    // Selecionar sprite apropriado baseado em estado
+    Texture2D spriteToRender = {0};
+
+    if (player.spritesLoaded) {
+        if (player.on_bike) {
+            if (fabs(player.velocity.x) > 10.0f) {
+                spriteToRender = (player.direction == 'R') ? player.spriteBikeMovingR : player.spriteBikeMovingL;
+            } else {
+                spriteToRender = (player.direction == 'R') ? player.spriteBikeStandingR : player.spriteBikeStandingL;
+            }
+        } else {
+            if (fabs(player.velocity.x) > 10.0f) {
+                spriteToRender = (player.direction == 'R') ? player.spriteMovingR : player.spriteMovingL;
+            } else {
+                spriteToRender = (player.direction == 'R') ? player.spriteStandingR : player.spriteStandingL;
+            }
+        }
+
+        if (spriteToRender.id != 0) {
+            // Escalar sprite para altura máxima de 80px
+            const float PLAYER_HEIGHT_PIXELS = 80.0f;
+            float scaleY = PLAYER_HEIGHT_PIXELS / spriteToRender.height;
+            float scaleX = scaleY;  // Manter aspect ratio
+
+            float scaledWidth = spriteToRender.width * scaleX;
+            float scaledHeight = spriteToRender.height * scaleY;
+
+            Rectangle source = {0, 0, (float)spriteToRender.width, (float)spriteToRender.height};
+            Rectangle dest = {
+                player.position.x - scaledWidth / 2,
+                player.position.y - scaledHeight,
+                scaledWidth,
+                scaledHeight
+            };
+
+            DrawTexturePro(spriteToRender, source, dest, (Vector2){0, 0}, 0, drawColor);
+        }
+    }
+
+    // Fallback se sprites não carregarem
+    if (!player.spritesLoaded || spriteToRender.id == 0) {
         Rectangle scaledHitbox = player.hitbox;
-        scaledHitbox.width *= player.scale;
-        scaledHitbox.height *= player.scale;
+        scaledHitbox.width = 80.0f;  // Largura proporcional para 80px de altura
+        scaledHitbox.height = 80.0f;
+        scaledHitbox.x = player.position.x - scaledHitbox.width / 2;
+        scaledHitbox.y = player.position.y - scaledHitbox.height;
         DrawRectangleRec(scaledHitbox, drawColor);
         DrawRectangleLinesEx(scaledHitbox, 2, BLACK);
     }
@@ -351,15 +368,22 @@ void applySlowDown(Player *player, float amount, float duration) {
 
 // ========== DESCARREGAR RECURSOS DO JOGADOR ==========
 void unloadPlayerResources(Player *player) {
+    // Descarregar sprites únicos
+    if (player->spritesLoaded) {
+        if (player->spriteStandingR.id != 0) UnloadTexture(player->spriteStandingR);
+        if (player->spriteStandingL.id != 0) UnloadTexture(player->spriteStandingL);
+        if (player->spriteMovingR.id != 0) UnloadTexture(player->spriteMovingR);
+        if (player->spriteMovingL.id != 0) UnloadTexture(player->spriteMovingL);
+        if (player->spriteBikeStandingR.id != 0) UnloadTexture(player->spriteBikeStandingR);
+        if (player->spriteBikeStandingL.id != 0) UnloadTexture(player->spriteBikeStandingL);
+        if (player->spriteBikeMovingR.id != 0) UnloadTexture(player->spriteBikeMovingR);
+        if (player->spriteBikeMovingL.id != 0) UnloadTexture(player->spriteBikeMovingL);
+        player->spritesLoaded = 0;
+    }
+
     // Descarregar animações
     directional_animation_unload(&player->anim_standing);
     directional_animation_unload(&player->anim_moving);
     directional_animation_unload(&player->anim_bike_standing);
     directional_animation_unload(&player->anim_bike_moving);
-
-    // Descarregar textura (deprecated)
-    if (player->spriteLoaded) {
-        UnloadTexture(player->playerTexture);
-        player->spriteLoaded = 0;
-    }
 }

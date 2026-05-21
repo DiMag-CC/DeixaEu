@@ -8,6 +8,11 @@
 #include "../entities/cloud.h"
 #include "../structure/obstacleQueue.h"
 
+// ========== CONSTANTES DE RESOLUÇÃO E ALINHAMENTO ==========
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 450
+#define GROUND_Y 380.0f      // Nível do chão (plataforma encaixa nesta Y)
+
 // ========== CONSTANTES DA FASE ==========
 #define STAGE1_TARGET_DISTANCE 8000.0f
 #define STAGE1_BASE_SCROLL_SPEED 200.0f
@@ -34,6 +39,7 @@ typedef struct {
     int bgLoaded;                   // 1 = background carregou, 0 = falhou
     int platformLoaded;             // 1 = platform carregou, 0 = falhou
     float parallaxOffset;           // Offset para parallax (0.3x speed)
+    float groundLevel;              // Nível do chão (dinâmico: screenHeight - platformHeight)
     Camera2D camera;                // Câmera side-scrolling
     float cameraDamping;            // Damping factor para câmera suave (0.15 padrão)
 

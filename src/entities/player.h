@@ -7,7 +7,7 @@
 // ========== CONSTANTES GLOBAIS ==========
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 450
-#define GROUND_LEVEL 520.0f
+#define GROUND_LEVEL 360.0f
 #define PLAYER_WIDTH 30.0f
 #define PLAYER_HEIGHT 40.0f
 
@@ -65,15 +65,18 @@ typedef struct {
     int movementControlledExternally;  // 1 = stage controla, 0 = player controla
     int grounded;               // Alias para isGrounded (compatibilidade stage3)
 
-    // Sprites e texturas
-    Texture2D playerTexture;    // Sprite do jogador (deprecated, usar animations)
-    int spriteLoaded;           // 1 = textura carregou, 0 = falhou
+    // Sprites e texturas — sprites únicos diretos (não multi-frame)
+    Texture2D spriteStandingR, spriteStandingL;
+    Texture2D spriteMovingR, spriteMovingL;
+    Texture2D spriteBikeStandingR, spriteBikeStandingL;
+    Texture2D spriteBikeMovingR, spriteBikeMovingL;
+    int spritesLoaded;          // 1 = texturas carregaram
 
-    // Animações direcionais
-    DirectionalAnimationSet anim_standing;  // CharacterStanding[L/R]
-    DirectionalAnimationSet anim_moving;    // characterMoving[L/R]1 (sem frame 2)
-    DirectionalAnimationSet anim_bike_standing;  // CharacterBikeStanding[L/R]
-    DirectionalAnimationSet anim_bike_moving;    // CharacterBikeMoving[L/R] (rodas giram)
+    // Animações direcionais (fallback, podem estar vazias)
+    DirectionalAnimationSet anim_standing;
+    DirectionalAnimationSet anim_moving;
+    DirectionalAnimationSet anim_bike_standing;
+    DirectionalAnimationSet anim_bike_moving;
 
     char direction; // 'L' ou 'R' - direção atual
     int on_bike;    // 1 = na bike, 0 = a pé
