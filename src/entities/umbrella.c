@@ -1,7 +1,6 @@
 #include "umbrella.h"
 #include <math.h>
 
-// ========== CRIAR GUARDA-CHUVA ==========
 Umbrella createUmbrella(Vector2 position) {
     Umbrella umbrella;
     umbrella.position = position;
@@ -26,11 +25,9 @@ Umbrella createUmbrella(Vector2 position) {
     return umbrella;
 }
 
-// ========== ATUALIZAR GUARDA-CHUVA ==========
 void updateUmbrella(Umbrella *umbrella, float scrollSpeed, float deltaTime) {
     if (!umbrella->active) return;
 
-    // Mover com scroll
     umbrella->position.x -= scrollSpeed * deltaTime;
 
     // Rotação contínua (animação)
@@ -52,7 +49,6 @@ void updateUmbrella(Umbrella *umbrella, float scrollSpeed, float deltaTime) {
     }
 }
 
-// ========== DESENHAR GUARDA-CHUVA ==========
 void drawUmbrella(Umbrella umbrella) {
     if (!umbrella.active) return;
 
@@ -71,7 +67,6 @@ void drawUmbrella(Umbrella umbrella) {
         Vector2 origin = { scaledWidth / 2, scaledHeight / 2 };
         DrawTexturePro(umbrella.texture, source, dest, origin, umbrella.rotationAngle, WHITE);
     } else {
-        // Placeholder: semicírculo verde (guarda-chuva) com rotação
         Vector2 offset = {
             cosf(umbrella.rotationAngle * PI / 180.0f) * 5.0f,
             sinf(umbrella.rotationAngle * PI / 180.0f) * 5.0f
@@ -89,7 +84,6 @@ void drawUmbrella(Umbrella umbrella) {
     }
 }
 
-// ========== DESCARREGAR RECURSOS ==========
 void unloadUmbrellaResources(Umbrella *umbrella) {
     if (umbrella->spriteLoaded) {
         UnloadTexture(umbrella->texture);

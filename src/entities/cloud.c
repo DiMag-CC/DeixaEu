@@ -8,7 +8,7 @@
 #define RAINDROP_SPEED_MAX 350.0f
 #define CLOUD_SPAWN_INTERVAL 3.0f
 
-// ========== CRIAR SISTEMA DE NUVENS ==========
+
 CloudSystem createCloudSystem(void) {
     CloudSystem system;
     system.cloudCount = 0;
@@ -23,7 +23,6 @@ CloudSystem createCloudSystem(void) {
     return system;
 }
 
-// ========== CRIAR NUVEM ==========
 static CloudEntity createCloudAtPosition(Vector2 position, float depth) {
     CloudEntity cloud;
     cloud.position = position;

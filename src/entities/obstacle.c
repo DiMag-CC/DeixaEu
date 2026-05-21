@@ -6,7 +6,7 @@ Obstacle createObstacle(Vector2 position, ObstacleType type) {
     obs.position = position;
     obs.type = type;
     obs.active = 1;
-    obs.scale = 0.7f;
+    obs.scale = 0.18f;
 
     obs.spriteLoaded = 0;
     obs.texture = LoadTexture("assets/img/hole.png");
@@ -14,7 +14,6 @@ Obstacle createObstacle(Vector2 position, ObstacleType type) {
         obs.spriteLoaded = 1;
     }
 
-    // Hitbox
     obs.hitbox = (Rectangle){
         obs.position.x - HOLE_WIDTH / 2,
         obs.position.y - HOLE_HEIGHT / 2,

@@ -7,7 +7,7 @@
 #define POOP_SPAWN_INTERVAL 0.8f
 #define POOP_SPEED 200.0f
 
-// ========== CRIAR POMBO ==========
+
 Pigeon createPigeon(Vector2 position) {
     Pigeon pigeon;
     pigeon.position = position;
@@ -16,10 +16,9 @@ Pigeon createPigeon(Vector2 position) {
     pigeon.poopTimer = 0.0f;
     pigeon.poopInterval = POOP_SPAWN_INTERVAL;
     pigeon.wavePhase = 0.0f;
-    pigeon.scale = 0.8f;
+    pigeon.scale = 0.05f;
     pigeon.poopCount = 0;
 
-    // Carregar animação direcional (pigeon1[LR] + pigeon2[LR]) 12 FPS
     pigeon.animation = animation_load_directional("pigeon", 12.0f, 1);
     pigeon.direction = 'L'; // Pombo vem da esquerda para direita (então vira para esquerda)
 

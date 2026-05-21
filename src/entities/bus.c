@@ -2,13 +2,13 @@
 
 #define BUS_SPEED_MULTIPLIER 1.5f
 
-// ========== CRIAR ÔNIBUS ==========
+
 Bus createBus(Vector2 position) {
     Bus bus;
     bus.position = position;
     bus.active = 1;
     bus.speed = 150.0f * BUS_SPEED_MULTIPLIER;
-    bus.scale = 1.0f;
+    bus.scale = 0.45f;
 
     bus.spriteLoaded = 0;
     // Tentar carregar texture (busR.png é o disponível)

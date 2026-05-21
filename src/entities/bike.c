@@ -1,7 +1,6 @@
 #include "bike.h"
 #include <math.h>
 
-// ========== CRIAR BICICLETA ==========
 Bike createBike(void) {
     Bike bike;
     bike.position = (Vector2){ 0, 0 };
@@ -18,7 +17,6 @@ Bike createBike(void) {
     return bike;
 }
 
-// ========== ATUALIZAR BICICLETA ==========
 void updateBike(Bike *bike, Player *player, float deltaTime) {
     // Bike segue o player
     bike->position = player->position;

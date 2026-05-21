@@ -8,6 +8,7 @@
 #define FRICTION 0.95f
 #define PLAYER_MAX_SPEED 400.0f
 #define KNOCKBACK_DURATION 0.5f
+#define TEXTURE_VALID(tex) ((tex).id > 0)
 
 Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     Player player = {0};
@@ -120,14 +121,14 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     );
 
     if (
-        IsTextureReady(player.spriteStandingR) &&
-        IsTextureReady(player.spriteStandingL) &&
-        IsTextureReady(player.spriteMovingR) &&
-        IsTextureReady(player.spriteMovingL) &&
-        IsTextureReady(player.spriteBikeStandingR) &&
-        IsTextureReady(player.spriteBikeStandingL) &&
-        IsTextureReady(player.spriteBikeMovingR) &&
-        IsTextureReady(player.spriteBikeMovingL)
+    TEXTURE_VALID(player.spriteStandingR) &&
+    TEXTURE_VALID(player.spriteStandingL) &&
+    TEXTURE_VALID(player.spriteMovingR) &&
+    TEXTURE_VALID(player.spriteMovingL) &&
+    TEXTURE_VALID(player.spriteBikeStandingR) &&
+    TEXTURE_VALID(player.spriteBikeStandingL) &&
+    TEXTURE_VALID(player.spriteBikeMovingR) &&
+    TEXTURE_VALID(player.spriteBikeMovingL)
     ) {
         player.spritesLoaded = 1;
     }
@@ -366,7 +367,7 @@ void drawPlayer(Player player) {
 
     if (
         player.spritesLoaded &&
-        IsTextureReady(currentSprite)
+        TEXTURE_VALID(currentSprite)
     ) {
 
         Rectangle sourceRect = {

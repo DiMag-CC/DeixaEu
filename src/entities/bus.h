@@ -7,7 +7,6 @@
 #define BUS_HEIGHT 80.0f
 #define GROUND_LEVEL 550.0f
 
-// ========== ESTRUTURA DO ÔNIBUS ==========
 typedef struct {
     Vector2 position;
     Rectangle hitbox;
@@ -18,7 +17,6 @@ typedef struct {
     int spriteLoaded;
 } Bus;
 
-// ========== FUNÇÕES ==========
 Bus createBus(Vector2 position);
 void updateBus(Bus *bus, float scrollSpeed, float deltaTime);
 void drawBus(Bus bus);
