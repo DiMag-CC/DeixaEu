@@ -8,7 +8,6 @@
 #include "menu.h"
 #include "structure/stepList.h"
 
-// ========== CONSTANTES ==========
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 450
 #define WORLD_WIDTH 800.0f
@@ -16,7 +15,6 @@
 #define CAMERA_VERTICAL_LOOKAHEAD 150.0f
 #define FPS 60
 
-// ========== RENDERIZAR HUD ==========
 void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenWidth, int screenHeight) {
     const int HUD_Y_START = 10;
     const int HUD_Y_STEP = 25;
@@ -78,7 +76,6 @@ void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenW
     DrawRectangleLinesEx((Rectangle){HUD_MARGIN, progressBarY, progressBarWidth, progressBarHeight}, 2, BLACK);
 }
 
-// ========== DEBUG MODE ==========
 void drawPlayerDebug(Player player) {
     DrawRectangleLinesEx(player.hitbox, 1, RED);
     DrawCircle(player.position.x, player.position.y, 3, GREEN);
@@ -100,10 +97,10 @@ void drawPlayerDebug(Player player) {
     DrawText(debugText, 10, 80, 14, BLACK);
 }
 
-// ========== MAIN ==========
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Deixa Eu");
+    ToggleFullscreen();
     SetTargetFPS(FPS);
 
     // ========== INICIALIZAR STAGE 1 ==========

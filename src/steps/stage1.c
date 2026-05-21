@@ -1,4 +1,5 @@
 #include "stage1.h"
+#include "../utils/game_constants.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -131,7 +132,6 @@ static void updateObstacles(Stage1 *stage, float deltaTime) {
     removeOffscreenObstacles(&stage->obstacleQueue, -100.0f);
 }
 
-// ========== HELPER: COLISÕES COM OBSTÁCULOS ==========
 static void handleCollisions(Stage1 *stage, Player *player) {
     QueueNode *cur = stage->obstacleQueue.front;
 
@@ -201,7 +201,6 @@ static void handleCollisions(Stage1 *stage, Player *player) {
     }
 }
 
-// ========== HELPER: DESENHAR OBSTÁCULOS ==========
 static void drawObstacles(Stage1 *stage) {
     QueueNode *cur = stage->obstacleQueue.front;
 
@@ -243,6 +242,13 @@ static void drawObstacles(Stage1 *stage) {
 }
 
 void initStage1(Stage1 *stage) {
+
+    GLOBAL_WORLD_SCALE =
+        (float)GetScreenHeight() / BASE_SCREEN_HEIGHT;
+
+    GLOBAL_GROUND_LEVEL =
+        GetScreenHeight() * 0.82f;
+
     stage->scrollSpeed = STAGE1_BASE_SCROLL_SPEED;
     stage->distanceTraveled = 0.0f;
     stage->spawnInterval = 1.5f;
@@ -255,7 +261,9 @@ void initStage1(Stage1 *stage) {
     // Inicializar câmera side-scrolling
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
-    stage->worldScale = screenHeight / 720.0f;
+    worldScale = (float)screenHeight / 720.0f;
+    groundLevel = screenHeight * 0.82f;
+    platformY = groundLevel;
 
     stage->camera.target =
     (Vector2){ screenWidth * 0.5f,
@@ -422,15 +430,8 @@ void drawStage1(Stage1 *stage, Player *player) {
 
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
-
-    // =========================================
-    // GROUND LEVEL REAL
-    // =========================================
     float groundY = stage->groundLevel;
 
-    // =========================================
-    // PARALLAX UPDATE
-    // =========================================
     float bgScroll =
         fmod(stage->parallaxOffset * 0.2f,
              screenWidth);
@@ -492,7 +493,7 @@ void drawStage1(Stage1 *stage, Player *player) {
 
             Rectangle dest = {
                 i * bgWidth - bgScroll,
-                0,
+                -screenHeight * 0.08f,,
                 bgWidth,
                 screenHeight
             };
@@ -525,7 +526,7 @@ void drawStage1(Stage1 *stage, Player *player) {
             platformScale;
 
         float roadY =
-            groundY - roadHeight + 40;
+            groundY - roadHeight + 110;
 
         Rectangle source = {
             0,
@@ -580,7 +581,6 @@ void drawStage1(Stage1 *stage, Player *player) {
     drawStage1HUD(stage, player);
 }
 
-// ========== DESCARREGAR RESOURCES STAGE 1 ==========
 void unloadStage1(Stage1 *stage) {
     unloadBikeResources(&stage->bike);
     freeObstacleQueue(&stage->obstacleQueue);

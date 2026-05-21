@@ -1,27 +1,42 @@
 #include "bus.h"
+#include "../utils/game_constants.h"
 
 #define BUS_SPEED_MULTIPLIER 1.2f
 
 Bus createBus(Vector2 position) {
+
     Bus bus;
+
     bus.position = position;
+
     bus.active = 1;
+
     bus.speed = 150.0f * BUS_SPEED_MULTIPLIER;
-    bus.scale = 0.45f;
+
+    bus.scale = 1.0f;
 
     bus.spriteLoaded = 0;
-    // Tentar carregar texture (busR.png é o disponível)
-    bus.texture = LoadTexture("assets/img/busR.png");
+
+    bus.texture = LoadTexture(
+        "assets/img/busR.png"
+    );
+
     if (bus.texture.id != 0) {
         bus.spriteLoaded = 1;
     }
 
-    // Hitbox
+    const float BUS_TARGET_WIDTH = 320.0f;
+    const float BUS_TARGET_HEIGHT = 140.0f;
+
     bus.hitbox = (Rectangle){
-        bus.position.x - BUS_WIDTH / 2,
-        bus.position.y - BUS_HEIGHT / 2,
-        BUS_WIDTH,
-        BUS_HEIGHT
+
+        bus.position.x - BUS_TARGET_WIDTH / 2,
+
+        bus.position.y - BUS_TARGET_HEIGHT,
+
+        BUS_TARGET_WIDTH,
+
+        BUS_TARGET_HEIGHT
     };
 
     return bus;
@@ -29,24 +44,35 @@ Bus createBus(Vector2 position) {
 
 
 void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
+
     if (!bus->active) return;
 
-    // Mover com scroll + velocidade própria
-    bus->hitbox.x = bus->position.x - scaledWidth / 2;
+    // Movimento lateral
+    bus->position.x -=
+        (scrollSpeed + bus->speed) * deltaTime;
 
-    bus->hitbox.y =
-        bus->position.y - scaledHeight;
+    // Escala visual usada também na hitbox
+    const float BUS_TARGET_WIDTH = 320.0f;
+    const float BUS_TARGET_HEIGHT = 140.0f;
 
-    bus->hitbox.width = scaledWidth;
-
-    bus->hitbox.height = scaledHeight;
+    // Ground global
+    float groundY = 520.0f;
 
     // Atualizar hitbox
-    bus->hitbox.x = bus->position.x - BUS_WIDTH / 2;
-    
+    bus->hitbox.x =
+        bus->position.x - BUS_TARGET_WIDTH / 2;
 
-    // Deativar se sair da tela
-    if (bus->position.x < -BUS_WIDTH) {
+    bus->hitbox.y =
+        groundY - BUS_TARGET_HEIGHT;
+
+    bus->hitbox.width =
+        BUS_TARGET_WIDTH;
+
+    bus->hitbox.height =
+        BUS_TARGET_HEIGHT;
+
+    // Desativar fora da tela
+    if (bus->position.x < -BUS_TARGET_WIDTH) {
         bus->active = 0;
     }
 }
@@ -61,7 +87,7 @@ void drawBus(Bus bus) {
     float scaledHeight = BUS_TARGET_HEIGHT;
 
     // Posicionar alinhado ao chão
-    float groundY = 520.0f;
+    float groundY = GLOBAL_GROUND_LEVEL;
 
     Rectangle dest = {
         bus.position.x - scaledWidth / 2,

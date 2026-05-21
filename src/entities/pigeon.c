@@ -1,12 +1,12 @@
 #include "pigeon.h"
 #include "../gfx/animation.h"
+#include "../utils/game_constants.h"
 #include <math.h>
 #include <stdlib.h>
 
 #define PIGEON_SPEED 150.0f
 #define POOP_SPAWN_INTERVAL 0.8f
 #define POOP_SPEED 200.0f
-
 
 Pigeon createPigeon(Vector2 position) {
     Pigeon pigeon;
@@ -46,8 +46,6 @@ Pigeon createPigeon(Vector2 position) {
 
     return pigeon;
 }
-
-// ========== ATUALIZAR POMBO ==========
 void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
     if (!pigeon->active) return;
 
@@ -89,7 +87,7 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
     }
 
     // Atualizar fezes com física
-    float groundLevel = GROUND_LEVEL;
+    float groundLevel = GLOBAL_GROUND_LEVEL;
     for (int i = 0; i < MAX_POOPS; i++) {
         if (pigeon->poops[i].active) {
             // Aplicar gravidade
@@ -131,7 +129,6 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
     }
 }
 
-// ========== DESENHAR POMBO ==========
 void drawPigeon(Pigeon pigeon) {
     if (!pigeon.active) return;
 
@@ -205,7 +202,6 @@ void drawPigeon(Pigeon pigeon) {
     }
 }
 
-// ========== DESCARREGAR RECURSOS ==========
 void unloadPigeonResources(Pigeon *pigeon) {
     // Descarregar animação
     directional_animation_unload(&pigeon->animation);

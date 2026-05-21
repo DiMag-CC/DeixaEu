@@ -1,6 +1,6 @@
 CC = gcc
 
-CFLAGS = -Wall -Wextra $(shell pkg-config --cflags raylib)
+CFLAGS = -Wall -Wextra $(shell pkg-config --cflags raylib) -Isrc
 
 LDFLAGS = $(shell pkg-config --libs raylib) -lm
 

@@ -1,0 +1,10 @@
+#ifndef GAME_CONSTANTS_H
+#define GAME_CONSTANTS_H
+
+#define BASE_SCREEN_WIDTH 1280
+#define BASE_SCREEN_HEIGHT 720
+
+extern float GLOBAL_GROUND_LEVEL;
+extern float GLOBAL_WORLD_SCALE;
+
+#endif

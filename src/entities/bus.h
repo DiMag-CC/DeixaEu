@@ -5,7 +5,6 @@
 
 #define BUS_WIDTH 150.0f
 #define BUS_HEIGHT 80.0f
-#define GROUND_LEVEL 550.0f
 
 typedef struct {
     Vector2 position;

@@ -1,5 +1,6 @@
 #include "player.h"
 #include "../gfx/animation.h"
+#include "../utils/game_constants.h"
 #include <stdlib.h>
 #include <math.h>
 
@@ -219,7 +220,7 @@ void updatePlayer(Player *player, float deltaTime) {
     player->position.x += player->velocity.x * deltaTime;
     player->position.y += player->velocity.y * deltaTime;
 
-    float groundY = GROUND_LEVEL - player->height;
+    float groundY = GLOBAL_GROUND_LEVEL;
 
     if (player->position.y >= groundY) {
 
@@ -237,8 +238,8 @@ void updatePlayer(Player *player, float deltaTime) {
         player->grounded = 0;
     }
 
-    float minX = 0.0f;
-    float maxX = GetScreenWidth() - player->width;
+    float minX = player->width * 0.5f;
+    float maxX = GetScreenWidth() - player->width * 0.5f;
 
     if (player->position.x < minX) {
 
@@ -252,12 +253,17 @@ void updatePlayer(Player *player, float deltaTime) {
         player->velocity.x = 0.0f;
     }
 
-    player->hitbox = (Rectangle) {
-        player->position.x,
-        player->position.y,
-        player->width,
-        player->height
-    };
+    player->hitbox.x =
+        player->position.x - player->width * 0.35f;
+
+    player->hitbox.y =
+        player->position.y - player->height + 20.0f;
+
+    player->hitbox.width =
+        player->width * 0.7f;
+
+    player->hitbox.height =
+        player->height - 20.0f;
 
     if (player->knockbackTimer > 0.0f) {
 
@@ -378,8 +384,8 @@ void drawPlayer(Player player) {
         };
 
         Rectangle destRect = {
-            player.position.x,
-            player.position.y,
+            player.position.x - player.width * 0.5f,
+            player.position.y - player.height + 25.0f,
             player.width,
             player.height
         };

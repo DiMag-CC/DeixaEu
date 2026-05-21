@@ -7,7 +7,6 @@
 // ========== CONSTANTES GLOBAIS ==========
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 450
-#define GROUND_LEVEL 360.0f
 #define PLAYER_WIDTH 30.0f
 #define PLAYER_HEIGHT 40.0f
 

@@ -1,6 +1,6 @@
 #include "obstacle.h"
+#include "../utils/game_constants.h"
 
-// ========== CRIAR OBSTÁCULO ==========
 Obstacle createObstacle(Vector2 position, ObstacleType type) {
     Obstacle obs;
     obs.position = position;
@@ -24,7 +24,6 @@ Obstacle createObstacle(Vector2 position, ObstacleType type) {
     return obs;
 }
 
-// ========== ATUALIZAR OBSTÁCULO ==========
 void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
     if (!obs->active) return;
 
@@ -41,7 +40,6 @@ void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
     }
 }
 
-// ========== DESENHAR OBSTÁCULO ==========
 void drawObstacle(Obstacle obs) {
     if (!obs.active) return;
 
@@ -54,8 +52,7 @@ void drawObstacle(Obstacle obs) {
     float scaledHeight = obs.texture.height * scaleY;
 
     if (obs.spriteLoaded && obs.texture.id != 0) {
-        // Alinhar ao chão (GROUND_Y) - altura do buraco
-        float holeGroundY = 380.0f - scaledHeight / 2;  // GROUND_Y = 380
+        float holeGroundY = 380.0f - scaledHeight / 2; 
 
         Rectangle source = { 0, 0, (float)obs.texture.width, (float)obs.texture.height };
         Rectangle dest = {
@@ -66,7 +63,6 @@ void drawObstacle(Obstacle obs) {
         };
         DrawTexturePro(obs.texture, source, dest, (Vector2){0, 0}, 0, WHITE);
     } else {
-        // Placeholder: círculo preto (buraco)
         float holeGroundY = 380.0f - 15.0f;  // Altura aprox
         float radius = 30.0f;
         DrawCircle((int)obs.position.x, (int)holeGroundY, radius, BLACK);
@@ -74,7 +70,6 @@ void drawObstacle(Obstacle obs) {
     }
 }
 
-// ========== DESCARREGAR RECURSOS ==========
 void unloadObstacleResources(Obstacle *obs) {
     if (obs->spriteLoaded) {
         UnloadTexture(obs->texture);

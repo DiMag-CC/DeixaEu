@@ -1,4 +1,5 @@
 #include "umbrella.h"
+#include "../utils/game_constants.h"
 #include <math.h>
 
 Umbrella createUmbrella(Vector2 position) {

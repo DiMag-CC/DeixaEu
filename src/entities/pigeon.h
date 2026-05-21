@@ -5,7 +5,6 @@
 #include "../gfx/animation.h"
 
 #define SCREEN_HEIGHT 450
-#define GROUND_LEVEL 350.0f
 #define PIGEON_WIDTH 25.0f
 #define PIGEON_HEIGHT 20.0f
 #define POOP_WIDTH 8.0f
