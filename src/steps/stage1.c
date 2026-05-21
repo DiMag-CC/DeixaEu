@@ -344,15 +344,15 @@ static void drawStage1HUD(Stage1 *stage, Player *player) {
     if (player->hasUmbrella > 0) {
         char umbrellaText[64];
         sprintf(umbrellaText, "PROTEGIDO: %.1fs", player->umbrellaTimer);
-        DrawText("☔", 20, screenHeight - 40, 20, LIGHTBLUE);
-        DrawText(umbrellaText, 50, screenHeight - 35, fontSize, LIGHTBLUE);
+        DrawText("☔", 20, screenHeight - 40, 20, SKYBLUE);
+        DrawText(umbrellaText, 50, screenHeight - 35, fontSize, SKYBLUE);
 
         // Barra de proteção
         int protBarWidth = 150;
         float protProgress = player->umbrellaTimer / 8.0f;
         DrawRectangle(50, screenHeight - 15, protBarWidth, 10, (Color){50, 50, 100, 200});
         DrawRectangle(50, screenHeight - 15, (int)(protBarWidth * protProgress), 10, (Color){100, 200, 255, 200});
-        DrawRectangleLinesEx((Rectangle){50, screenHeight - 15, protBarWidth, 10}, 1, LIGHTBLUE);
+        DrawRectangleLinesEx((Rectangle){50, screenHeight - 15, protBarWidth, 10}, 1, SKYBLUE);
     }
 
     // ===== FPS (canto inferior direito) =====
@@ -361,57 +361,12 @@ static void drawStage1HUD(Stage1 *stage, Player *player) {
     DrawText(fpsText, screenWidth - 100, screenHeight - 30, 12, LIME);
 }
 
-// ========== DESENHAR DEBUG OVERLAY ==========
-static void drawStage1Debug(Stage1 *stage, Player *player) {
-    int screenWidth = GetScreenWidth();
-    int screenHeight = GetScreenHeight();
-
-    // ===== GRID =====
-    for (int x = 0; x < screenWidth; x += 50) {
-        DrawLine(x, 0, x, screenHeight, (Color){50, 50, 50, 100});
-    }
-    for (int y = 0; y < screenHeight; y += 50) {
-        DrawLine(0, y, screenWidth, y, (Color){50, 50, 50, 100});
-    }
-
-    // ===== PLAYER HITBOX =====
-    DrawRectangleLinesEx(player->hitbox, 2, RED);
-    char playerText[128];
-    sprintf(playerText, "PLAYER: (%.0f, %.0f) | Vel: (%.0f, %.0f) | State: %d",
-            player->position.x, player->position.y,
-            player->velocity.x, player->velocity.y,
-            player->state);
-    DrawText(playerText, 20, 100, 11, RED);
-
-    // ===== ENTIDADES ATIVAS =====
-    int entityCount = 0;
-    QueueNode *cur = stage->obstacleQueue.front;
-    while (cur) {
-        entityCount++;
-        cur = cur->next;
-    }
-    char entityText[64];
-    sprintf(entityText, "ENTIDADES: %d", entityCount);
-    DrawText(entityText, 20, 125, 11, YELLOW);
-
-    // ===== CAMERA =====
-    char cameraText[128];
-    sprintf(cameraText, "CAMERA: (%.0f, %.0f) | Scroll Speed: %.0f",
-            stage->camera.target.x, stage->camera.target.y,
-            stage->scrollSpeed);
-    DrawText(cameraText, 20, 150, 11, LIGHTBLUE);
-
-    // ===== INSTRUÇÃO PARA DESATIVAR =====
-    DrawText("DEBUG MODE - Pressione D para desativar", 20, screenHeight - 50, 12, RED);
-}
-
 // ========== DESENHAR STAGE 1 ==========
 void drawStage1(Stage1 *stage, Player *player) {
     // ===== INICIAR MODO 2D COM CÂMERA =====
     BeginMode2D(stage->camera);
 
     int screenWidth = GetScreenWidth();
-    int screenHeight = GetScreenHeight();
 
     // ===== CAMADA 1: CÉU (parallax 0.1x - muito distante) =====
     float parallax_sky = stage->camera.target.x * 0.1f;

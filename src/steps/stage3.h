@@ -4,10 +4,10 @@
 #include <raylib.h>
 #include "../entities/player.h"
 
-#define MAX_CLOUDS 2
-#define MAX_BIRDS 3
-#define MAX_BIRD_POOPS 10
-#define MAX_PUDDLES 7
+#define STAGE3_MAX_CLOUDS 2
+#define STAGE3_MAX_BIRDS 3
+#define STAGE3_MAX_BIRD_POOPS 10
+#define STAGE3_MAX_PUDDLES 7
 
 typedef enum {
     STAGE3_APPROACH, // Camera horizontal ate encontrar a torre
@@ -19,7 +19,7 @@ typedef struct {
     Vector2 position;
     float speed;
     float scale;
-} Cloud;
+} Stage3Cloud;
 
 typedef struct {
     Vector2 position;
@@ -59,11 +59,11 @@ typedef struct Stage3 {
     
     Rectangle towerHitbox;
     Vector2 towerPosition;
-    
-    Cloud clouds[MAX_CLOUDS];
-    Bird birds[MAX_BIRDS];
-    BirdPoop poops[MAX_BIRD_POOPS];
-    Puddle puddles[MAX_PUDDLES];
+
+    Stage3Cloud clouds[STAGE3_MAX_CLOUDS];
+    Bird birds[STAGE3_MAX_BIRDS];
+    BirdPoop poops[STAGE3_MAX_BIRD_POOPS];
+    Puddle puddles[STAGE3_MAX_PUDDLES];
     
 } Stage3;
 

@@ -3,13 +3,13 @@
 
 #include <raylib.h>
 
-#define MAX_CLOUDS 5
+#define MAX_CLOUDS 8
 #define MAX_RAINDROPS_PER_CLOUD 50
-#define CLOUD_WIDTH 100.0f
+#define CLOUD_WIDTH 80.0f
 #define CLOUD_HEIGHT 40.0f
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 450
-#define GROUND_LEVEL 350.0f
+#define GROUND_LEVEL 360.0f
 
 // ========== ESTRUTURA DE GOTA DE CHUVA ==========
 typedef struct {
@@ -40,9 +40,11 @@ typedef struct {
 
 } CloudEntity;
 
+typedef CloudEntity Cloud;  // Compatibility alias for stage3.h
+
 // ========== SISTEMA DE NUVENS ==========
 typedef struct {
-    Cloud clouds[MAX_CLOUDS];
+    CloudEntity clouds[MAX_CLOUDS];
     int cloudCount;
     float spawnTimer;
     float spawnInterval;

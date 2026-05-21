@@ -66,7 +66,6 @@ static void drawCloud(CloudEntity cloud) {
     if (!cloud.active) return;
 
     float scaledWidth = CLOUD_WIDTH * cloud.scale;
-    float scaledHeight = CLOUD_HEIGHT * cloud.scale;
 
     // Desenhar nuvem com 3 círculos
     float cx = cloud.position.x;
@@ -169,7 +168,7 @@ void drawCloudSystem(CloudSystem system) {
 
     // Camada 2: Gotas de chuva (todas as nuvens)
     for (int i = 0; i < MAX_CLOUDS; i++) {
-        Cloud cloud = system.clouds[i];
+        CloudEntity cloud = system.clouds[i];
         if (!cloud.active) continue;
 
         for (int j = 0; j < MAX_RAINDROPS_PER_CLOUD; j++) {
