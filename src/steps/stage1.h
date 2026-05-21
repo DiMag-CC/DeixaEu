@@ -5,6 +5,7 @@
 #include "../entities/player.h"
 #include "../entities/bike.h"
 #include "../entities/raindrop.h"
+#include "../entities/cloud.h"
 #include "../structure/obstacleQueue.h"
 
 // ========== CONSTANTES DA FASE ==========
@@ -24,6 +25,7 @@ typedef struct {
     // ===== Entidades =====
     Bike bike;                      // Bicicleta do jogador
     RainSystem rain;                // Sistema de chuva
+    CloudSystem cloudSystem;         // Sistema procedural de nuvens
     ObstacleQueue obstacleQueue;    // Fila de obstáculos
 
     // ===== Background/Cenário =====

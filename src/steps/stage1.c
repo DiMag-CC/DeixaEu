@@ -206,6 +206,9 @@ void initStage1(Stage1 *stage) {
     // Inicializar chuva
     stage->rain = createRainSystem();
 
+    // Inicializar sistema de nuvens
+    stage->cloudSystem = createCloudSystem();
+
     // Inicializar fila de obstáculos
     initObstacleQueue(&stage->obstacleQueue);
 
@@ -261,6 +264,7 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     // ===== ATUALIZAR ENTIDADES =====
     updateBike(&stage->bike, player, deltaTime);
     updateRainSystem(&stage->rain, deltaTime);
+    updateCloudSystem(&stage->cloudSystem, stage->scrollSpeed, deltaTime);
     updateObstacles(stage, deltaTime);
 
     // ===== ATUALIZAR PARALLAX (Background move 0.3x speed) =====
@@ -311,7 +315,10 @@ void drawStage1(Stage1 *stage, Player *player) {
         DrawRectangle(-5000, 0, 10000, GROUND_LEVEL - 50, SKYBLUE);
     }
 
-    // ===== DESENHAR CHUVA (ATRÁS DE TUDO) =====
+    // ===== DESENHAR NUVENS PROCEDURAIS E CHUVA =====
+    drawCloudSystem(stage->cloudSystem);
+
+    // ===== DESENHAR CHUVA LEGACY (MANTIDA PARA COMPATIBILIDADE) =====
     drawRainSystem(stage->rain);
 
     // ===== DESENHAR PLATAFORMA (CHÃO) COM SCROLL INFINITO =====
@@ -353,6 +360,7 @@ void drawStage1(Stage1 *stage, Player *player) {
 void unloadStage1(Stage1 *stage) {
     unloadBikeResources(&stage->bike);
     freeObstacleQueue(&stage->obstacleQueue);
+    resetCloudSystem(&stage->cloudSystem);
 
     if (stage->bgLoaded) {
         UnloadTexture(stage->backgroundTexture);
