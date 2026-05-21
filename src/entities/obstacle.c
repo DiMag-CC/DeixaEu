@@ -46,18 +46,25 @@ void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
 void drawObstacle(Obstacle obs) {
     if (!obs.active) return;
 
-    float scaledRadius = (HOLE_WIDTH / 2) * obs.scale;
+    float scaledWidth = HOLE_WIDTH * obs.scale;
+    float scaledHeight = HOLE_HEIGHT * obs.scale;
 
     if (obs.spriteLoaded) {
-        DrawTextureEx(obs.texture,
-                     (Vector2){ obs.position.x - (HOLE_WIDTH * obs.scale) / 2,
-                               obs.position.y - (HOLE_HEIGHT * obs.scale) / 2 },
-                     0, obs.scale, WHITE);
+        // Usar DrawTexturePro para melhor controle
+        Rectangle source = { 0, 0, (float)obs.texture.width, (float)obs.texture.height };
+        Rectangle dest = {
+            obs.position.x - scaledWidth / 2,
+            obs.position.y - scaledHeight / 2,
+            scaledWidth,
+            scaledHeight
+        };
+        DrawTexturePro(obs.texture, source, dest, (Vector2){0, 0}, 0, WHITE);
     } else {
         // Placeholder: círculo preto com gradiente (buraco)
-        DrawCircle(obs.position.x, obs.position.y, scaledRadius, BLACK);
-        DrawCircleLines(obs.position.x, obs.position.y, scaledRadius - 2.0f, RED);
-        DrawCircle(obs.position.x - scaledRadius / 3, obs.position.y - scaledRadius / 3,
+        float scaledRadius = (HOLE_WIDTH / 2) * obs.scale;
+        DrawCircle((int)obs.position.x, (int)obs.position.y, scaledRadius, BLACK);
+        DrawCircleLines((int)obs.position.x, (int)obs.position.y, scaledRadius - 2.0f, RED);
+        DrawCircle((int)(obs.position.x - scaledRadius / 3), (int)(obs.position.y - scaledRadius / 3),
                   scaledRadius / 4, DARKGRAY);
     }
 }

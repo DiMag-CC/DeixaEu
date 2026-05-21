@@ -11,7 +11,8 @@ Bus createBus(Vector2 position) {
     bus.scale = 1.0f;
 
     bus.spriteLoaded = 0;
-    bus.texture = LoadTexture("assets/img/bus.png");
+    // Tentar carregar texture (busR.png é o disponível)
+    bus.texture = LoadTexture("assets/img/busR.png");
     if (bus.texture.id != 0) {
         bus.spriteLoaded = 1;
     }
@@ -50,26 +51,34 @@ void drawBus(Bus bus) {
 
     float scaledWidth = BUS_WIDTH * bus.scale;
     float scaledHeight = BUS_HEIGHT * bus.scale;
-    Vector2 drawPos = { bus.position.x - scaledWidth / 2, bus.position.y - scaledHeight / 2 };
 
     if (bus.spriteLoaded) {
-        DrawTextureEx(bus.texture, drawPos, 0, bus.scale, WHITE);
+        // Usar DrawTexturePro para melhor controle de scaling
+        Rectangle source = { 0, 0, (float)bus.texture.width, (float)bus.texture.height };
+        Rectangle dest = {
+            bus.position.x - scaledWidth / 2,
+            bus.position.y - scaledHeight / 2,
+            scaledWidth,
+            scaledHeight
+        };
+        DrawTexturePro(bus.texture, source, dest, (Vector2){0, 0}, 0, WHITE);
     } else {
         // Placeholder: retângulo amarelo (ônibus) escalado
-        DrawRectangle(drawPos.x, drawPos.y, scaledWidth, scaledHeight, YELLOW);
+        Vector2 drawPos = { bus.position.x - scaledWidth / 2, bus.position.y - scaledHeight / 2 };
+        DrawRectangle((int)drawPos.x, (int)drawPos.y, (int)scaledWidth, (int)scaledHeight, YELLOW);
         DrawRectangleLinesEx((Rectangle){ drawPos.x, drawPos.y, scaledWidth, scaledHeight }, 2, BLACK);
 
         // Janelas escaladas
         float ww = 10 * bus.scale;
         float wh = 8 * bus.scale;
-        DrawRectangle(drawPos.x + 10 * bus.scale, drawPos.y + 5 * bus.scale, ww, wh, SKYBLUE);
-        DrawRectangle(drawPos.x + 25 * bus.scale, drawPos.y + 5 * bus.scale, ww, wh, SKYBLUE);
-        DrawRectangle(drawPos.x + 40 * bus.scale, drawPos.y + 5 * bus.scale, ww, wh, SKYBLUE);
+        DrawRectangle((int)(drawPos.x + 10 * bus.scale), (int)(drawPos.y + 5 * bus.scale), (int)ww, (int)wh, SKYBLUE);
+        DrawRectangle((int)(drawPos.x + 25 * bus.scale), (int)(drawPos.y + 5 * bus.scale), (int)ww, (int)wh, SKYBLUE);
+        DrawRectangle((int)(drawPos.x + 40 * bus.scale), (int)(drawPos.y + 5 * bus.scale), (int)ww, (int)wh, SKYBLUE);
 
         // Rodas escaladas
         float wheelRadius = 3.0f * bus.scale;
-        DrawCircle(drawPos.x + 15 * bus.scale, drawPos.y + scaledHeight - wheelRadius, wheelRadius, BLACK);
-        DrawCircle(drawPos.x + scaledWidth - 15 * bus.scale, drawPos.y + scaledHeight - wheelRadius, wheelRadius, BLACK);
+        DrawCircle((int)(drawPos.x + 15 * bus.scale), (int)(drawPos.y + scaledHeight - wheelRadius), wheelRadius, BLACK);
+        DrawCircle((int)(drawPos.x + scaledWidth - 15 * bus.scale), (int)(drawPos.y + scaledHeight - wheelRadius), wheelRadius, BLACK);
     }
 }
 
