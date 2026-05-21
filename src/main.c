@@ -22,25 +22,29 @@ void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenW
     const int HUD_Y_STEP = 25;
     const int HUD_MARGIN = 10;
 
+    // ===== FONTE DINÂMICA BASEADA EM RESOLUÇÃO =====
+    int fontSize = (screenWidth < 1024) ? 14 : 16;
+    int smallFontSize = (screenWidth < 1024) ? 12 : 14;
+
     // ===== VIDAS =====
     char livesText[64];
     sprintf(livesText, "Vidas: %d / 3", player->lives);
-    DrawText(livesText, HUD_MARGIN, HUD_Y_START, 16, BLACK);
+    DrawText(livesText, HUD_MARGIN, HUD_Y_START, fontSize, BLACK);
 
     // ===== PONTOS =====
     char scoreText[64];
     sprintf(scoreText, "Pontos: %.0f", player->score);
-    DrawText(scoreText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP, 16, BLACK);
+    DrawText(scoreText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP, fontSize, BLACK);
 
     // ===== TEMPO =====
     char timeText[64];
     sprintf(timeText, "Tempo: %.1f s", totalGameTime);
-    DrawText(timeText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 2, 16, BLACK);
+    DrawText(timeText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 2, fontSize, BLACK);
 
     // ===== DIFICULDADE =====
     char diffText[64];
     sprintf(diffText, "Dificuldade: x%.1f", stage->difficultyMultiplier);
-    DrawText(diffText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 3, 16, DARKBLUE);
+    DrawText(diffText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 3, fontSize, DARKBLUE);
 
     // ===== PROTEÇÃO DE GUARDA-CHUVA =====
     if (player->hasUmbrella > 0) {
@@ -136,8 +140,13 @@ int main(void) {
         float deltaTime = GetFrameTime();
 
         // ===== ALTERAR TELA CHEIA =====
-        if (IsKeyPressed(KEY_F)) {
+        if (IsKeyPressed(KEY_F11) || (IsKeyPressed(KEY_F) && IsKeyDown(KEY_LEFT_ALT))) {
             ToggleFullscreen();
+        }
+
+        // ===== DEBUG MODE =====
+        if (IsKeyPressed(KEY_D)) {
+            debugMode = !debugMode;
         }
 
         // ===== MENU =====
@@ -233,9 +242,6 @@ int main(void) {
             drawGameHUD(&stage1, &player, totalGameTime, screenWidth, screenHeight);
 
             // ===== DEBUG MODE =====
-            if (IsKeyPressed(KEY_D)) {
-                debugMode = !debugMode;
-            }
             if (debugMode) {
                 drawPlayerDebug(player);
                 DrawText("DEBUG MODE (D para desativar)", 10, 30, 14, RED);
