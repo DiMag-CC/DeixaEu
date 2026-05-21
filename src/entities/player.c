@@ -187,6 +187,29 @@ void updatePlayer(Player *player, float deltaTime) {
         }
     }
 
+    // ===== ATUALIZAR STATE MACHINE FINAL =====
+    // Determinar estado final baseado em situações especiais
+    if (player->knockbackTimer > 0) {
+        // Knockback visual override
+        player->state = PLAYER_STATE_HIT;
+    } else if (player->hasUmbrella > 0 && player->state != PLAYER_STATE_DEAD) {
+        // Proteção de guarda-chuva visual
+        if (fabs(player->velocity.x) > 10.0f) {
+            player->state = PLAYER_STATE_RUNNING;  // Mantém running mas com visual diferente
+        } else {
+            player->state = PLAYER_STATE_IDLE;
+        }
+    } else if (player->state != PLAYER_STATE_JUMPING &&
+               player->state != PLAYER_STATE_FALLING &&
+               player->state != PLAYER_STATE_DEAD) {
+        // Estado normal: IDLE ou RUNNING baseado em velocidade
+        if (fabs(player->velocity.x) > 10.0f) {
+            player->state = PLAYER_STATE_RUNNING;
+        } else {
+            player->state = PLAYER_STATE_IDLE;
+        }
+    }
+
     // ===== ATUALIZAR ANIMAÇÕES =====
     // Atualizar todas as sequências de animação
     directional_animation_update(&player->anim_standing, deltaTime);
@@ -237,22 +260,52 @@ void drawPlayer(Player player) {
         }
     }
 
+    // Determinar cor baseada em estado
+    Color drawColor = WHITE;
+    if (player.state == PLAYER_STATE_HIT) {
+        // Knockback: piscar branco
+        float blinkPhase = fmod(player.knockbackTimer * 20.0f, 1.0f);
+        drawColor = (blinkPhase < 0.5f) ? WHITE : (Color){200, 200, 200, 255};
+    } else if (player.state == PLAYER_STATE_UMBRELLA_BUFF) {
+        // Proteção: tint levemente azul
+        drawColor = (Color){150, 200, 255, 255};
+    } else if (player.state == PLAYER_STATE_DEAD) {
+        // Morto: vermelho
+        drawColor = (Color){255, 100, 100, 255};
+    }
+
     // Renderizar animação se disponível
     if (current_anim && current_anim->left.frame_count > 0) {
-        directional_animation_render(current_anim, player.position.x, player.position.y, player.scale, WHITE);
+        directional_animation_render(current_anim, player.position.x, player.position.y, player.scale, drawColor);
     } else if (player.spriteLoaded) {
         // Fallback para textura única se animação não carregar
         DrawTextureEx(player.playerTexture,
                      (Vector2){ player.position.x - (player.width * player.scale) / 2,
                                player.position.y - (player.height * player.scale) },
-                     0, player.scale, WHITE);
+                     0, player.scale, drawColor);
     } else {
         // Placeholder: retângulo colorido
         Rectangle scaledHitbox = player.hitbox;
         scaledHitbox.width *= player.scale;
         scaledHitbox.height *= player.scale;
-        DrawRectangleRec(scaledHitbox, ORANGE);
+        DrawRectangleRec(scaledHitbox, drawColor);
         DrawRectangleLinesEx(scaledHitbox, 2, BLACK);
+    }
+
+    // ===== RENDERIZAR GUARDA-CHUVA SE ATIVO =====
+    if (player.hasUmbrella > 0) {
+        // Desenhar guarda-chuva acima do player
+        float umbrellaX = player.position.x;
+        float umbrellaY = player.position.y - (player.height * 0.6f);
+        float umbrellaSize = 30.0f;
+
+        // Semicírculo (guarda-chuva)
+        DrawCircle((int)umbrellaX, (int)umbrellaY, umbrellaSize, (Color){100, 150, 255, 200});
+        DrawCircleLines((int)umbrellaX, (int)umbrellaY, umbrellaSize, (Color){50, 100, 200, 200});
+
+        // Haste
+        DrawLine((int)umbrellaX, (int)umbrellaY + 5, (int)umbrellaX, (int)(player.position.y - player.height * 0.2f),
+                 (Color){100, 100, 100, 200});
     }
 }
 

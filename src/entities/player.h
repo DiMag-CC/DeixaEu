@@ -13,11 +13,13 @@
 
 // ========== ESTADOS DO JOGADOR ==========
 typedef enum {
-    PLAYER_STATE_IDLE      = 0,
-    PLAYER_STATE_RUNNING   = 1,
-    PLAYER_STATE_JUMPING   = 2,
-    PLAYER_STATE_FALLING   = 3,
-    PLAYER_STATE_DEAD      = 4
+    PLAYER_STATE_IDLE             = 0,
+    PLAYER_STATE_RUNNING          = 1,
+    PLAYER_STATE_JUMPING          = 2,
+    PLAYER_STATE_FALLING          = 3,
+    PLAYER_STATE_HIT              = 4,  // Knockback visual
+    PLAYER_STATE_UMBRELLA_BUFF    = 5,  // Com proteção de guarda-chuva
+    PLAYER_STATE_DEAD             = 6
 } PlayerState;
 
 // ========== ESTRUTURA DO JOGADOR ==========
