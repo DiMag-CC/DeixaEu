@@ -3,7 +3,10 @@
 #include <stdio.h>
 #include <math.h>
 
-// ========== HELPER: SPAWNAR OBSTÁCULOS ==========
+static float groundLevel = 0.0f;
+static float platformY = 0.0f;
+static float worldScale = 1.0f;
+
 static void spawnRandomObstacle(Stage1 *stage) {
     int roll = rand() % 100;
     int screenWidth = GetScreenWidth();
@@ -36,7 +39,6 @@ static void spawnRandomObstacle(Stage1 *stage) {
     }
 }
 
-// ========== HELPER: ATUALIZAR OBSTÁCULOS ==========
 static void updateObstacles(Stage1 *stage, float deltaTime) {
     QueueNode *cur = stage->obstacleQueue.front;
 
@@ -181,7 +183,6 @@ static void drawObstacles(Stage1 *stage) {
     }
 }
 
-// ========== INICIALIZAR STAGE 1 ==========
 void initStage1(Stage1 *stage) {
     stage->scrollSpeed = STAGE1_BASE_SCROLL_SPEED;
     stage->distanceTraveled = 0.0f;
@@ -195,8 +196,16 @@ void initStage1(Stage1 *stage) {
     // Inicializar câmera side-scrolling
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
-    stage->camera.target = (Vector2){ screenWidth * 0.25f, screenHeight * 0.6f };
-    stage->camera.offset = (Vector2){ screenWidth * 0.25f, screenHeight * 0.6f };
+    stage->worldScale = screenHeight / 720.0f;
+
+    stage->camera.target =
+    (Vector2){ screenWidth * 0.5f,
+            screenHeight * 0.5f };
+
+    stage->camera.offset =
+    (Vector2){ screenWidth * 0.5f,
+            screenHeight * 0.5f };
+
     stage->camera.rotation = 0.0f;
     stage->camera.zoom = 1.0f;
     stage->cameraDamping = 0.15f;  // Damping suave para câmera responsiva
@@ -220,8 +229,8 @@ void initStage1(Stage1 *stage) {
         stage->bgLoaded = 1;
     }
 
-    // Usar GROUND_Y constante para sincronização
-    stage->groundLevel = GROUND_Y;
+    stage->groundLevel =
+        GetScreenHeight() * GROUND_Y_RATIO;
 
     // Carregar plataforma (chão)
     stage->platformLoaded = 0;
@@ -234,7 +243,6 @@ void initStage1(Stage1 *stage) {
     stage->parallaxOffset = 0.0f;
 }
 
-// ========== ATUALIZAR STAGE 1 ==========
 void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     if (stage->stage1Complete || stage->stage1Failed) {
         return;
@@ -280,13 +288,12 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
         player->isGrounded = 1;
     }
 
-    // ===== ATUALIZAR ENTIDADES =====
+
     updateBike(&stage->bike, player, deltaTime);
     updateRainSystem(&stage->rain, deltaTime);
     updateCloudSystem(&stage->cloudSystem, stage->scrollSpeed, deltaTime);
     updateObstacles(stage, deltaTime);
 
-    // ===== ATUALIZAR CÂMERA SIDE-SCROLLING COM DAMPING =====
     float targetX = player->position.x + 100.0f;  // Lookahead
     float targetY = player->position.y - 80.0f;
 
@@ -321,7 +328,6 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     }
 }
 
-// ========== DESENHAR HUD STAGE 1 ==========
 static void drawStage1HUD(Stage1 *stage, Player *player) {
     int fontSize = 16;
 
@@ -331,7 +337,7 @@ static void drawStage1HUD(Stage1 *stage, Player *player) {
     DrawText(livesText, 10, 10, fontSize, WHITE);
 
     char scoreText[64];
-    sprintf(scoreText, "PUNTOS: %.0f", player->score);
+    sprintf(scoreText, "PONTOS: %.0f", player->score);
     DrawText(scoreText, 10, 30, fontSize, WHITE);
 
     char timeText[64];
@@ -351,95 +357,168 @@ static void drawStage1HUD(Stage1 *stage, Player *player) {
     }
 }
 
-// ========== DESENHAR STAGE 1 ==========
 void drawStage1(Stage1 *stage, Player *player) {
-    // ===== INICIAR MODO 2D COM CÂMERA =====
+
     BeginMode2D(stage->camera);
 
     int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
 
-    // ===== CAMADA 1: CÉU (parallax 0.1x - muito distante) =====
-    float parallax_sky = stage->camera.target.x * 0.1f;
-    DrawRectangle(-10000, 0, 20000, GROUND_Y - 100, (Color){135, 206, 235, 255});  // Céu azul
+    // =========================================
+    // GROUND LEVEL REAL
+    // =========================================
+    float groundY = stage->groundLevel;
 
-    // Nuvens procedurais no céu
-    int cloudCount = 8;
-    for (int i = 0; i < cloudCount; i++) {
-        float cloudX = ((int)(parallax_sky / 300) % cloudCount + i) * 300 - parallax_sky;
-        float cloudY = 50.0f + (i % 3) * 30;
-        DrawCircle((int)cloudX - 30, (int)cloudY, 20, WHITE);
-        DrawCircle((int)cloudX, (int)cloudY, 25, WHITE);
-        DrawCircle((int)cloudX + 30, (int)cloudY, 20, WHITE);
+    // =========================================
+    // PARALLAX UPDATE
+    // =========================================
+    float bgScroll =
+        fmod(stage->parallaxOffset * 0.2f,
+             screenWidth);
+
+    float fgScroll =
+        fmod(stage->parallaxOffset * 0.6f,
+             screenWidth);
+
+    // =========================================
+    // CAMADA 1 — CÉU
+    // =========================================
+    DrawRectangle(
+        -10000,
+        -10000,
+        20000,
+        20000,
+        (Color){135, 206, 235, 255}
+    );
+
+    // =========================================
+    // NUVENS
+    // =========================================
+    for (int i = 0; i < 8; i++) {
+
+        float cloudX =
+            i * 400 - bgScroll;
+
+        float cloudY =
+            screenHeight * 0.12f +
+            (i % 3) * 35;
+
+        DrawCircle(cloudX - 30, cloudY, 20, WHITE);
+        DrawCircle(cloudX,      cloudY, 28, WHITE);
+        DrawCircle(cloudX + 30, cloudY, 20, WHITE);
     }
 
-    // ===== CAMADA 2: BACKGROUND COM PARALLAX (0.3x) =====
-    if (stage->bgLoaded) {
-        float bgTileWidth = stage->backgroundTexture.width;
-        float parallaxX = stage->parallaxOffset;
-        int firstTile = (int)(parallaxX / bgTileWidth);
+    // =========================================
+    // CAMADA 2 — BACKGROUND
+    // =========================================
+    if (stage->bgLoaded &&
+        stage->backgroundTexture.id != 0) {
+
+        float bgScale =
+            (float)screenHeight /
+            stage->backgroundTexture.height;
+
+        float bgWidth =
+            stage->backgroundTexture.width *
+            bgScale;
+
+        Rectangle source = {
+            0,
+            0,
+            (float)stage->backgroundTexture.width,
+            (float)stage->backgroundTexture.height
+        };
 
         for (int i = -1; i < 3; i++) {
-            float tileX = (firstTile + i) * bgTileWidth + (stage->parallaxOffset - (int)stage->parallaxOffset / bgTileWidth * bgTileWidth);
-            DrawTextureEx(stage->backgroundTexture, (Vector2){ tileX, 0 }, 0, 1.0f, WHITE);
+
+            Rectangle dest = {
+                i * bgWidth - bgScroll,
+                0,
+                bgWidth,
+                screenHeight
+            };
+
+            DrawTexturePro(
+                stage->backgroundTexture,
+                source,
+                dest,
+                (Vector2){0,0},
+                0,
+                WHITE
+            );
         }
-    } else {
-        // Placeholder: cinza para prédios/paisagem
-        DrawRectangle(-5000, 80, 10000, GROUND_Y - 130, (Color){100, 100, 120, 100});
     }
 
-    // ===== DESENHAR NUVENS PROCEDURAIS E CHUVA =====
-    drawCloudSystem(stage->cloudSystem);
+    // =========================================
+    // PLATAFORMA / ESTRADA
+    // =========================================
+    if (stage->platformLoaded &&
+        stage->platformTexture.id != 0) {
 
-    // ===== DESENHAR CHUVA LEGACY (MANTIDA PARA COMPATIBILIDADE) =====
-    drawRainSystem(stage->rain);
+        float roadHeight = 220.0f;
 
-    // ===== CAMADA 3: ELEMENTOS PRÓXIMOS (parallax 0.6x) =====
-    float parallax_foreground = stage->camera.target.x * 0.6f;
+        float platformScale =
+            roadHeight /
+            stage->platformTexture.height;
 
-    // Postes de estrada
-    int poleCount = 5;
-    for (int i = 0; i < poleCount; i++) {
-        float poleX = ((int)(parallax_foreground / 400) % poleCount + i) * 400 - parallax_foreground;
-        DrawRectangle((int)poleX - 5, GROUND_Y - 150, 10, 150, (Color){80, 80, 80, 200});
-    }
+        float platformWidth =
+            stage->platformTexture.width *
+            platformScale;
 
-    // ===== DESENHAR PLATAFORMA (CHÃO) COM SCROLL INFINITO =====
-    float platformY = GROUND_Y;
-    if (stage->platformLoaded) {
-        float platformTileWidth = stage->platformTexture.width;
-        float worldX = stage->camera.target.x - screenWidth;
-        int firstTile = (int)(worldX / platformTileWidth);
+        float roadY =
+            groundY - roadHeight + 40;
+
+        Rectangle source = {
+            0,
+            0,
+            (float)stage->platformTexture.width,
+            (float)stage->platformTexture.height
+        };
 
         for (int i = -1; i < 4; i++) {
-            float tileX = (firstTile + i) * platformTileWidth;
-            DrawTextureEx(stage->platformTexture, (Vector2){ tileX, platformY }, 0, 1.0f, WHITE);
+
+            Rectangle dest = {
+                i * platformWidth -
+                fmod(stage->parallaxOffset,
+                     platformWidth),
+
+                roadY,
+
+                platformWidth,
+                roadHeight
+            };
+
+            DrawTexturePro(
+                stage->platformTexture,
+                source,
+                dest,
+                (Vector2){0,0},
+                0,
+                WHITE
+            );
         }
+
     } else {
-        // Placeholder: estrada cinza com linhas
-        float roadHeight = 60.0f;
-        float roadX = (int)(stage->camera.target.x / 100) * 100;
-        for (int i = -3; i < 5; i++) {
-            float segmentX = roadX + (i * 100);
-            DrawRectangle(segmentX, platformY, 100, roadHeight, (Color){100, 100, 100, 255});
-            DrawLine(segmentX + 50, platformY, segmentX + 50, platformY + roadHeight, YELLOW);
-        }
+
+        DrawRectangle(
+            -5000,
+            groundY - 40,
+            10000,
+            80,
+            DARKGRAY
+        );
     }
 
-    // ===== DESENHAR OBSTÁCULOS =====
+    drawCloudSystem(stage->cloudSystem);
+    drawRainSystem(stage->rain);
+
     drawObstacles(stage);
 
-    // ===== DESENHAR PLAYER =====
     drawPlayer(*player);
 
-    // ===== FINALIZAR MODO 2D =====
     EndMode2D();
 
-    // ===== DESENHAR HUD (fora do modo câmera, no espaço de tela) =====
-    // Nota: drawGameHUD em main.c é redundante, aqui temos versão local em stage1
     drawStage1HUD(stage, player);
-
-    // ===== DEBUG MODE (se ativado externamente via main.c) =====
-    // Debug é controlado por flag em main.c para evitar dependência circular
 }
 
 // ========== DESCARREGAR RESOURCES STAGE 1 ==========
