@@ -109,7 +109,6 @@ int main(void) {
 
     // ========== INICIALIZAR PLAYER ==========
     int screenWidth = GetScreenWidth();
-    int screenHeight = GetScreenHeight();
     Player player = createPlayer((Vector2){ screenWidth / 2, GROUND_LEVEL }, 150, 3);
 
     // ========== ESTADOS DO JOGO ==========
