@@ -16,7 +16,8 @@ typedef struct {
     Vector2 position;
     Rectangle hitbox;
     int active;
-    float speed;
+    float velocityY;      // Velocidade vertical (gravidade)
+    float rotationZ;      // Rotação ao cair
 } Poop;
 
 // ========== ESTRUTURA DO POMBO ==========

@@ -41,7 +41,8 @@ Pigeon createPigeon(Vector2 position) {
     for (int i = 0; i < MAX_POOPS; i++) {
         pigeon.poops[i].active = 0;
         pigeon.poops[i].position = (Vector2){ 0, 0 };
-        pigeon.poops[i].speed = POOP_SPEED;
+        pigeon.poops[i].velocityY = 0.0f;
+        pigeon.poops[i].rotationZ = 0.0f;
     }
 
     return pigeon;
@@ -78,6 +79,8 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
                     pigeon->position.x,
                     pigeon->position.y + PIGEON_HEIGHT / 2
                 };
+                pigeon->poops[i].velocityY = 0.0f;  // Iniciar sem velocidade (gravidade acumulará)
+                pigeon->poops[i].rotationZ = 0.0f;
                 pigeon->poops[i].active = 1;
                 pigeon->poopCount++;
                 if (pigeon->poopCount > MAX_POOPS) pigeon->poopCount = MAX_POOPS;
@@ -86,10 +89,23 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
         }
     }
 
-    // Atualizar fezes
+    // Atualizar fezes com física
+    float groundLevel = GROUND_LEVEL;
     for (int i = 0; i < MAX_POOPS; i++) {
         if (pigeon->poops[i].active) {
-            pigeon->poops[i].position.y += pigeon->poops[i].speed * deltaTime;
+            // Aplicar gravidade
+            pigeon->poops[i].velocityY += 400.0f * deltaTime;  // Gravidade (400 px/s²)
+
+            // Atualizar posição
+            pigeon->poops[i].position.y += pigeon->poops[i].velocityY * deltaTime;
+
+            // Aplicar rotação
+            pigeon->poops[i].rotationZ += 360.0f * deltaTime;  // Girar 360° por segundo
+            if (pigeon->poops[i].rotationZ >= 360.0f) {
+                pigeon->poops[i].rotationZ = fmod(pigeon->poops[i].rotationZ, 360.0f);
+            }
+
+            // Atualizar hitbox
             pigeon->poops[i].hitbox = (Rectangle){
                 pigeon->poops[i].position.x - POOP_WIDTH / 2,
                 pigeon->poops[i].position.y - POOP_HEIGHT / 2,
@@ -97,9 +113,13 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
                 POOP_HEIGHT
             };
 
-            // Remover fora da tela
-            int screenHeight = GetScreenHeight();
-            if (pigeon->poops[i].position.y > screenHeight + 20) {
+            // Remover se tocar o chão
+            if (pigeon->poops[i].position.y >= groundLevel) {
+                pigeon->poops[i].active = 0;
+                pigeon->poopCount--;
+            }
+            // Remover fora da tela (fallback)
+            else if (pigeon->poops[i].position.y > GetScreenHeight() + 50) {
                 pigeon->poops[i].active = 0;
                 pigeon->poopCount--;
             }
@@ -161,13 +181,27 @@ void drawPigeon(Pigeon pigeon) {
         );
     }
 
-    // Desenhar fezes com círculos
+    // Desenhar fezes com rotação
     for (int i = 0; i < MAX_POOPS; i++) {
         if (pigeon.poops[i].active) {
-            DrawCircle(pigeon.poops[i].position.x, pigeon.poops[i].position.y,
-                      4.0f, BROWN);
-            DrawCircleLines(pigeon.poops[i].position.x, pigeon.poops[i].position.y,
-                           4.0f, DARKBROWN);
+            // Desenhar com rotação visual (usando retângulo girado)
+            float poop_x = pigeon.poops[i].position.x;
+            float poop_y = pigeon.poops[i].position.y;
+            float rot = pigeon.poops[i].rotationZ;
+
+            // Desenhar como círculo mas com indicador de rotação (linha)
+            DrawCircle((int)poop_x, (int)poop_y, 4.0f, BROWN);
+            DrawCircleLines((int)poop_x, (int)poop_y, 4.0f, DARKBROWN);
+
+            // Indicador de rotação (linha no círculo)
+            float rotRad = rot * PI / 180.0f;
+            DrawLine(
+                (int)(poop_x + cosf(rotRad) * 3.0f),
+                (int)(poop_y + sinf(rotRad) * 3.0f),
+                (int)(poop_x - cosf(rotRad) * 3.0f),
+                (int)(poop_y - sinf(rotRad) * 3.0f),
+                DARKBROWN
+            );
         }
     }
 }
