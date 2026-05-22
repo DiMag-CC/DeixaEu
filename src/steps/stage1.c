@@ -474,7 +474,7 @@ void drawStage1(Stage1 *stage, Player *player) {
         stage->backgroundTexture.id != 0) {
 
         float bgScale =
-            (float)screenHeight /
+            ((float)screenHeight * 0.72f) /
             stage->backgroundTexture.height;
 
         float bgWidth =
@@ -490,11 +490,15 @@ void drawStage1(Stage1 *stage, Player *player) {
 
         for (int i = -1; i < 3; i++) {
 
+            float bgHeight =
+                stage->backgroundTexture.height *
+                bgScale;
+
             Rectangle dest = {
                 i * bgWidth - bgScroll,
-                -screenHeight * 0.08f,
+                0,
                 bgWidth,
-                screenHeight
+                bgHeight
             };
 
             DrawTexturePro(
