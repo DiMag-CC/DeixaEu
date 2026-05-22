@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <math.h>
 
-static float groundLevel = 0.0f;
-static float platformY = 0.0f;
 static float worldScale = 1.0f;
 
 static void spawnRandomObstacle(Stage1 *stage) {
@@ -67,11 +65,14 @@ static void spawnRandomObstacle(Stage1 *stage) {
 
         qobs.type = QUEUE_OBS_PIGEON;
 
+        float pigeonY =
+            stage->groundLevel - 260.0f;
+
         qobs.data.pigeon =
             createPigeon(
                 (Vector2){
-                    spawnX,
-                    GetScreenHeight() * 0.28f
+                    spawnPos.x,
+                    pigeonY
                 }
             );
 
@@ -262,16 +263,16 @@ void initStage1(Stage1 *stage) {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
     worldScale = (float)screenHeight / 720.0f;
-    groundLevel = screenHeight * 0.82f;
-    platformY = groundLevel;
 
     stage->camera.target =
     (Vector2){ screenWidth * 0.5f,
             screenHeight * 0.5f };
 
     stage->camera.offset =
-    (Vector2){ screenWidth * 0.5f,
-            screenHeight * 0.5f };
+    (Vector2){
+        screenWidth * 0.35f,
+        screenHeight * 0.50f
+    };
 
     stage->camera.rotation = 0.0f;
     stage->camera.zoom = 1.0f;
@@ -341,7 +342,8 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     int screenHeight = GetScreenHeight();
 
     // ===== SINCRONIZAR PLAYER COM GROUND_Y FIXO =====
-    float playerGroundY = GROUND_Y - player->height;
+    float playerGroundY =
+        stage->groundLevel - player->height;
 
     // Se o player está muito acima do chão, trazer com gravidade
     if (player->position.y < playerGroundY - 5.0f) {

@@ -220,7 +220,8 @@ void updatePlayer(Player *player, float deltaTime) {
     player->position.x += player->velocity.x * deltaTime;
     player->position.y += player->velocity.y * deltaTime;
 
-    float groundY = GLOBAL_GROUND_LEVEL;
+    float groundY =
+        GLOBAL_GROUND_LEVEL - player->height;
 
     if (player->position.y >= groundY) {
 

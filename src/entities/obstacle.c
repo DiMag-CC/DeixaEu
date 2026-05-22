@@ -43,7 +43,6 @@ void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
 void drawObstacle(Obstacle obs) {
     if (!obs.active) return;
 
-    // Escalar para largura alvo de 60px (mantendo aspect ratio)
     const float HOLE_TARGET_WIDTH = 60.0f;
     float scaleX = HOLE_TARGET_WIDTH / obs.texture.width;
     float scaleY = scaleX;  // Manter aspect ratio
@@ -52,7 +51,7 @@ void drawObstacle(Obstacle obs) {
     float scaledHeight = obs.texture.height * scaleY;
 
     if (obs.spriteLoaded && obs.texture.id != 0) {
-        float holeGroundY = 380.0f - scaledHeight / 2; 
+        float holeGroundY = GLOBAL_GROUND_LEVEL - scaledHeight / 2; 
 
         Rectangle source = { 0, 0, (float)obs.texture.width, (float)obs.texture.height };
         Rectangle dest = {

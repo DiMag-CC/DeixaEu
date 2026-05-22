@@ -56,7 +56,8 @@ void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
     const float BUS_TARGET_HEIGHT = 140.0f;
 
     // Ground global
-    float groundY = 520.0f;
+    float groundY =
+        GLOBAL_GROUND_LEVEL;
 
     // Atualizar hitbox
     bus->hitbox.x =
