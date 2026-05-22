@@ -14,7 +14,9 @@ static void spawnRandomObstacle(Stage1 *stage) {
 
     float groundY = stage->groundLevel;
 
-    float spawnX = screenWidth + 300.0f;
+    float spawnX =
+        stage->camera.target.x +
+        screenWidth;
 
     Vector2 spawnPos = {
         spawnX,
