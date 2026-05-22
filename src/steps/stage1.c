@@ -346,7 +346,7 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
 
     // ===== SINCRONIZAR PLAYER COM GROUND_Y FIXO =====
     float playerGroundY =
-        stage->groundLevel - player->height;
+        stage->groundLevel - player->height; - 30.0f
 
     // Se o player está muito acima do chão, trazer com gravidade
     if (player->position.y < playerGroundY - 5.0f) {
@@ -366,22 +366,7 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     updateCloudSystem(&stage->cloudSystem, stage->scrollSpeed, deltaTime);
     updateObstacles(stage, deltaTime);
 
-    float targetX = player->position.x + 100.0f;  // Lookahead
-    float targetY = player->position.y - 80.0f;
-
-    // Aplicar damping suave (interpolação)
-    stage->camera.target.x += (targetX - stage->camera.target.x) * stage->cameraDamping;
-    stage->camera.target.y += (targetY - stage->camera.target.y) * stage->cameraDamping;
-
-    // Manter bounds horizontais
-    if (stage->camera.target.x < screenWidth * 0.5f) {
-        stage->camera.target.x = screenWidth * 0.5f;
-    }
-
-    stage->camera.offset = (Vector2){ screenWidth * 0.25f, screenHeight * 0.6f };
-
-    // ===== ATUALIZAR PARALLAX (Background move 0.3x speed) =====
-    stage->parallaxOffset = stage->camera.target.x * 0.3f;
+    stage->parallaxOffset += stage->scrollSpeed * deltaTime;
 
     // ===== COLISÕES =====
     handleCollisions(stage, player);
@@ -431,7 +416,7 @@ static void drawStage1HUD(Stage1 *stage, Player *player) {
 
 void drawStage1(Stage1 *stage, Player *player) {
 
-    BeginMode2D(stage->camera);
+    // BeginMode2D(stage->camera);
 
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
@@ -579,7 +564,7 @@ void drawStage1(Stage1 *stage, Player *player) {
 
     drawPlayer(*player);
 
-    EndMode2D();
+    // EndMode2D();
 
     drawStage1HUD(stage, player);
 }
