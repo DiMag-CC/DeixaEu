@@ -1,4 +1,5 @@
 #include "stage3.h"
+#include "../utils/gameConstants.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -9,8 +10,8 @@
 #define TOWER_VISIBLE_Y 26.0f
 #define TOWER_VISIBLE_WIDTH 234.0f
 #define TOWER_VISIBLE_HEIGHT 973.0f
-#define TOWER_BASE_Y (GROUND_LEVEL + PLAYER_HEIGHT)
-#define FLOOR_VISUAL_TOP (GROUND_LEVEL - 12.0f)
+#define TOWER_BASE_Y (GLOBAL_GROUND_LEVEL + PLAYER_HEIGHT)
+#define FLOOR_VISUAL_TOP (GLOBAL_GROUND_LEVEL - 12.0f)
 #define TOWER_START_X 2500.0f
 #define PUDDLE_WIDTH 96.0f
 #define PUDDLE_HEIGHT 34.0f
@@ -555,7 +556,7 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->birds[2].poopTimer = 0.0f;
     stage->birds[2].poopInterval = 1.0f + (rand() % 200) / 100.0f;
     
-    player->position = (Vector2){ PLAYER_CENTER_X, GROUND_LEVEL };
+    player->position = (Vector2){ PLAYER_CENTER_X, GLOBAL_GROUND_LEVEL };
     player->isClimbing = false;
     player->velocity = (Vector2){0, 0};
     player->speed = 0.0f; // Para o auto-run

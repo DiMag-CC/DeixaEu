@@ -8,6 +8,7 @@
 //   - cada modo tem suas funções estáticas de spawn e colisão
 
 #include "stage2.h"
+#include "../utils/gameConstants.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -27,7 +28,7 @@ static Texture2D safeLoadTexture(const char *path) {
 static void spawnSandObstacle(Stage2 *stage) {
     int roll = rand() % 100;
     Stage2ObstacleType type;
-    Vector2 pos = { GetScreenWidth(), GROUND_LEVEL + 20 };
+    Vector2 pos = { GetScreenWidth(), GLOBAL_GROUND_LEVEL + 20 };
 
     if (roll < 25) {
         type = S2_OBS_CRAB;
@@ -35,20 +36,20 @@ static void spawnSandObstacle(Stage2 *stage) {
         type = S2_OBS_SANDCASTLE;
     } else if (roll < 60) {
         type = S2_OBS_UMBRELLA_BEACH;
-        pos.y = GROUND_LEVEL - 20;  // mais alto
+        pos.y = GLOBAL_GROUND_LEVEL - 20;  // mais alto
     } else if (roll < 75) {
         type = S2_OBS_VENDOR;
-        pos.y = GROUND_LEVEL - 10;
+        pos.y = GLOBAL_GROUND_LEVEL - 10;
     } else if (roll < 85) {
         type = S2_OBS_BEACH_WAVE;
-        pos.y = GROUND_LEVEL + 30;
+        pos.y = GLOBAL_GROUND_LEVEL + 30;
     } else if (roll < 95) {
         type = S2_OBS_KITE;
         pos.y = 80 + (rand() % 100);   // vem do alto
     } else {
         // 5% — power-up
         type = S2_OBS_COCONUT;
-        pos.y = GROUND_LEVEL - 40;
+        pos.y = GLOBAL_GROUND_LEVEL - 40;
     }
 
     Stage2Obstacle obs = createStage2Obstacle(pos, type);
@@ -471,19 +472,19 @@ static void drawStage2Obstacle(Stage2Obstacle obs) {
 
 static void drawSand(Stage2 *stage) {
     // Céu (gradient placeholder)
-    DrawRectangleGradientV(0, 0, GetScreenWidth(), GROUND_LEVEL + 40,
+    DrawRectangleGradientV(0, 0, GetScreenWidth(), GLOBAL_GROUND_LEVEL + 40,
                            SKYBLUE, (Color){255, 230, 180, 255});
 
     // Mar ao fundo (fina faixa)
-    DrawRectangle(0, GROUND_LEVEL - 80, GetScreenWidth(), 40, BLUE);
+    DrawRectangle(0, GLOBAL_GROUND_LEVEL - 80, GetScreenWidth(), 40, BLUE);
 
     // Areia
-    DrawRectangle(0, GROUND_LEVEL + 40, GetScreenWidth(),
-                  GetScreenHeight() - (GROUND_LEVEL + 40), BEIGE);
+    DrawRectangle(0, GLOBAL_GROUND_LEVEL + 40, GetScreenWidth(),
+                  GetScreenHeight() - (GLOBAL_GROUND_LEVEL + 40), BEIGE);
 
     // Faixa do calçadão (aparece após metade da fase)
     if (stage->distanceTraveled > STAGE2_SAND_DISTANCE * 0.5f) {
-        DrawRectangle(0, GROUND_LEVEL + 40, GetScreenWidth(), 20, LIGHTGRAY);
+        DrawRectangle(0, GLOBAL_GROUND_LEVEL + 40, GetScreenWidth(), 20, LIGHTGRAY);
     }
 
     // Obstáculos

@@ -1,5 +1,5 @@
 #include "stage1.h"
-#include "../utils/game_constants.h"
+#include "../utils/gameConstants.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -432,12 +432,10 @@ void drawStage1(Stage1 *stage, Player *player) {
     int screenHeight = GetScreenHeight();
     float groundY = stage->groundLevel;
 
-    float bgScroll =
-        fmod(stage->parallaxOffset * 0.2f,
+    float bgScroll = fmod(stage->parallaxOffset * 0.2f,
              screenWidth);
 
-    float fgScroll =
-        fmod(stage->parallaxOffset * 0.6f,
+    float fgScroll = fmod(stage->parallaxOffset * 0.6f,
              screenWidth);
 
     // =========================================
@@ -493,7 +491,7 @@ void drawStage1(Stage1 *stage, Player *player) {
 
             Rectangle dest = {
                 i * bgWidth - bgScroll,
-                -screenHeight * 0.08f,,
+                -screenHeight * 0.08f,
                 bgWidth,
                 screenHeight
             };
