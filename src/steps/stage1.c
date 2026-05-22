@@ -437,9 +437,6 @@ void drawStage1(Stage1 *stage, Player *player) {
     float bgScroll = fmod(stage->parallaxOffset * 0.2f,
              screenWidth);
 
-    float fgScroll = fmod(stage->parallaxOffset * 0.6f,
-             screenWidth);
-
     // =========================================
     // CAMADA 1 — CÉU
     // =========================================
