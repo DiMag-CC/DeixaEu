@@ -68,7 +68,8 @@ static void spawnRandomObstacle(Stage1 *stage) {
         qobs.type = QUEUE_OBS_PIGEON;
 
         float pigeonY =
-            stage->groundLevel - 260.0f;
+            stage->groundLevel -
+            (GetScreenHeight() * 0.28f);
 
         qobs.data.pigeon =
             createPigeon(
