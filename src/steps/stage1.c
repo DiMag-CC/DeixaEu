@@ -518,7 +518,8 @@ void drawStage1(Stage1 *stage, Player *player) {
     if (stage->platformLoaded &&
         stage->platformTexture.id != 0) {
 
-        float roadHeight = 220.0f;
+        float roadHeight =
+            screenHeight * 0.18f;
 
         float platformScale =
             roadHeight /
@@ -529,7 +530,7 @@ void drawStage1(Stage1 *stage, Player *player) {
             platformScale;
 
         float roadY =
-            groundY - roadHeight + 110;
+            groundY - roadHeight * 0.35f;
 
         Rectangle source = {
             0,
