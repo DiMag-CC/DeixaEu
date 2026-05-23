@@ -4,9 +4,9 @@
 #include <math.h>
 #include <stdlib.h>
 
-#define PIGEON_SPEED 150.0f
-#define POOP_SPAWN_INTERVAL 0.8f
-#define POOP_SPEED 200.0f
+#define PIGEON_SPEED 180.0f
+#define POOP_SPAWN_INTERVAL 1.0f
+#define POOP_SPEED 250.0f
 
 Pigeon createPigeon(Vector2 position) {
     Pigeon pigeon;

@@ -43,7 +43,7 @@ void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
 void drawObstacle(Obstacle obs) {
     if (!obs.active) return;
 
-    const float HOLE_TARGET_WIDTH = 60.0f;
+    const float HOLE_TARGET_WIDTH = 70.0f;
     float scaleX = HOLE_TARGET_WIDTH / obs.texture.width;
     float scaleY = scaleX;  // Manter aspect ratio
 
@@ -51,7 +51,7 @@ void drawObstacle(Obstacle obs) {
     float scaledHeight = obs.texture.height * scaleY;
 
     if (obs.spriteLoaded && obs.texture.id != 0) {
-        float holeGroundY = GLOBAL_GROUND_LEVEL - scaledHeight / 2; 
+        float holeGroundY = GLOBAL_GROUND_LEVEL - scaledHeight / 2 + 32.0f; 
 
         Rectangle source = { 0, 0, (float)obs.texture.width, (float)obs.texture.height };
         Rectangle dest = {

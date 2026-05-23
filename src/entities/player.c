@@ -5,10 +5,10 @@
 #include <math.h>
 
 #define GRAVITY 600.0f
-#define JUMP_FORCE 400.0f
+#define JUMP_FORCE 550.0f
 #define FRICTION 0.95f
-#define PLAYER_MAX_SPEED 400.0f
-#define KNOCKBACK_DURATION 0.5f
+#define PLAYER_MAX_SPEED 430.0f
+#define KNOCKBACK_DURATION 1.5f
 #define TEXTURE_VALID(tex) ((tex).id > 0)
 
 Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
@@ -135,10 +135,10 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     }
 
     player.width =
-        player.spriteBikeMovingR.width * player.scale;
+        player.spriteBikeMovingR.width * player.scale + 50.0f;
 
     player.height =
-        player.spriteBikeMovingR.height * player.scale;
+        player.spriteBikeMovingR.height * player.scale + 50.0f;
 
     player.hitbox = (Rectangle){
         player.position.x,
@@ -221,11 +221,11 @@ void updatePlayer(Player *player, float deltaTime) {
     player->position.y += player->velocity.y * deltaTime;
 
     float groundY =
-        GLOBAL_GROUND_LEVEL - player->height;
+        GLOBAL_GROUND_LEVEL - player->height + 520.0f;
 
     if (player->position.y >= groundY) {
 
-        player->position.y = groundY;
+        player->position.y = groundY + 240.0f;
 
         player->velocity.y = 0.0f;
 

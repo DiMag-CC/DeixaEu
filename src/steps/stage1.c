@@ -36,7 +36,7 @@ static void spawnRandomObstacle(Stage1 *stage) {
             createObstacle(
                 (Vector2){
                     spawnX,
-                    groundY
+                    groundY + 120.0f
                 },
                 OBS_HOLE
             );
@@ -54,7 +54,7 @@ static void spawnRandomObstacle(Stage1 *stage) {
             createBus(
                 (Vector2){
                     spawnX,
-                    groundY
+                    groundY + 120.0f
                 }
             );
 
@@ -68,8 +68,8 @@ static void spawnRandomObstacle(Stage1 *stage) {
         qobs.type = QUEUE_OBS_PIGEON;
 
         float pigeonY =
-            stage->groundLevel -
-            (GetScreenHeight() * 0.28f);
+            groundY -
+            (GetScreenHeight() * 0.05f);
 
         qobs.data.pigeon =
             createPigeon(
@@ -432,7 +432,7 @@ void drawStage1(Stage1 *stage, Player *player) {
 
         float bgWidth =
             stage->backgroundTexture.width *
-            bgScale;
+            bgScale + 360.0f;
 
         Rectangle source = {
             0,
@@ -445,7 +445,7 @@ void drawStage1(Stage1 *stage, Player *player) {
 
             float bgHeight =
                 stage->backgroundTexture.height *
-                bgScale;
+                bgScale + 360.0f;
 
             Rectangle dest = {
                 i * bgWidth - bgScroll,
@@ -472,14 +472,14 @@ void drawStage1(Stage1 *stage, Player *player) {
         stage->platformTexture.id != 0) {
 
         float platformWidth =
-            stage->platformTexture.width;
+            stage->platformTexture.width + 50.0f;
 
         float platformHeight =
-            stage->platformTexture.height;
+            stage->platformTexture.height + 12.0f;
 
         float roadY =
             screenHeight -
-            platformHeight;
+            platformHeight + 520.0f;
 
         Rectangle source = {
             0,

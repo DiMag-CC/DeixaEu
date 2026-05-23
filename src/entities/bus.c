@@ -81,14 +81,14 @@ void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
 void drawBus(Bus bus) {
     if (!bus.active) return;
 
-    const float BUS_TARGET_WIDTH = 320.0f;
-    const float BUS_TARGET_HEIGHT = 140.0f;
+    const float BUS_TARGET_WIDTH = 420.0f;
+    const float BUS_TARGET_HEIGHT = 320.0f;
 
     float scaledWidth = BUS_TARGET_WIDTH;
     float scaledHeight = BUS_TARGET_HEIGHT;
 
     // Posicionar alinhado ao chão
-    float groundY = GLOBAL_GROUND_LEVEL;
+    float groundY = GLOBAL_GROUND_LEVEL + 140.0f;
 
     Rectangle dest = {
         bus.position.x - scaledWidth / 2,
