@@ -1,6 +1,6 @@
 #include "player.h"
 #include "../gfx/animation.h"
-#include "../utils/game_constants.h"
+#include "../utils/utils.h"
 #include <stdlib.h>
 #include <math.h>
 

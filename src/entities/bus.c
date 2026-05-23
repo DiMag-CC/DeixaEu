@@ -1,5 +1,5 @@
 #include "bus.h"
-#include "../utils/game_constants.h"
+#include "../utils/utils.h"
 
 #define BUS_SPEED_MULTIPLIER 1.2f
 

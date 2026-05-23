@@ -1,5 +1,5 @@
 #include "stage1.h"
-#include "../utils/game_constants.h"
+#include "../utils/utils.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -493,7 +493,7 @@ void drawStage1(Stage1 *stage, Player *player) {
 
             Rectangle dest = {
                 i * bgWidth - bgScroll,
-                -screenHeight * 0.08f,,
+                -screenHeight * 0.08f,
                 bgWidth,
                 screenHeight
             };

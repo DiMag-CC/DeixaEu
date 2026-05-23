@@ -92,4 +92,5 @@ void updateStage2(Stage2 *stage, Player *player, float deltaTime);
 void drawStage2(Stage2 *stage, Player *player);
 void unloadStage2(Stage2 *stage);
 
+
 #endif

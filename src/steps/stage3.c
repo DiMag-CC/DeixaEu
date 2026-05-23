@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "../utils/utils.h"
 
 #define WORLD_WIDTH 800.0f
 #define WORLD_HEIGHT 450.0f

@@ -1,5 +1,5 @@
 #include "obstacle.h"
-#include "../utils/game_constants.h"
+#include "../utils/utils.h"
 
 Obstacle createObstacle(Vector2 position, ObstacleType type) {
     Obstacle obs;
