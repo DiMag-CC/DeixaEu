@@ -5,8 +5,8 @@
 #include "../gfx/animation.h"
 
 // ========== CONSTANTES GLOBAIS ==========
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 450
+#define SCREEN_WIDTH 1920.0f
+#define SCREEN_HEIGHT 1080.0f
 #define PLAYER_WIDTH 30.0f
 #define PLAYER_HEIGHT 40.0f
 

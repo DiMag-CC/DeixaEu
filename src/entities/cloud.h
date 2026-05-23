@@ -7,8 +7,8 @@
 #define MAX_RAINDROPS_PER_CLOUD 50
 #define CLOUD_WIDTH 80.0f
 #define CLOUD_HEIGHT 40.0f
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 450
+#define SCREEN_WIDTH 1920.0f
+#define SCREEN_HEIGHT 1080.0f
 #define GROUND_LEVEL 360.0f
 
 // ========== ESTRUTURA DE GOTA DE CHUVA ==========

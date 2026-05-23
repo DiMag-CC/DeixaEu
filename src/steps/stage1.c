@@ -340,13 +340,9 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
         spawnRandomObstacle(stage);
     }
 
-    // ===== OBTER DIMENSÕES DA TELA =====
-    int screenWidth = GetScreenWidth();
-    int screenHeight = GetScreenHeight();
-
     // ===== SINCRONIZAR PLAYER COM GROUND_Y FIXO =====
     float playerGroundY =
-        stage->groundLevel - player->height; - 30.0f
+        stage->groundLevel - player->height - 30.0f;
 
     // Se o player está muito acima do chão, trazer com gravidade
     if (player->position.y < playerGroundY - 5.0f) {
@@ -503,8 +499,6 @@ void drawStage1(Stage1 *stage, Player *player) {
     // =========================================
     if (stage->platformLoaded &&
         stage->platformTexture.id != 0) {
-
-        float platformScale = 1.0f;
 
         float platformWidth =
             stage->platformTexture.width;

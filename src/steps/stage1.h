@@ -8,8 +8,8 @@
 #include "../entities/cloud.h"
 #include "../structure/obstacleQueue.h"
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 450
+#define SCREEN_WIDTH 1920.0f
+#define SCREEN_HEIGHT 1080.0f
 #define GROUND_Y 380.0f      
 #define GROUND_Y_RATIO 0.82f
 

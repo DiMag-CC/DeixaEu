@@ -3,8 +3,8 @@
 
 #include <raylib.h>
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 450
+#define SCREEN_WIDTH 1920.0f
+#define SCREEN_HEIGHT 1080.0f
 #define MAX_RAINDROPS 200
 
 // ========== ESTRUTURA DA GOTA DE CHUVA ==========
