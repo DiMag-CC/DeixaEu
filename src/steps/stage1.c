@@ -381,35 +381,6 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     }
 }
 
-static void drawStage1HUD(Stage1 *stage, Player *player) {
-    int fontSize = 16;
-
-    // ===== CANTO SUPERIOR ESQUERDO: VIDAS, PONTOS, TEMPO =====
-    char livesText[64];
-    sprintf(livesText, "LIVES: %d / 3", player->lives);
-    DrawText(livesText, 10, 10, fontSize, WHITE);
-
-    char scoreText[64];
-    sprintf(scoreText, "PONTOS: %.0f", player->score);
-    DrawText(scoreText, 10, 30, fontSize, WHITE);
-
-    char timeText[64];
-    sprintf(timeText, "TEMPO: %ds", (int)stage->elapsedTime);
-    DrawText(timeText, 10, 50, fontSize, WHITE);
-
-    // ===== CANTO SUPERIOR DIREITO: DIFICULDADE =====
-    char diffText[64];
-    sprintf(diffText, "DIFICULDADE: x%.1f", stage->difficultyMultiplier);
-    DrawText(diffText, 650, 10, fontSize, YELLOW);
-
-    // ===== PROTEÇÃO COM GUARDA-CHUVA (inferior esquerdo se ativo) =====
-    if (player->hasUmbrella > 0) {
-        char umbrellaText[64];
-        sprintf(umbrellaText, "UMBRELLA: %.1fs", player->umbrellaTimer);
-        DrawText(umbrellaText, 10, 400, fontSize, SKYBLUE);
-    }
-}
-
 void drawStage1(Stage1 *stage, Player *player) {
 
     // BeginMode2D(stage->camera);
@@ -559,8 +530,6 @@ void drawStage1(Stage1 *stage, Player *player) {
     drawPlayer(*player);
 
     // EndMode2D();
-
-    drawStage1HUD(stage, player);
 }
 
 void unloadStage1(Stage1 *stage) {
