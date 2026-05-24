@@ -7,20 +7,19 @@
 #define SCREEN_HEIGHT 1080.0f
 #define PIGEON_WIDTH 25.0f
 #define PIGEON_HEIGHT 20.0f
-#define POOP_WIDTH 28.0f
-#define POOP_HEIGHT 28.0f
+#define POOP_WIDTH 45.0f
+#define POOP_HEIGHT 45.0f
 #define MAX_POOPS 50
 
-// ========== ESTRUTURA DE FEZES ==========
 typedef struct {
     Vector2 position;
     Rectangle hitbox;
+    Texture2D poopTexture;
     int active;
     float velocityY;      // Velocidade vertical (gravidade)
     float rotationZ;      // Rotação ao cair
 } Poop;
 
-// ========== ESTRUTURA DO POMBO ==========
 typedef struct {
     Vector2 position;
     Rectangle hitbox;
@@ -31,6 +30,7 @@ typedef struct {
     float wavePhase;
     float scale;
     Texture2D texture;
+    Texture2D poopTexture;
     int spriteLoaded;
 
     // Animação direcional (pigeon1L/R + pigeon2L/R)
@@ -42,7 +42,6 @@ typedef struct {
     int poopCount;
 } Pigeon;
 
-// ========== FUNÇÕES ==========
 Pigeon createPigeon(Vector2 position);
 void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime);
 void drawPigeon(Pigeon pigeon);

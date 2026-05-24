@@ -14,9 +14,12 @@ Obstacle createObstacle(Vector2 position, ObstacleType type) {
         obs.spriteLoaded = 1;
     }
 
+    float holeY =
+    GLOBAL_GROUND_LEVEL - HOLE_HEIGHT / 2 + 32.0f;
+
     obs.hitbox = (Rectangle){
         obs.position.x - HOLE_WIDTH / 2,
-        obs.position.y - HOLE_HEIGHT / 2,
+        holeY,
         HOLE_WIDTH,
         HOLE_HEIGHT
     };
@@ -32,7 +35,8 @@ void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
 
     // Atualizar hitbox
     obs->hitbox.x = obs->position.x - HOLE_WIDTH / 2;
-    obs->hitbox.y = obs->position.y - HOLE_HEIGHT / 2;
+    obs->hitbox.y =
+        GLOBAL_GROUND_LEVEL - HOLE_HEIGHT / 2 + 32.0f;
 
     // Deativar se sair da tela
     if (obs->position.x < -HOLE_WIDTH) {

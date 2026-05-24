@@ -348,7 +348,7 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     }
 
     float playerGroundY =
-        stage->groundLevel - player->height + 84.0f;
+        stage->groundLevel - player->height + 112.0f;
 
     // Se o player está muito acima do chão, trazer com gravidade
     if (player->position.y < playerGroundY - 5.0f) {
@@ -460,6 +460,8 @@ void drawStage1(Stage1 *stage, Player *player) {
                 bgHeight
             };
 
+            dest.y = -24.0f;
+
             DrawTexturePro(
                 stage->backgroundTexture,
                 source,
@@ -496,25 +498,28 @@ void drawStage1(Stage1 *stage, Player *player) {
 
         for (int i = -1; i < 4; i++) {
 
-            Rectangle dest = {
-                i * platformWidth -
-                fmod(stage->parallaxOffset,
-                     platformWidth),
+            float perspectiveOffset = 80.0f;
 
-                roadY,
+                Rectangle dest = {
+                    i * platformWidth -
+                    fmod(stage->parallaxOffset,
+                        platformWidth),
 
-                platformWidth,
-                platformHeight
-            };
+                    roadY + 2.0f,
+
+                    platformWidth + perspectiveOffset,
+                    platformHeight
+                };
 
             DrawTexturePro(
                 stage->platformTexture,
                 source,
                 dest,
                 (Vector2){0,0},
-                0,
+                0.0f,
                 WHITE
             );
+
         }
 
     } else {

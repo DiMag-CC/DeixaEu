@@ -24,6 +24,10 @@ Pigeon createPigeon(Vector2 position) {
 
     pigeon.spriteLoaded = 0;
     pigeon.texture = LoadTexture("assets/img/pigeon.png");
+
+    pigeon.poopTexture =
+        LoadTexture("assets/img/pigeonPoop.png");
+
     if (pigeon.texture.id != 0) {
         pigeon.spriteLoaded = 1;
     }
@@ -132,7 +136,7 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
 void drawPigeon(Pigeon pigeon) {
     if (!pigeon.active) return;
 
-    const float PIGEON_TARGET_WIDTH = 6.0f;
+    const float PIGEON_TARGET_WIDTH = 5.0f;
     float scaleRatio = PIGEON_TARGET_WIDTH / PIGEON_WIDTH;
 
     float scaledWidth = PIGEON_TARGET_WIDTH;
@@ -184,18 +188,32 @@ void drawPigeon(Pigeon pigeon) {
             float poop_y = pigeon.poops[i].position.y;
             float rot = pigeon.poops[i].rotationZ;
 
-            // Desenhar como círculo mas com indicador de rotação (linha)
-            DrawCircle((int)poop_x, (int)poop_y, 4.0f, BROWN);
-            DrawCircleLines((int)poop_x, (int)poop_y, 4.0f, DARKBROWN);
+            float poopSize = 80.0f;
 
-            // Indicador de rotação (linha no círculo)
-            float rotRad = rot * PI / 180.0f;
-            DrawLine(
-                (int)(poop_x + cosf(rotRad) * 3.0f),
-                (int)(poop_y + sinf(rotRad) * 3.0f),
-                (int)(poop_x - cosf(rotRad) * 3.0f),
-                (int)(poop_y - sinf(rotRad) * 3.0f),
-                DARKBROWN
+            Rectangle source = {
+                0.0f,
+                0.0f,
+                (float)pigeon.poopTexture.width,
+                (float)pigeon.poopTexture.height
+            };
+
+            Rectangle dest = {
+                poop_x - poopSize * 0.5f,
+                poop_y - poopSize * 0.5f,
+                poopSize,
+                poopSize
+            };
+
+            DrawTexturePro(
+                pigeon.poopTexture,
+                source,
+                dest,
+                (Vector2){
+                    poopSize * 0.5f,
+                    poopSize * 0.5f
+                },
+                rot,
+                WHITE
             );
         }
     }
@@ -208,6 +226,7 @@ void unloadPigeonResources(Pigeon *pigeon) {
     // Descarregar textura (deprecated)
     if (pigeon->spriteLoaded) {
         UnloadTexture(pigeon->texture);
+        UnloadTexture(pigeon->poopTexture);
         pigeon->spriteLoaded = 0;
     }
 }

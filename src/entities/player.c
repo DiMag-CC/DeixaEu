@@ -221,11 +221,11 @@ void updatePlayer(Player *player, float deltaTime) {
     player->position.y += player->velocity.y * deltaTime;
 
     float groundY =
-        GLOBAL_GROUND_LEVEL - player->height + 520.0f;
+        GLOBAL_GROUND_LEVEL - player->height + 300.0f;
 
     if (player->position.y >= groundY) {
 
-        player->position.y = groundY + 240.0f;
+        player->position.y = groundY + 160.0f;
 
         player->velocity.y = 0.0f;
 
@@ -386,7 +386,7 @@ void drawPlayer(Player player) {
 
         Rectangle destRect = {
             player.position.x - player.width * 0.5f,
-            player.position.y - player.height + 25.0f,
+            player.position.y - player.height + 18.0f,
             player.width,
             player.height
         };
