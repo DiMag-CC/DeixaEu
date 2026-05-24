@@ -7,8 +7,8 @@
 #define SCREEN_HEIGHT 1080.0f
 #define PIGEON_WIDTH 25.0f
 #define PIGEON_HEIGHT 20.0f
-#define POOP_WIDTH 8.0f
-#define POOP_HEIGHT 8.0f
+#define POOP_WIDTH 28.0f
+#define POOP_HEIGHT 28.0f
 #define MAX_POOPS 50
 
 // ========== ESTRUTURA DE FEZES ==========

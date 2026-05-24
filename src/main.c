@@ -16,9 +16,9 @@
 #define FPS 60
 
 void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenWidth, int screenHeight) {
-    const int HUD_Y_START = 10;
+    const int HUD_Y_START = 12;
     const int HUD_Y_STEP = 25;
-    const int HUD_MARGIN = 10;
+    const int HUD_MARGIN = 12;
 
     // ===== FONTE DINÂMICA BASEADA EM RESOLUÇÃO =====
     int fontSize = (screenWidth < 1024) ? 14 : 16;
@@ -109,7 +109,7 @@ int main(void) {
 
     // ========== INICIALIZAR PLAYER ==========
     int screenWidth = GetScreenWidth();
-    Player player = createPlayer((Vector2){ screenWidth / 2, GROUND_LEVEL }, 150, 3);
+    Player player = createPlayer((Vector2){ screenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
 
     // ========== ESTADOS DO JOGO ==========
     int isGameOver = 0;
@@ -160,7 +160,7 @@ int main(void) {
                     unloadStage1(&stage1);
                     initStage1(&stage1);
                     int currentScreenWidth = GetScreenWidth();
-                    player = createPlayer((Vector2){ currentScreenWidth / 2, GROUND_LEVEL }, 150, 3);
+                    player = createPlayer((Vector2){ currentScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
                 }
                 else if (menu.selectedOption == 2) {
                     // Sair do jogo
@@ -187,7 +187,7 @@ int main(void) {
                 if (IsKeyPressed(KEY_ENTER) || gameOverTimer <= 0) {
                     // Reset do jogo e voltar para o menu
                     int resetScreenWidth = GetScreenWidth();
-                    player = createPlayer((Vector2){ resetScreenWidth / 2, GROUND_LEVEL }, 150, 3);
+                    player = createPlayer((Vector2){ resetScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
                     unloadStage1(&stage1);
                     initStage1(&stage1);
                     isGameOver = 0;
@@ -203,7 +203,7 @@ int main(void) {
                 if (IsKeyPressed(KEY_ENTER)) {
                     // Reset do jogo e voltar para o menu
                     int victoryScreenWidth = GetScreenWidth();
-                    player = createPlayer((Vector2){ victoryScreenWidth / 2, GROUND_LEVEL }, 150, 3);
+                    player = createPlayer((Vector2){ victoryScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
                     unloadStage1(&stage1);
                     initStage1(&stage1);
                     totalGameTime = 0.0f;

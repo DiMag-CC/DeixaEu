@@ -4,11 +4,11 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define GRAVITY 600.0f
-#define JUMP_FORCE 550.0f
+#define GRAVITY 520.0f
+#define JUMP_FORCE 480.0f
 #define FRICTION 0.95f
-#define PLAYER_MAX_SPEED 430.0f
-#define KNOCKBACK_DURATION 1.5f
+#define PLAYER_MAX_SPEED 450.0f
+#define KNOCKBACK_DURATION 1.2f
 #define TEXTURE_VALID(tex) ((tex).id > 0)
 
 Player createPlayer(Vector2 startPos, float startSpeed, int lives) {

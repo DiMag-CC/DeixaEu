@@ -67,9 +67,16 @@ static void spawnRandomObstacle(Stage1 *stage) {
 
         qobs.type = QUEUE_OBS_PIGEON;
 
+        float minPigeonY =
+            groundY - (GetScreenHeight() * 0.48f);
+
+        float maxPigeonY =
+            groundY - (GetScreenHeight() * 0.28f);
+
         float pigeonY =
-            groundY -
-            (GetScreenHeight() * 0.05f);
+            minPigeonY +
+            ((float)rand() / RAND_MAX) *
+            (maxPigeonY - minPigeonY);
 
         qobs.data.pigeon =
             createPigeon(
@@ -340,9 +347,8 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
         spawnRandomObstacle(stage);
     }
 
-    // ===== SINCRONIZAR PLAYER COM GROUND_Y FIXO =====
     float playerGroundY =
-        stage->groundLevel - player->height - 30.0f;
+        stage->groundLevel - player->height + 84.0f;
 
     // Se o player está muito acima do chão, trazer com gravidade
     if (player->position.y < playerGroundY - 5.0f) {

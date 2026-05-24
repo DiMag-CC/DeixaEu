@@ -132,8 +132,7 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
 void drawPigeon(Pigeon pigeon) {
     if (!pigeon.active) return;
 
-    // Escalar para 40px de largura (mantendo aspect ratio)
-    const float PIGEON_TARGET_WIDTH = 40.0f;
+    const float PIGEON_TARGET_WIDTH = 6.0f;
     float scaleRatio = PIGEON_TARGET_WIDTH / PIGEON_WIDTH;
 
     float scaledWidth = PIGEON_TARGET_WIDTH;
