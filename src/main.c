@@ -7,6 +7,7 @@
 #include "entities/player.h"
 #include "menu.h"
 #include "structure/stepList.h"
+#include "utils/gameConstants.h"
 
 #define SCREEN_WIDTH 1920.0f
 #define SCREEN_HEIGHT 1080.0f
@@ -14,6 +15,13 @@
 #define WORLD_HEIGHT 450.0f
 #define CAMERA_VERTICAL_LOOKAHEAD 150.0f
 #define FPS 60
+#define WINDOWED_WIDTH 1280
+#define WINDOWED_HEIGHT 720
+
+typedef enum {
+    GAME_STAGE_1 = 1,
+    GAME_STAGE_3 = 3
+} GameStage;
 
 void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenWidth, int screenHeight) {
     const int HUD_Y_START = 12;
@@ -76,6 +84,62 @@ void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenW
     DrawRectangleLinesEx((Rectangle){HUD_MARGIN, progressBarY, progressBarWidth, progressBarHeight}, 2, BLACK);
 }
 
+void drawStage3HUD(Player *player, float totalGameTime, int screenWidth) {
+    const int hudMargin = 12;
+    const int fontSize = 16;
+
+    char livesText[64];
+    sprintf(livesText, "Vidas: %d / 3", player->lives);
+    DrawText(livesText, hudMargin, 12, fontSize, BLACK);
+
+    char scoreText[64];
+    sprintf(scoreText, "Pontos: %.0f", player->score);
+    DrawText(scoreText, hudMargin, 37, fontSize, BLACK);
+
+    char timeText[64];
+    sprintf(timeText, "Tempo: %.1f s", totalGameTime);
+    DrawText(timeText, hudMargin, 62, fontSize, BLACK);
+
+    const char *stageText = "Fase 3";
+    DrawText(stageText, screenWidth - MeasureText(stageText, fontSize) - hudMargin, 12, fontSize, DARKBLUE);
+}
+
+void refreshStage1Layout(Stage1 *stage) {
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+
+    GLOBAL_WORLD_SCALE = (float)screenHeight / BASE_SCREEN_HEIGHT;
+    GLOBAL_GROUND_LEVEL = screenHeight * GROUND_Y_RATIO;
+    stage->groundLevel = GLOBAL_GROUND_LEVEL;
+    stage->camera.target = (Vector2){ screenWidth * 0.5f, screenHeight * 0.5f };
+    stage->camera.offset = (Vector2){ screenWidth * 0.35f, screenHeight * 0.50f };
+}
+
+void centerWindowOnCurrentMonitor(int width, int height) {
+    int monitor = GetCurrentMonitor();
+    int monitorWidth = GetMonitorWidth(monitor);
+    int monitorHeight = GetMonitorHeight(monitor);
+    int monitorX = GetMonitorPosition(monitor).x;
+    int monitorY = GetMonitorPosition(monitor).y;
+
+    SetWindowPosition(
+        monitorX + (monitorWidth - width) / 2,
+        monitorY + (monitorHeight - height) / 2
+    );
+}
+
+void toggleGameFullscreen(void) {
+    if (!IsWindowFullscreen()) {
+        int monitor = GetCurrentMonitor();
+        SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
+        ToggleFullscreen();
+    } else {
+        ToggleFullscreen();
+        SetWindowSize(WINDOWED_WIDTH, WINDOWED_HEIGHT);
+        centerWindowOnCurrentMonitor(WINDOWED_WIDTH, WINDOWED_HEIGHT);
+    }
+}
+
 void drawPlayerDebug(Player player) {
     DrawRectangleLinesEx(player.hitbox, 1, RED);
     DrawCircle(player.position.x, player.position.y, 3, GREEN);
@@ -99,13 +163,17 @@ void drawPlayerDebug(Player player) {
 
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Deixa Eu");
-    ToggleFullscreen();
+    InitWindow(WINDOWED_WIDTH, WINDOWED_HEIGHT, "Deixa Eu");
+    toggleGameFullscreen();
     SetTargetFPS(FPS);
 
     // ========== INICIALIZAR STAGE 1 ==========
     Stage1 stage1;
     initStage1(&stage1);
+    int stage1Initialized = 1;
+
+    Stage3 stage3 = {0};
+    int stage3Initialized = 0;
 
     // ========== INICIALIZAR PLAYER ==========
     int screenWidth = GetScreenWidth();
@@ -116,6 +184,7 @@ int main(void) {
     float gameOverTimer = 0.0f;
     float totalGameTime = 0.0f;
     int debugMode = 0;
+    GameStage activeStage = GAME_STAGE_1;
 
     // ========== MENU ==========
     Menu menu = createMenu();
@@ -125,7 +194,9 @@ int main(void) {
     Phase *phaseList = NULL;
 
     Phase *phase1 = createPhase(1, "Recife Chuvoso");
+    Phase *phase3 = createPhase(3, "Torre Final");
     insertPhase(&phaseList, phase1);
+    insertPhase(&phaseList, phase3);
 
     Phase *currentPhase = phase1;
     printf("Fase atual: %s (numero %d)\n", currentPhase->phaseName, currentPhase->phaseNumber);
@@ -137,7 +208,16 @@ int main(void) {
 
         // ===== ALTERAR TELA CHEIA =====
         if (IsKeyPressed(KEY_F11) || (IsKeyPressed(KEY_F) && IsKeyDown(KEY_LEFT_ALT))) {
-            ToggleFullscreen();
+            toggleGameFullscreen();
+        }
+
+        if (IsWindowResized() || IsKeyPressed(KEY_F11) || (IsKeyPressed(KEY_F) && IsKeyDown(KEY_LEFT_ALT))) {
+            if (stage1Initialized) {
+                refreshStage1Layout(&stage1);
+            }
+            if (activeStage == GAME_STAGE_1) {
+                player.position.x = GetScreenWidth() * 0.18f;
+            }
         }
 
         // ===== DEBUG MODE =====
@@ -155,11 +235,21 @@ int main(void) {
                     inMenu = 0;
                     totalGameTime = 0.0f;
                     isGameOver = 0;
+                    activeStage = GAME_STAGE_1;
+                    currentPhase = phase1;
 
                     // Reinicializar stage
-                    unloadStage1(&stage1);
+                    if (stage3Initialized) {
+                        unloadStage3(&stage3);
+                        stage3Initialized = 0;
+                    }
+                    if (stage1Initialized) {
+                        unloadStage1(&stage1);
+                    }
                     initStage1(&stage1);
+                    stage1Initialized = 1;
                     int currentScreenWidth = GetScreenWidth();
+                    unloadPlayerResources(&player);
                     player = createPlayer((Vector2){ currentScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
                 }
                 else if (menu.selectedOption == 2) {
@@ -171,8 +261,25 @@ int main(void) {
         // ===== JOGO =====
         else {
             // ===== ATUALIZAR STAGE E PLAYER =====
-            updateStage1(&stage1, &player, deltaTime);
-            updatePlayer(&player, deltaTime);
+            if (activeStage == GAME_STAGE_1) {
+                updateStage1(&stage1, &player, deltaTime);
+                updatePlayer(&player, deltaTime);
+
+                if (stage1.stage1Complete && !isGameOver) {
+                    int remainingLives = player.lives;
+                    unloadStage1(&stage1);
+                    stage1Initialized = 0;
+                    initStage3(&stage3, &player);
+                    stage3Initialized = 1;
+                    player.lives = remainingLives;
+                    activeStage = GAME_STAGE_3;
+                    currentPhase = phase3;
+                    printf("Fase atual: %s (numero %d)\n", currentPhase->phaseName, currentPhase->phaseNumber);
+                    fflush(stdout);
+                }
+            } else if (activeStage == GAME_STAGE_3) {
+                updateStage3(&stage3, &player, deltaTime);
+            }
 
             // ===== VERIFICAR GAME OVER =====
             if (player.lives <= 0 && !isGameOver) {
@@ -187,9 +294,19 @@ int main(void) {
                 if (IsKeyPressed(KEY_ENTER) || gameOverTimer <= 0) {
                     // Reset do jogo e voltar para o menu
                     int resetScreenWidth = GetScreenWidth();
+                    unloadPlayerResources(&player);
                     player = createPlayer((Vector2){ resetScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
-                    unloadStage1(&stage1);
+                    if (stage1Initialized) {
+                        unloadStage1(&stage1);
+                    }
+                    if (stage3Initialized) {
+                        unloadStage3(&stage3);
+                        stage3Initialized = 0;
+                    }
                     initStage1(&stage1);
+                    stage1Initialized = 1;
+                    activeStage = GAME_STAGE_1;
+                    currentPhase = phase1;
                     isGameOver = 0;
                     totalGameTime = 0.0f;
 
@@ -199,13 +316,23 @@ int main(void) {
             }
 
             // ===== VICTORY CHECK =====
-            if (stage1.stage1Complete && !isGameOver) {
+            if (activeStage == GAME_STAGE_3 && stage3.state == STAGE3_FINISHED && !isGameOver) {
                 if (IsKeyPressed(KEY_ENTER)) {
                     // Reset do jogo e voltar para o menu
                     int victoryScreenWidth = GetScreenWidth();
+                    unloadPlayerResources(&player);
                     player = createPlayer((Vector2){ victoryScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
-                    unloadStage1(&stage1);
+                    if (stage1Initialized) {
+                        unloadStage1(&stage1);
+                    }
+                    if (stage3Initialized) {
+                        unloadStage3(&stage3);
+                        stage3Initialized = 0;
+                    }
                     initStage1(&stage1);
+                    stage1Initialized = 1;
+                    activeStage = GAME_STAGE_1;
+                    currentPhase = phase1;
                     totalGameTime = 0.0f;
 
                     menu = createMenu();
@@ -214,7 +341,7 @@ int main(void) {
             }
 
             // ===== CONTAR TEMPO =====
-            if (!isGameOver && !stage1.stage1Complete) {
+            if (!isGameOver && !(activeStage == GAME_STAGE_3 && stage3.state == STAGE3_FINISHED)) {
                 totalGameTime += deltaTime;
             }
         }
@@ -231,10 +358,15 @@ int main(void) {
         }
         else {
             // ===== DESENHAR JOGO =====
-            drawStage1(&stage1, &player);
+            if (activeStage == GAME_STAGE_1) {
+                drawStage1(&stage1, &player);
 
-            // ===== DESENHAR HUD =====
-            drawGameHUD(&stage1, &player, totalGameTime, screenWidth, screenHeight);
+                // ===== DESENHAR HUD =====
+                drawGameHUD(&stage1, &player, totalGameTime, screenWidth, screenHeight);
+            } else if (activeStage == GAME_STAGE_3) {
+                drawStage3(&stage3, &player);
+                drawStage3HUD(&player, totalGameTime, screenWidth);
+            }
 
             // ===== DEBUG MODE =====
             if (debugMode) {
@@ -274,7 +406,7 @@ int main(void) {
             }
 
             // ===== DESENHAR VITÓRIA =====
-            if (stage1.stage1Complete && !isGameOver) {
+            if (activeStage == GAME_STAGE_3 && stage3.state == STAGE3_FINISHED && !isGameOver) {
                 // Overlay escuro
                 DrawRectangle(0, 0, screenWidth, screenHeight, (Color){0, 0, 0, 180});
 
@@ -300,7 +432,12 @@ int main(void) {
     }
 
     // ========== LIMPEZA ==========
-    unloadStage1(&stage1);
+    if (stage1Initialized) {
+        unloadStage1(&stage1);
+    }
+    if (stage3Initialized) {
+        unloadStage3(&stage3);
+    }
     unloadPlayerResources(&player);
     if (phaseList != NULL) {
         freePhaseList(phaseList);

@@ -28,6 +28,14 @@ static void spawnRandomObstacle(Stage1 *stage) {
     qobs.position = spawnPos;
 
     qobs.active = 1;
+    int canSpawnBus =
+        stage->distanceTraveled - stage->lastBusSpawnDistance >=
+        STAGE1_BUS_MIN_DISTANCE;
+
+    if (roll >= 40 && roll < 70 && !canSpawnBus) {
+        roll = (rand() % 2 == 0) ? (rand() % 40) : (70 + rand() % 25);
+    }
+
     if (roll < 40) {
 
         qobs.type = QUEUE_OBS_HOLE;
@@ -49,6 +57,7 @@ static void spawnRandomObstacle(Stage1 *stage) {
     else if (roll < 70) {
 
         qobs.type = QUEUE_OBS_BUS;
+        stage->lastBusSpawnDistance = stage->distanceTraveled;
 
         qobs.data.bus =
             createBus(
@@ -262,6 +271,7 @@ void initStage1(Stage1 *stage) {
 
     stage->scrollSpeed = STAGE1_BASE_SCROLL_SPEED;
     stage->distanceTraveled = 0.0f;
+    stage->lastBusSpawnDistance = -STAGE1_BUS_MIN_DISTANCE;
     stage->spawnInterval = 1.5f;
     stage->obstacleSpawnTimer = 0.0f;
     stage->difficultyMultiplier = 1.0f;

@@ -50,6 +50,7 @@ typedef struct Stage3 {
     Texture2D towerTexture;
     Texture2D cloudTexture;
     Texture2D birdTexture;
+    Texture2D birdTextureAlt;
     
     float scrollX;
     float scrollY;

@@ -18,11 +18,13 @@
 #define STAGE1_BASE_SCROLL_SPEED 320.0f
 #define STAGE1_MAX_SCROLL_SPEED 550.0f
 #define STAGE1_DIFFICULTY_RAMP 0.001f
+#define STAGE1_BUS_MIN_DISTANCE 1700.0f
 
 typedef struct {
 
     float scrollSpeed;              // Velocidade de scroll
     float distanceTraveled;         // Distância percorrida nesta fase
+    float lastBusSpawnDistance;     // Distância da última geração de ônibus
     float spawnInterval;            // Intervalo de spawn
     float obstacleSpawnTimer;       // Timer do spawn
 

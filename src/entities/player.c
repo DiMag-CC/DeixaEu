@@ -5,7 +5,7 @@
 #include <math.h>
 
 #define GRAVITY 520.0f
-#define JUMP_FORCE 480.0f
+#define JUMP_FORCE 720.0f
 #define FRICTION 0.95f
 #define PLAYER_MAX_SPEED 450.0f
 #define KNOCKBACK_DURATION 1.2f
@@ -64,10 +64,16 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
         LoadTexture("assets/img/CharacterStandingL.png");
 
     player.spriteMovingR =
-        LoadTexture("assets/img/CharacterMovingR1.png");
+        LoadTexture("assets/img/characterMovingR1.png");
 
     player.spriteMovingL =
-        LoadTexture("assets/img/CharacterMovingL1.png");
+        LoadTexture("assets/img/characterMovingL1.png");
+
+    player.spriteJumpingR =
+        LoadTexture("assets/img/CharacterJumpingR.png");
+
+    player.spriteJumpingL =
+        LoadTexture("assets/img/CharacterJumpingL.png");
 
     player.spriteBikeStandingR =
         LoadTexture("assets/img/CharacterBikeStandingR.png");
@@ -102,6 +108,16 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     );
 
     SetTextureFilter(
+        player.spriteJumpingR,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteJumpingL,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
         player.spriteBikeStandingR,
         TEXTURE_FILTER_POINT
     );
@@ -126,6 +142,8 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     TEXTURE_VALID(player.spriteStandingL) &&
     TEXTURE_VALID(player.spriteMovingR) &&
     TEXTURE_VALID(player.spriteMovingL) &&
+    TEXTURE_VALID(player.spriteJumpingR) &&
+    TEXTURE_VALID(player.spriteJumpingL) &&
     TEXTURE_VALID(player.spriteBikeStandingR) &&
     TEXTURE_VALID(player.spriteBikeStandingL) &&
     TEXTURE_VALID(player.spriteBikeMovingR) &&
@@ -356,7 +374,14 @@ void drawPlayer(Player player) {
 
     } else {
 
-        if (fabs(player.velocity.x) > 10.0f) {
+        if (player.state == PLAYER_STATE_JUMPING || player.state == PLAYER_STATE_FALLING || !player.isGrounded) {
+
+            currentSprite =
+                (player.direction == 'R')
+                ? player.spriteJumpingR
+                : player.spriteJumpingL;
+
+        } else if (fabs(player.velocity.x) > 10.0f) {
 
             currentSprite =
                 (player.direction == 'R')
@@ -490,6 +515,8 @@ void unloadPlayerResources(Player *player) {
         if (player->spriteStandingL.id != 0) UnloadTexture(player->spriteStandingL);
         if (player->spriteMovingR.id != 0) UnloadTexture(player->spriteMovingR);
         if (player->spriteMovingL.id != 0) UnloadTexture(player->spriteMovingL);
+        if (player->spriteJumpingR.id != 0) UnloadTexture(player->spriteJumpingR);
+        if (player->spriteJumpingL.id != 0) UnloadTexture(player->spriteJumpingL);
         if (player->spriteBikeStandingR.id != 0) UnloadTexture(player->spriteBikeStandingR);
         if (player->spriteBikeStandingL.id != 0) UnloadTexture(player->spriteBikeStandingL);
         if (player->spriteBikeMovingR.id != 0) UnloadTexture(player->spriteBikeMovingR);

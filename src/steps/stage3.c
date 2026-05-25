@@ -28,6 +28,8 @@
 #define CAMERA_VERTICAL_LOOKAHEAD 150.0f
 #define POOP_GROUND_Y (TOWER_BASE_Y - 13.0f)
 #define POOP_LANDED_DURATION 0.5f
+#define STAGE3_GRAVITY 760.0f
+#define STAGE3_JUMP_FORCE 470.0f
 
 static void movePuddle(Puddle *puddle, float deltaX);
 static void syncTowerHitbox(Stage3 *stage);
@@ -89,16 +91,16 @@ static float visibleWorldLeft(void) {
 }
 
 static float towerDrawWidth(Stage3 *stage) {
-    return stage->towerTexture.id > 0 ? TOWER_VISIBLE_WIDTH : 100.0f;
+    return stage->towerTexture.id > 0 ? 360.0f : 100.0f;
 }
 
 static float towerDrawHeight(Stage3 *stage) {
-    return stage->towerTexture.id > 0 ? TOWER_VISIBLE_HEIGHT : 600.0f;
+    return stage->towerTexture.id > 0 ? 360.0f : 600.0f;
 }
 
 static Rectangle towerSourceRect(Stage3 *stage) {
     if (stage->towerTexture.id > 0) {
-        return (Rectangle){ TOWER_VISIBLE_X, TOWER_VISIBLE_Y, TOWER_VISIBLE_WIDTH, TOWER_VISIBLE_HEIGHT };
+        return (Rectangle){ 0.0f, 0.0f, (float)stage->towerTexture.width, (float)stage->towerTexture.height };
     }
 
     return (Rectangle){ 0.0f, 0.0f, 100.0f, 600.0f };
@@ -514,6 +516,54 @@ static void drawTowerAura(Stage3 *stage) {
     }
 }
 
+static void updateStage3PlayerVisualState(Player *player) {
+    bool movingLeft = IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT);
+    bool movingRight = IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT);
+
+    if (movingRight) {
+        player->direction = 'R';
+    } else if (movingLeft) {
+        player->direction = 'L';
+    }
+
+    if (!player->grounded || player->velocity.y != 0.0f) {
+        player->state = player->velocity.y < 0.0f ? PLAYER_STATE_JUMPING : PLAYER_STATE_FALLING;
+    } else if (movingLeft || movingRight) {
+        player->state = PLAYER_STATE_RUNNING;
+    } else {
+        player->state = PLAYER_STATE_IDLE;
+    }
+}
+
+static void syncStage3PlayerHitbox(Player *player) {
+    player->hitbox = (Rectangle){
+        player->position.x + 12.0f,
+        player->position.y + 8.0f,
+        player->width - 24.0f,
+        player->height - 10.0f
+    };
+}
+
+static void drawStage3Player(Player *player) {
+    Texture2D currentSprite = {0};
+
+    if (player->state == PLAYER_STATE_JUMPING || player->state == PLAYER_STATE_FALLING || !player->grounded) {
+        currentSprite = player->direction == 'R' ? player->spriteJumpingR : player->spriteJumpingL;
+    } else if (player->state == PLAYER_STATE_RUNNING) {
+        currentSprite = player->direction == 'R' ? player->spriteMovingR : player->spriteMovingL;
+    } else {
+        currentSprite = player->direction == 'R' ? player->spriteStandingR : player->spriteStandingL;
+    }
+
+    if (currentSprite.id > 0) {
+        Rectangle source = { 0.0f, 0.0f, (float)currentSprite.width, (float)currentSprite.height };
+        Rectangle dest = { player->position.x, player->position.y, player->width, player->height };
+        DrawTexturePro(currentSprite, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+    } else {
+        DrawRectangleRec(player->hitbox, RED);
+    }
+}
+
 void initStage3(Stage3 *stage, Player *player) {
     stage->state = STAGE3_APPROACH;
     stage->scrollX = 0.0f;
@@ -522,9 +572,10 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->puddlePushVelocity = 0.0f;
     stage->ambientSpawningEnabled = true;
     
-    stage->towerTexture = LoadTexture("assets/img/torre_cristal.png");
+    stage->towerTexture = LoadTexture("assets/img/brenadFinal.png");
     stage->cloudTexture = LoadTexture("assets/img/nuvem.png");
-    stage->birdTexture = LoadTexture("assets/img/passaro.png");
+    stage->birdTexture = LoadTexture("assets/img/pigeon1L.png");
+    stage->birdTextureAlt = LoadTexture("assets/img/pigeon2L.png");
     
     // Posiciona a torre mais para a direita para expandir o mapa (1200px)
     // Desenha apenas a area visivel do PNG para a base da torre ficar exatamente no chao.
@@ -556,11 +607,19 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->birds[2].poopTimer = 0.0f;
     stage->birds[2].poopInterval = 1.0f + (rand() % 200) / 100.0f;
     
-    player->position = (Vector2){ PLAYER_CENTER_X, GLOBAL_GROUND_LEVEL };
+    player->width = 96.0f;
+    player->height = 120.0f;
+    player->position = (Vector2){ PLAYER_CENTER_X, TOWER_BASE_Y - player->height };
     player->isClimbing = false;
     player->velocity = (Vector2){0, 0};
     player->speed = 0.0f; // Para o auto-run
+    player->on_bike = false;
+    player->isGrounded = true;
+    player->grounded = true;
+    player->direction = 'R';
+    player->state = PLAYER_STATE_IDLE;
     player->movementControlledExternally = true; // Stage 3 controla o movimento
+    syncStage3PlayerHitbox(player);
     
     for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
         stage->poops[i].active = false;
@@ -612,6 +671,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         float scrollDelta = 0.0f;
         float maxScrollX = approachMaxScroll(stage);
         bool movementLockedByPuddle = stage->puddleLockTimer > 0.0f;
+        float groundY = TOWER_BASE_Y - player->height;
 
         if (stage->puddleLockTimer > 0.0f) {
             stage->puddleLockTimer -= deltaTime;
@@ -624,6 +684,25 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         if (stage->puddleLockTimer > 0.0f) {
             player->grounded = false;
             player->velocity.y = 0.0f;
+        }
+
+        if (!movementLockedByPuddle && player->grounded &&
+            (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP))) {
+            player->velocity.y = -STAGE3_JUMP_FORCE;
+            player->grounded = false;
+            player->isGrounded = false;
+        }
+
+        if (!player->grounded) {
+            player->velocity.y += STAGE3_GRAVITY * deltaTime;
+            player->position.y += player->velocity.y * deltaTime;
+
+            if (player->position.y >= groundY) {
+                player->position.y = groundY;
+                player->velocity.y = 0.0f;
+                player->grounded = true;
+                player->isGrounded = true;
+            }
         }
         
         if (!movementLockedByPuddle && (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))) {
@@ -841,6 +920,9 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
             }
         }
     }
+
+    syncStage3PlayerHitbox(player);
+    updateStage3PlayerVisualState(player);
 }
 
 void drawStage3(Stage3 *stage, Player *player) {
@@ -894,8 +976,12 @@ void drawStage3(Stage3 *stage, Player *player) {
             continue;
         }
 
-        if (stage->birdTexture.id > 0) {
-            DrawTextureEx(stage->birdTexture, stage->birds[i].position, 0.0f, 0.1f, WHITE); // scale super menor
+        Texture2D birdSprite = ((int)(GetTime() * 8.0f + i) % 2 == 0)
+            ? stage->birdTexture
+            : stage->birdTextureAlt;
+
+        if (birdSprite.id > 0) {
+            DrawTextureEx(birdSprite, stage->birds[i].position, 0.0f, 0.05f, WHITE);
         } else {
             DrawTriangle(
                 (Vector2){stage->birds[i].position.x, stage->birds[i].position.y},
@@ -916,10 +1002,13 @@ void drawStage3(Stage3 *stage, Player *player) {
             }
         }
     }
+
+    drawStage3Player(player);
 }
 
 void unloadStage3(Stage3 *stage) {
     if (stage->towerTexture.id > 0) UnloadTexture(stage->towerTexture);
     if (stage->cloudTexture.id > 0) UnloadTexture(stage->cloudTexture);
     if (stage->birdTexture.id > 0) UnloadTexture(stage->birdTexture);
+    if (stage->birdTextureAlt.id > 0) UnloadTexture(stage->birdTextureAlt);
 }

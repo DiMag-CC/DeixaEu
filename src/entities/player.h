@@ -67,6 +67,7 @@ typedef struct {
     // Sprites e texturas — sprites únicos diretos (não multi-frame)
     Texture2D spriteStandingR, spriteStandingL;
     Texture2D spriteMovingR, spriteMovingL;
+    Texture2D spriteJumpingR, spriteJumpingL;
     Texture2D spriteBikeStandingR, spriteBikeStandingL;
     Texture2D spriteBikeMovingR, spriteBikeMovingL;
     int spritesLoaded;          // 1 = texturas carregaram
