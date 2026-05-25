@@ -27,7 +27,7 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime);
 
 // Array de texturas do caranguejo (Frames separados)
 static Texture2D crabTextures[2];
-static Texture2D texturaBuraco;
+static Texture2D texturaSacola;
 
 // Texturas dos obstáculos (Modo Mar)
 static Texture2D txSharkR1;
@@ -71,6 +71,40 @@ static float netDebuffTimer = 0.0f;
 
 // Constante de velocidade de nado livre no mar
 #define S2_VELOCIDADE_NADO 400.0f
+
+static float getStage2SandGroundY(void) {
+  return GetScreenHeight() * 0.90f;
+}
+
+static void drawStage2ScrollingBackground(Texture2D texture, float scroll,
+                                          Color topColor,
+                                          Color bottomColor) {
+  int screenWidth = GetScreenWidth();
+  int screenHeight = GetScreenHeight();
+
+  DrawRectangleGradientV(0, 0, screenWidth, screenHeight, topColor,
+                         bottomColor);
+
+  if (texture.id <= 0 || texture.width <= 0 || texture.height <= 0) {
+    return;
+  }
+
+  float scale = fmaxf((float)screenWidth / (float)texture.width,
+                      (float)screenHeight / (float)texture.height);
+  float drawWidth = texture.width * scale;
+  float drawHeight = texture.height * scale;
+  float scrollOffset = fmodf(scroll * 0.25f, drawWidth);
+  float drawY = ((float)screenHeight - drawHeight) * 0.5f;
+  Rectangle source = {0.0f, 0.0f, (float)texture.width,
+                      (float)texture.height};
+
+  int copies = (int)ceilf((float)screenWidth / drawWidth) + 3;
+  for (int i = -1; i < copies; i++) {
+    Rectangle dest = {i * drawWidth - scrollOffset, drawY, drawWidth,
+                      drawHeight};
+    DrawTexturePro(texture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+  }
+}
 
 // =========================================================================
 // REQUISITO 4: ALGORITMO DE ORDENAÇÃO (INSERTION SORT)
@@ -123,19 +157,20 @@ static void sortStage2Obstacles(Stage2Queue *queue) {
 static void spawnSandObstacle(Stage2 *stage) {
   int roll = rand() % 100;
   int type = (roll < 50) ? S2_OBS_CRAB : S2_OBS_TRASH;
+  float groundY = getStage2SandGroundY();
 
-  Vector2 pos = {(float)GetRenderWidth() + 100.0f, S2_AREIA_Y};
+  Vector2 pos = {(float)GetScreenWidth() + 100.0f, groundY};
   Stage2Obstacle obs = createStage2Obstacle(pos, type);
   obs.type = type;
 
   if (type == S2_OBS_CRAB) {
     obs.hitbox.width = 90.0f;
     obs.hitbox.height = 40.0f;
-    obs.position.y = S2_AREIA_Y - 75.0f;
+    obs.position.y = groundY - 75.0f;
   } else if (type == S2_OBS_TRASH) {
     obs.hitbox.width = 100.0f;
     obs.hitbox.height = 20.0f;
-    obs.position.y = S2_AREIA_Y - 40.0f;
+    obs.position.y = groundY - 40.0f;
   }
 
   obs.hitbox.x = obs.position.x + 10.0f;
@@ -165,15 +200,15 @@ static void spawnSeaObstacle(Stage2 *stage) {
     if (veioDaEsquerda) {
       pos.x = -350.0f;
     } else {
-      pos.x = (float)GetRenderWidth() + 350.0f;
+      pos.x = (float)GetScreenWidth() + 350.0f;
     }
     float rawY = (float)(rand() % (screenH - 300) + 100);
     pos.y = veioDaEsquerda ? rawY : -rawY;
   } else if (type == S2_OBS_JELLYFISH) {
-    pos.x = (float)GetRenderWidth() + 150.0f;
+    pos.x = (float)GetScreenWidth() + 150.0f;
     pos.y = (float)(rand() % (screenH - 250) + 100);
   } else {
-    pos.x = (float)GetRenderWidth() + 150.0f;
+    pos.x = (float)GetScreenWidth() + 150.0f;
     pos.y = (float)(rand() % (screenH - 250) + 100);
   }
 
@@ -347,7 +382,7 @@ void initStage2(Stage2 *stage) {
   // CORREÇÃO: Alimenta o array estático com os dois frames separados
   crabTextures[0] = LoadTexture("assets/img/crab1.png");
   crabTextures[1] = LoadTexture("assets/img/crab2.png");
-  texturaBuraco = LoadTexture("assets/img/hole.png");
+  texturaSacola = LoadTexture("assets/img/PlasticBag.png");
 
   txSharkR1 = LoadTexture("assets/img/sharkR1.png");
   txSharkR2 = LoadTexture("assets/img/sharkR2.png");
@@ -369,8 +404,7 @@ void initStage2(Stage2 *stage) {
 
   olhandoParaDireita = 1;
 
-  if (!bgLoaded || !platformLoaded || crabTextures[0].id == 0 ||
-      texturaBuraco.id == 0) {
+  if (!bgLoaded || crabTextures[0].id == 0 || texturaSacola.id == 0) {
     printf("[AVISO] Erro crítico: Falha ao carregar texturas de cenário ou "
            "obstáculos na Stage 2!\n");
   }
@@ -396,7 +430,7 @@ void unloadStage2(Stage2 *stage) {
 
   UnloadTexture(crabTextures[0]);
   UnloadTexture(crabTextures[1]);
-  UnloadTexture(texturaBuraco);
+  UnloadTexture(texturaSacola);
   UnloadTexture(txMoverDireita);
   UnloadTexture(txMoverEsquerda);
   UnloadTexture(txPuloDireita);
@@ -482,10 +516,10 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
   stage->spawnInterval = 1.3f / fatorDificuldade;
   stage->backgroundScroll += velocidadAtual * deltaTime;
 
-  player->width = 140.0f;
-  player->height = 175.0f;
+  player->width = 112.0f;
+  player->height = 140.0f;
 
-  float limiteChao = S2_AREIA_Y - player->height;
+  float limiteChao = getStage2SandGroundY() - player->height;
 
   if ((IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_UP) ||
        IsKeyPressed(KEY_W)) &&
@@ -573,7 +607,7 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
     player->position.y += velocidadeAtualNado * deltaTime;
   }
 
-  int screenW = GetRenderWidth() > 0 ? GetRenderWidth() : 800;
+  int screenW = GetScreenWidth() > 0 ? GetScreenWidth() : 800;
   int screenH = GetScreenHeight() > 0 ? GetScreenHeight() : 600;
 
   if (player->position.x < 0)
@@ -631,17 +665,15 @@ static void drawCrabObstacle(Stage2Obstacle obs) {
   }
 }
 
-static void drawHoleObstacle(Stage2Obstacle obs) {
-  if (texturaBuraco.id > 0) {
-    Rectangle source = {0.0f, 0.0f, (float)texturaBuraco.width,
-                        (float)texturaBuraco.height};
-    Rectangle dest = {obs.position.x, obs.position.y, 145.0f, 40.0f};
+static void drawPlasticBagObstacle(Stage2Obstacle obs) {
+  if (texturaSacola.id > 0) {
+    Rectangle source = {0.0f, 0.0f, (float)texturaSacola.width,
+                        (float)texturaSacola.height};
+    Rectangle dest = {obs.position.x, obs.position.y, 80.0f, 80.0f};
     Vector2 origin = {0.0f, 0.0f};
-    DrawTexturePro(texturaBuraco, source, dest, origin, 0.0f, WHITE);
+    DrawTexturePro(texturaSacola, source, dest, origin, 0.0f, WHITE);
   } else {
-    DrawEllipse(obs.position.x + (obs.hitbox.width / 2.0f),
-                obs.position.y + (obs.hitbox.height / 2.0f),
-                obs.hitbox.width / 2.0f, obs.hitbox.height / 2.0f, BLACK);
+    DrawRectangleRec(obs.hitbox, WHITE);
   }
 }
 
@@ -654,7 +686,7 @@ static void drawStage2Obstacle(Stage2Obstacle obs) {
   if (obs.type == S2_OBS_CRAB) {
     drawCrabObstacle(obs);
   } else if (obs.type == S2_OBS_TRASH) {
-    drawHoleObstacle(obs);
+    drawPlasticBagObstacle(obs);
   } else if (obs.type == S2_OBS_SHARK) {
     if (txSharkR1.id > 0 && txSharkL1.id > 0) {
       Texture2D txShark = txSharkR1;
@@ -698,44 +730,14 @@ static void drawStage2Obstacle(Stage2Obstacle obs) {
 }
 
 static void drawSand(Stage2 *stage) {
-  int screenWidth = GetRenderWidth();
-  int screenHeight = GetRenderHeight();
-
-  // =========================================================
-  // CAMADA 1 — BACKGROUND (CÉU / PARTE DISTANTE) LENTO
-  // =========================================================
   if (bgLoaded && stage->bgSand.id > 0) {
-    float bgScroll = fmod(stage->backgroundScroll * 0.25f, screenWidth);
-    Rectangle source = {0.0f, 0.0f, (float)stage->bgSand.width,
-                        (float)stage->bgSand.height};
-
-    for (int i = 0; i < 2; i++) {
-      Rectangle dest = {(i * screenWidth) - bgScroll, 0.0f, (float)screenWidth,
-                        (float)screenHeight};
-      DrawTexturePro(stage->bgSand, source, dest, (Vector2){0, 0}, 0.0f, WHITE);
-    }
-  }
-
-  // =========================================================
-  // CAMADA 2 — PLATAFORMA (ONDE O BONECO PISA) RÁPIDA
-  // CORREÇÃO: Alinhando a areia na parte de baixo da tela
-  // =========================================================
-  if (platformLoaded && plataformaAreia.id > 0) {
-    float platformWidth = (float)screenWidth;
-    float platformScroll = fmod(stage->backgroundScroll, platformWidth);
-    Rectangle source = {0.0f, 0.0f, (float)plataformaAreia.width,
-                        (float)plataformaAreia.height};
-
-    for (int i = 0; i < 2; i++) {
-      // Posicionado na parte inferior cobrindo a pista
-      Rectangle dest = {(i * platformWidth) - platformScroll, 0.0f,
-                        platformWidth, (float)screenHeight};
-      DrawTexturePro(plataformaAreia, source, dest, (Vector2){0, 0}, 0.0f,
-                     WHITE);
-    }
+    drawStage2ScrollingBackground(stage->bgSand, stage->backgroundScroll,
+                                  (Color){122, 202, 238, 255},
+                                  (Color){240, 204, 135, 255});
   } else {
-    DrawRectangle(0, S2_AREIA_Y, screenWidth, screenHeight - S2_AREIA_Y,
-                  DARKBROWN);
+    drawStage2ScrollingBackground((Texture2D){0}, stage->backgroundScroll,
+                                  (Color){122, 202, 238, 255},
+                                  (Color){240, 204, 135, 255});
   }
 
   Stage2Node *cur = stage->obstacleQueue.front;
@@ -757,30 +759,23 @@ static void drawSand(Stage2 *stage) {
 
 static void drawTransition(Stage2 *stage) {
   (void)stage;
-  DrawRectangle(0, 0, (float)GetRenderWidth(), (float)GetRenderHeight(),
+  DrawRectangle(0, 0, (float)GetScreenWidth(), (float)GetScreenHeight(),
                 DARKBLUE);
   const char *msg = "Mergulhando no mar...";
   int w = MeasureText(msg, 50);
-  DrawText(msg, ((float)GetRenderWidth() - w) / 2, (float)GetRenderHeight() / 2,
+  DrawText(msg, ((float)GetScreenWidth() - w) / 2, GetScreenHeight() / 2,
            50, WHITE);
 }
 
 static void drawSea(Stage2 *stage, Player *player) {
   (void)player;
-  int screenWidth = GetRenderWidth();
-  int screenHeight = GetRenderHeight();
+  int screenWidth = GetScreenWidth();
+  int screenHeight = GetScreenHeight();
 
   if (bgOceanLoaded && bgOceano.id > 0) {
-    float oceanScroll = fmod(stage->backgroundScroll * 0.25f, screenWidth);
-    Rectangle source = {0.0f, 0.0f, (float)bgOceano.width,
-                        (float)bgOceano.height};
-
-    for (int i = 0; i < 2; i++) {
-      Rectangle dest = {(i * screenWidth) - oceanScroll, 0.0f,
-                        (float)screenWidth, (float)screenHeight};
-      Vector2 origin = {0.0f, 0.0f};
-      DrawTexturePro(bgOceano, source, dest, origin, 0.0f, WHITE);
-    }
+    drawStage2ScrollingBackground(bgOceano, stage->backgroundScroll,
+                                  (Color){36, 136, 206, 255},
+                                  (Color){4, 29, 86, 255});
   } else {
     DrawRectangleGradientV(0, 0, (float)screenWidth, (float)screenHeight,
                            (Color){30, 100, 180, 255}, (Color){5, 30, 90, 255});
@@ -823,7 +818,7 @@ void drawStage2(Stage2 *stage, Player *player) {
   Texture2D texturaAtual = txMoverDireita;
 
   if (stage->mode == STAGE2_MODE_SAND) {
-    float limiteChao = S2_AREIA_Y - player->height;
+    float limiteChao = getStage2SandGroundY() - player->height;
     int noAr = (player->position.y < limiteChao - 5.0f);
 
     if (noAr) {
