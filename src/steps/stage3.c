@@ -26,14 +26,23 @@
 #define PLAYER_RIGHT_LIMIT 620.0f
 #define CAMERA_ZOOM_FACTOR 0.65f
 #define CAMERA_VERTICAL_LOOKAHEAD 150.0f
-#define POOP_GROUND_Y (TOWER_BASE_Y - 13.0f)
+#define POOP_GROUND_Y GLOBAL_GROUND_LEVEL
 #define POOP_LANDED_DURATION 0.5f
 #define STAGE3_GRAVITY 760.0f
 #define STAGE3_JUMP_FORCE 470.0f
+#define FINAL_CLIMB_BACKGROUND_COUNT 5
+#define TOWER_STAGE3_VERTICAL_OFFSET 55.0f
 
 static void movePuddle(Puddle *puddle, float deltaX);
 static void syncTowerHitbox(Stage3 *stage);
 static Vector2 ambientToWorld(Stage3 *stage, Player *player, Vector2 localPosition);
+
+static Texture2D finalClimbBackgrounds[FINAL_CLIMB_BACKGROUND_COUNT] = {0};
+static Texture2D finalClimbTowerFrames[2] = {0};
+static Texture2D finalClimbCharacterFrames[2] = {0};
+static Texture2D stage3FloorTexture = {0};
+static Texture2D stage3PuddleTexture = {0};
+static Texture2D stage3BottleTexture = {0};
 
 static float clampFloat(float value, float min, float max) {
     if (value < min) return min;
@@ -110,11 +119,11 @@ static float visibleWorldLeft(void) {
 }
 
 static float towerDrawWidth(Stage3 *stage) {
-    return stage->towerTexture.id > 0 ? 460.0f : 100.0f;
+    return stage->towerTexture.id > 0 ? 680.0f : 160.0f;
 }
 
 static float towerDrawHeight(Stage3 *stage) {
-    return stage->towerTexture.id > 0 ? 460.0f : 600.0f;
+    return stage->towerTexture.id > 0 ? 680.0f : 680.0f;
 }
 
 static Rectangle towerSourceRect(Stage3 *stage) {
@@ -161,7 +170,7 @@ static float towerPuddleClearLeft(Stage3 *stage) {
 }
 
 static bool canPlacePuddle(Stage3 *stage, float x) {
-    return x + PUDDLE_CLUSTER_WIDTH < towerPuddleClearLeft(stage);
+    return x < stage->towerPosition.x - PUDDLE_WIDTH * 0.45f;
 }
 
 static bool puddleTouchesTowerArea(Stage3 *stage, Puddle *puddle) {
@@ -201,13 +210,6 @@ static Color lerpColor(Color from, Color to, float amount) {
 
 static void stopAmbientSpawning(Stage3 *stage) {
     stage->ambientSpawningEnabled = false;
-
-    // A torre deve ficar sem novos perigos aereos; remove apenas dejetos ativos.
-    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
-        stage->poops[i].active = false;
-        stage->poops[i].landed = false;
-        stage->poops[i].groundTimer = 0.0f;
-    }
 }
 
 static void initPuddle(Puddle *puddle, float x) {
@@ -266,6 +268,11 @@ static void movePuddle(Puddle *puddle, float deltaX) {
     puddle->bottleHitbox.x += deltaX;
 }
 
+static void drawTextureInRect(Texture2D texture, Rectangle dest) {
+    Rectangle source = { 0.0f, 0.0f, (float)texture.width, (float)texture.height };
+    DrawTexturePro(texture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+}
+
 static void drawPuddle(Puddle puddle) {
     if (!puddle.active) {
         return;
@@ -273,6 +280,11 @@ static void drawPuddle(Puddle puddle) {
 
     float x = puddle.position.x;
     float y = puddle.position.y;
+
+    if (stage3PuddleTexture.id > 0) {
+        drawTextureInRect(stage3PuddleTexture, (Rectangle){ x, y, PUDDLE_WIDTH, PUDDLE_HEIGHT });
+        return;
+    }
 
     DrawRectangle((int)(x + 10), (int)(y + 14), 78, 14, (Color){ 41, 70, 89, 205 });
     DrawRectangle((int)(x + 18), (int)(y + 8), 60, 10, (Color){ 58, 92, 119, 220 });
@@ -294,6 +306,12 @@ static void drawBottle(Puddle puddle) {
 
     float x = puddle.bottlePosition.x;
     float y = puddle.bottlePosition.y;
+
+    if (stage3BottleTexture.id > 0) {
+        drawTextureInRect(stage3BottleTexture, (Rectangle){ x, y, BOTTLE_WIDTH, BOTTLE_HEIGHT });
+        return;
+    }
+
     Color glassDark = (Color){ 31, 46, 40, 245 };
     Color glassMid = (Color){ 74, 101, 85, 235 };
     Color glassEdge = (Color){ 132, 158, 137, 225 };
@@ -339,25 +357,25 @@ static void drawBottle(Puddle puddle) {
     DrawRectangle((int)(x + 1), (int)(y + 27), 5, 4, glassEdge);
 }
 
-static int drawPoopTexture(Texture2D texture, Vector2 position, float size) {
+static int drawPoopTexture(Texture2D texture, Vector2 position, float size, float rotation) {
     if (texture.id <= 0) {
         return 0;
     }
 
     Rectangle source = { 0.0f, 0.0f, (float)texture.width, (float)texture.height };
     Rectangle dest = {
-        position.x - size * 0.5f,
-        position.y - size * 0.5f,
+        position.x,
+        position.y,
         size,
         size
     };
 
-    DrawTexturePro(texture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+    DrawTexturePro(texture, source, dest, (Vector2){size * 0.5f, size * 0.5f}, rotation, WHITE);
     return 1;
 }
 
-static void drawFallingPoop(Texture2D texture, Vector2 position) {
-    if (drawPoopTexture(texture, position, 42.0f)) {
+static void drawFallingPoop(Texture2D texture, Vector2 position, float rotation) {
+    if (drawPoopTexture(texture, position, 45.0f, rotation)) {
         return;
     }
 
@@ -387,7 +405,7 @@ static void drawFallingPoop(Texture2D texture, Vector2 position) {
 }
 
 static void drawLandedPoop(Texture2D texture, Vector2 position) {
-    if (drawPoopTexture(texture, position, 54.0f)) {
+    if (drawPoopTexture(texture, position, 54.0f, 0.0f)) {
         return;
     }
 
@@ -467,7 +485,7 @@ static void drawStage3Background(Stage3 *stage, Player *player) {
     }
 
     float sunX = left + width * 0.52f;
-    float sunY = top + height * (0.68f - sunrise * 0.36f);
+    float sunY = top + height * (0.56f - sunrise * 0.32f);
     DrawCircleGradient((int)sunX, (int)sunY, 58,
                        (Color){ 226, 214, 128, 150 },
                        (Color){ 226, 214, 128, 0 });
@@ -495,14 +513,39 @@ static void drawStage3Floor(Stage3 *stage, Player *player, float floorY) {
     float left = view.x - WORLD_WIDTH;
     float width = view.width + WORLD_WIDTH * 2.0f;
     float height = visibleWorldHeight();
-    float drawY = floorY - 32.0f;
+    float drawY = floorY + 96.0f;
     float tileSize = 32.0f;
     float floorScroll = stage->scrollX * 0.95f;
     int baseCol = (int)floorf(floorScroll / tileSize);
     float offset = floorScroll - (baseCol * tileSize);
     int visibleCols = (int)(width / tileSize) + 18;
 
-    DrawRectangle((int)left - 120, (int)drawY, (int)width + 240, (int)(height + WORLD_HEIGHT - drawY + 160),
+    if (stage3FloorTexture.id > 0) {
+        float platformWidth = stage3FloorTexture.width + 50.0f;
+        float platformHeight = stage3FloorTexture.height + 12.0f;
+        float roadY = floorY - platformHeight * 0.30f;
+        Rectangle source = {
+            0.0f,
+            0.0f,
+            (float)stage3FloorTexture.width,
+            (float)stage3FloorTexture.height
+        };
+
+        for (int i = -2; i < (int)(width / platformWidth) + 5; i++) {
+            float perspectiveOffset = 80.0f;
+            Rectangle dest = {
+                left + i * platformWidth - fmodf(floorScroll, platformWidth),
+                roadY + 2.0f,
+                platformWidth + perspectiveOffset,
+                platformHeight
+            };
+
+            DrawTexturePro(stage3FloorTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+        }
+        return;
+    }
+
+    DrawRectangle((int)left - 120, (int)drawY, (int)width + 240, (int)(height + WORLD_HEIGHT),
                   (Color){ 176, 96, 48, 255 });
 
     for (int row = 0; row < 4; row++) {
@@ -575,9 +618,13 @@ static void updateStage3PlayerVisualState(Player *player) {
         player->direction = 'L';
     }
 
+    if (player->velocity.x > 1.0f) {
+        player->direction = 'R';
+    }
+
     if (!player->grounded || player->velocity.y != 0.0f) {
         player->state = player->velocity.y < 0.0f ? PLAYER_STATE_JUMPING : PLAYER_STATE_FALLING;
-    } else if (movingLeft || movingRight) {
+    } else if (movingLeft || movingRight || fabsf(player->velocity.x) > 1.0f) {
         player->state = PLAYER_STATE_RUNNING;
     } else {
         player->state = PLAYER_STATE_IDLE;
@@ -613,6 +660,164 @@ static void drawStage3Player(Player *player) {
     }
 }
 
+static void loadFinalClimbTextures(void) {
+    const char *backgroundPaths[FINAL_CLIMB_BACKGROUND_COUNT] = {
+        "assets/img/paisagemFinal1.png",
+        "assets/img/paisagemFinal2.png",
+        "assets/img/paisagemFinal3.png",
+        "assets/img/paisagemFinal4.png",
+        "assets/img/PaisagemFinal5.png"
+    };
+    const char *towerPaths[2] = {
+        "assets/img/Brenand1.png",
+        "assets/img/Brenand2.png"
+    };
+    const char *characterPaths[2] = {
+        "assets/img/CharactherClibing1.png",
+        "assets/img/CharactherClibing2.png"
+    };
+
+    for (int i = 0; i < FINAL_CLIMB_BACKGROUND_COUNT; i++) {
+        if (finalClimbBackgrounds[i].id == 0) {
+            finalClimbBackgrounds[i] = LoadTexture(backgroundPaths[i]);
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        if (finalClimbTowerFrames[i].id == 0) {
+            finalClimbTowerFrames[i] = LoadTexture(towerPaths[i]);
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        if (finalClimbCharacterFrames[i].id == 0) {
+            finalClimbCharacterFrames[i] = LoadTexture(characterPaths[i]);
+        }
+    }
+}
+
+static void unloadFinalClimbTextures(void) {
+    for (int i = 0; i < FINAL_CLIMB_BACKGROUND_COUNT; i++) {
+        if (finalClimbBackgrounds[i].id > 0) {
+            UnloadTexture(finalClimbBackgrounds[i]);
+            finalClimbBackgrounds[i] = (Texture2D){0};
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        if (finalClimbTowerFrames[i].id > 0) {
+            UnloadTexture(finalClimbTowerFrames[i]);
+            finalClimbTowerFrames[i] = (Texture2D){0};
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        if (finalClimbCharacterFrames[i].id > 0) {
+            UnloadTexture(finalClimbCharacterFrames[i]);
+            finalClimbCharacterFrames[i] = (Texture2D){0};
+        }
+    }
+}
+
+static void loadStage3MapTextures(void) {
+    if (stage3FloorTexture.id == 0) {
+        stage3FloorTexture = LoadTexture("assets/img/piso.png");
+    }
+    if (stage3PuddleTexture.id == 0) {
+        stage3PuddleTexture = LoadTexture("assets/img/poca.png");
+    }
+    if (stage3BottleTexture.id == 0) {
+        stage3BottleTexture = LoadTexture("assets/img/garrafa.png");
+    }
+}
+
+static void unloadStage3MapTextures(void) {
+    if (stage3FloorTexture.id > 0) {
+        UnloadTexture(stage3FloorTexture);
+        stage3FloorTexture = (Texture2D){0};
+    }
+    if (stage3PuddleTexture.id > 0) {
+        UnloadTexture(stage3PuddleTexture);
+        stage3PuddleTexture = (Texture2D){0};
+    }
+    if (stage3BottleTexture.id > 0) {
+        UnloadTexture(stage3BottleTexture);
+        stage3BottleTexture = (Texture2D){0};
+    }
+}
+
+static void drawFinalClimbScene(Stage3 *stage, Player *player) {
+    float screenWidth = (float)GetScreenWidth();
+    float screenHeight = (float)GetScreenHeight();
+    float climbBottom = TOWER_BASE_Y - player->height;
+    float climbTop = stage->towerPosition.y + 60.0f;
+    float climbProgress = clampFloat((climbBottom - player->position.y) / (climbBottom - climbTop), 0.0f, 1.0f);
+    float stageProgress = climbProgress * FINAL_CLIMB_BACKGROUND_COUNT;
+    int backgroundIndex = (int)stageProgress;
+    float localClimbProgress = stageProgress - backgroundIndex;
+
+    if (backgroundIndex >= FINAL_CLIMB_BACKGROUND_COUNT) {
+        backgroundIndex = FINAL_CLIMB_BACKGROUND_COUNT - 1;
+        localClimbProgress = 1.0f;
+    }
+
+    Texture2D background = finalClimbBackgrounds[backgroundIndex];
+    if (background.id > 0) {
+        Rectangle source = { 0.0f, 0.0f, (float)background.width, (float)background.height };
+        Rectangle dest = { 0.0f, 0.0f, screenWidth, screenHeight };
+        DrawTexturePro(background, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+    } else {
+        DrawRectangleGradientV(0, 0, GetScreenWidth(), GetScreenHeight(),
+                               (Color){ 45, 77, 128, 255 },
+                               (Color){ 229, 158, 92, 255 });
+    }
+
+    Texture2D towerFrame = finalClimbTowerFrames[backgroundIndex % 2];
+    float towerWidth = clampFloat(screenWidth * 0.58f, 560.0f, 1100.0f);
+    float towerX = (screenWidth - towerWidth) * 0.5f;
+    Rectangle towerDest = {
+        towerX,
+        0.0f,
+        towerWidth,
+        screenHeight
+    };
+
+    if (towerFrame.id > 0) {
+        Rectangle source = { 0.0f, 0.0f, (float)towerFrame.width, (float)towerFrame.height };
+        DrawTexturePro(towerFrame, source, towerDest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+    } else {
+        DrawRectangleRec(towerDest, (Color){ 174, 151, 116, 255 });
+        DrawRectangleLinesEx(towerDest, 2.0f, (Color){ 104, 78, 55, 255 });
+    }
+
+    int climbFrame = (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP) ||
+                      IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) ? 1 : 0;
+    Texture2D currentSprite = finalClimbCharacterFrames[climbFrame];
+    if (currentSprite.id == 0) {
+        currentSprite = player->direction == 'R' ? player->spriteJumpingR : player->spriteJumpingL;
+    }
+    if (currentSprite.id == 0) {
+        currentSprite = player->direction == 'R' ? player->spriteStandingR : player->spriteStandingL;
+    }
+
+    float playerWidth = 220.0f;
+    float playerHeight = 286.0f;
+    float playerY = screenHeight * (0.80f - localClimbProgress * 0.62f);
+    Rectangle playerDest = {
+        screenWidth * 0.5f - playerWidth * 0.5f,
+        playerY,
+        playerWidth,
+        playerHeight
+    };
+
+    if (currentSprite.id > 0) {
+        Rectangle source = { 0.0f, 0.0f, (float)currentSprite.width, (float)currentSprite.height };
+        DrawTexturePro(currentSprite, source, playerDest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+    } else {
+        DrawRectangleRec(playerDest, RED);
+    }
+}
+
 void initStage3(Stage3 *stage, Player *player) {
     stage->state = STAGE3_APPROACH;
     stage->scrollX = 0.0f;
@@ -626,10 +831,12 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->birdTexture = LoadTexture("assets/img/pigeon1L.png");
     stage->birdTextureAlt = LoadTexture("assets/img/pigeon2L.png");
     stage->poopTexture = LoadTexture("assets/img/pigeonPoop.png");
+    loadFinalClimbTextures();
+    loadStage3MapTextures();
     
     // Posiciona a torre mais para a direita para expandir o mapa (1200px)
     // Desenha apenas a area visivel do PNG para a base da torre ficar exatamente no chao.
-    stage->towerPosition = (Vector2){ TOWER_START_X, TOWER_BASE_Y - towerDrawHeight(stage) };
+    stage->towerPosition = (Vector2){ TOWER_START_X, TOWER_BASE_Y - towerDrawHeight(stage) + TOWER_STAGE3_VERTICAL_OFFSET };
     syncTowerHitbox(stage);
     
     // Staggered cloud positions, extremely high up, with randomized speed and scale
@@ -676,6 +883,7 @@ void initStage3(Stage3 *stage, Player *player) {
         stage->poops[i].landed = false;
         stage->poops[i].groundTimer = 0.0f;
         stage->poops[i].speedY = 0.0f;
+        stage->poops[i].rotationZ = 0.0f;
     }
 
     float puddleX = 420.0f + (float)(rand() % 180);
@@ -692,6 +900,14 @@ void initStage3(Stage3 *stage, Player *player) {
 void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     if (player->lives <= 0) {
         return;
+    }
+
+    if (player->slowEffectTimer > 0.0f) {
+        player->slowEffectTimer -= deltaTime;
+        if (player->slowEffectTimer <= 0.0f) {
+            player->slowEffectTimer = 0.0f;
+            player->speedMultiplier = 1.0f;
+        }
     }
 
     for (int i = 0; i < STAGE3_MAX_CLOUDS; i++) {
@@ -716,10 +932,14 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     }
 
     if (stage->state == STAGE3_APPROACH) {
-        float moveSpeed = player->grounded ? 230.0f : 315.0f;
+        float moveSpeed = (player->grounded ? 230.0f : 315.0f) * player->speedMultiplier;
         float moveDelta = moveSpeed * deltaTime;
         float scrollDelta = 0.0f;
         float maxScrollX = approachMaxScroll(stage);
+        float towerAppearScroll = TOWER_START_X -
+                                  (PLAYER_CENTER_X + PLAYER_WIDTH * 0.5f +
+                                   visibleWorldWidth() * 0.5f - 120.0f);
+        float autoStopScroll = clampFloat(towerAppearScroll, 0.0f, maxScrollX);
         bool movementLockedByPuddle = stage->puddleLockTimer > 0.0f;
         float groundY = TOWER_BASE_Y - player->height;
 
@@ -729,11 +949,6 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
                 stage->puddleLockTimer = 0.0f;
                 stage->puddlePushVelocity = 0.0f;
             }
-        }
-
-        if (stage->puddleLockTimer > 0.0f) {
-            player->grounded = false;
-            player->velocity.y = 0.0f;
         }
 
         if (!movementLockedByPuddle && player->grounded &&
@@ -755,34 +970,26 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
             }
         }
         
-        if (!movementLockedByPuddle && (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))) {
-            if (player->position.x < PLAYER_CENTER_X) {
-                player->position.x += moveDelta;
-                if (player->position.x > PLAYER_CENTER_X) {
-                    player->position.x = PLAYER_CENTER_X;
-                }
-            } else if (stage->scrollX < maxScrollX) {
+        player->velocity.x = 0.0f;
+        bool towerVisible = stage->scrollX >= autoStopScroll - 0.5f;
+        if (!movementLockedByPuddle) {
+            if (!towerVisible) {
                 scrollDelta = moveDelta;
-                if (stage->scrollX + scrollDelta > maxScrollX) {
-                    scrollDelta = maxScrollX - stage->scrollX;
+                if (stage->scrollX + scrollDelta > autoStopScroll) {
+                    scrollDelta = autoStopScroll - stage->scrollX;
                 }
-            } else if (player->position.x < PLAYER_RIGHT_LIMIT) {
-                player->position.x += moveDelta;
+                player->velocity.x = moveSpeed;
             }
-        }
-        if (!movementLockedByPuddle && (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))) {
-            if (player->position.x > PLAYER_CENTER_X) {
-                player->position.x -= moveDelta;
-                if (player->position.x < PLAYER_CENTER_X) {
-                    player->position.x = PLAYER_CENTER_X;
-                }
-            } else if (player->position.x > PLAYER_LEFT_LIMIT) {
-                player->position.x -= moveDelta;
-            } else if (stage->scrollX > 0.0f) {
-                scrollDelta = -moveDelta;
-                if (stage->scrollX + scrollDelta < 0.0f) {
-                    scrollDelta = -stage->scrollX;
-                }
+
+            float lateralSpeed = moveSpeed * 0.9f;
+            float lateralDelta = lateralSpeed * deltaTime;
+            if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
+                player->position.x -= lateralDelta;
+                player->velocity.x = -lateralSpeed;
+            }
+            if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
+                player->position.x += lateralDelta;
+                player->velocity.x = lateralSpeed;
             }
         }
 
@@ -795,12 +1002,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
             bool shouldResetPuddle = !stage->puddles[i].active ||
                                      stage->puddles[i].position.x < visibleWorldLeft() - PUDDLE_WIDTH;
 
-            if (stage->puddles[i].active && puddleTouchesTowerArea(stage, &stage->puddles[i])) {
-                deactivatePuddle(&stage->puddles[i]);
-                shouldResetPuddle = true;
-            }
-
-            if (shouldResetPuddle && stage->scrollX < maxScrollX - 120.0f) {
+            if (shouldResetPuddle && stage->scrollX < autoStopScroll - 120.0f) {
                 resetPuddleAhead(stage, &stage->puddles[i], nextPuddleX);
             }
 
@@ -813,15 +1015,8 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         float towerWidth = towerDrawWidth(stage);
         if (stage->puddleLockTimer > 0.0f && stage->puddlePushVelocity > 0.0f) {
             float pushScrollDelta = stage->puddlePushVelocity * deltaTime;
-            if (stage->scrollX < maxScrollX) {
-                if (stage->scrollX + pushScrollDelta > maxScrollX) {
-                    pushScrollDelta = maxScrollX - stage->scrollX;
-                }
-
-                applyHorizontalScroll(stage, pushScrollDelta);
-            } else if (player->position.x < PLAYER_RIGHT_LIMIT) {
-                player->position.x += pushScrollDelta;
-            }
+            player->position.x += pushScrollDelta;
+            player->velocity.x = stage->puddlePushVelocity;
 
             stage->puddlePushVelocity *= 0.96f;
         }
@@ -833,12 +1028,11 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         if (player->position.x < PLAYER_LEFT_LIMIT) {
             player->position.x = PLAYER_LEFT_LIMIT;
         }
-        if (player->position.x > PLAYER_RIGHT_LIMIT) {
-            player->position.x = PLAYER_RIGHT_LIMIT;
+        float rightLimit = towerVisible ? stage->towerPosition.x + towerWidth - player->width : PLAYER_RIGHT_LIMIT;
+        if (player->position.x > rightLimit) {
+            player->position.x = rightLimit;
         }
 
-        clearPuddlesFromTowerArea(stage);
-        
         // Verifica se o player está à frente da torre (sobreposto no eixo X)
         bool isOverlappingTowerX = (player->position.x + PLAYER_WIDTH >= stage->towerHitbox.x) && 
                                    (player->position.x <= stage->towerHitbox.x + stage->towerHitbox.width);
@@ -881,13 +1075,15 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
 
             bool playerOnPuddle = CheckCollisionRecs(footHitbox, stage->puddles[i].hitbox);
             if (CheckCollisionRecs(playerHitbox, stage->puddles[i].bottleHitbox)) {
-                player->lives = 0;
+                player->invincibilityTimer = 0.0f;
+                damagePlayer(player, 220.0f);
+                stage->puddles[i].active = false;
                 break;
             }
 
             if (playerOnPuddle && stage->puddles[i].canLockPlayer) {
-                stage->puddleLockTimer = 0.78f;
-                stage->puddlePushVelocity = 520.0f;
+                stage->puddleLockTimer = 0.52f;
+                stage->puddlePushVelocity = 700.0f;
                 stage->puddles[i].canLockPlayer = false;
                 break;
             } else if (!playerOnPuddle) {
@@ -896,15 +1092,25 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         }
         
     } else if (stage->state == STAGE3_CLIMBING) {
-        stage->ambientSpawningEnabled = true;
+        stage->ambientSpawningEnabled = false;
         stage->scrollY = -clampFloat(TOWER_BASE_Y - player->position.y, 0.0f, towerDrawHeight(stage));
 
         clearPuddlesFromTowerArea(stage);
-        
-        // Limita o jogador de ir abaixo da tela ao escalar
-        if (player->position.y + player->height > WORLD_HEIGHT) {
-            player->position.y = WORLD_HEIGHT - player->height;
+
+        float climbSpeed = 45.0f;
+        if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) {
+            player->position.y -= climbSpeed * deltaTime;
+            player->state = PLAYER_STATE_JUMPING;
         }
+        if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) {
+            player->position.y += climbSpeed * deltaTime;
+            player->state = PLAYER_STATE_FALLING;
+        }
+
+        float climbBottom = TOWER_BASE_Y - player->height;
+        float climbTop = stage->towerPosition.y + 60.0f;
+        if (player->position.y > climbBottom) player->position.y = climbBottom;
+        if (player->position.y < climbTop) player->position.y = climbTop;
         
         if (player->position.x < stage->towerHitbox.x) player->position.x = stage->towerHitbox.x;
         if (player->position.x + PLAYER_WIDTH > stage->towerHitbox.x + stage->towerHitbox.width) player->position.x = stage->towerHitbox.x + stage->towerHitbox.width - PLAYER_WIDTH;
@@ -932,7 +1138,8 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
                             stage->poops[i].active = true;
                             stage->poops[i].landed = false;
                             stage->poops[i].groundTimer = 0.0f;
-                            stage->poops[i].speedY = 150.0f + (rand() % 150); // Velocidades de queda aleatórias (150 a 300)
+                            stage->poops[i].speedY = 0.0f;
+                            stage->poops[i].rotationZ = 0.0f;
                             break;
                         }
                     }
@@ -941,31 +1148,34 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         }
     }
     
+    syncStage3PlayerHitbox(player);
+
     // Atualiza poops
     for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
         if (stage->poops[i].active) {
-            if (!stage->poops[i].landed) {
-                stage->poops[i].position.y += stage->poops[i].speedY * deltaTime;
+            stage->poops[i].speedY += 400.0f * deltaTime;
+            stage->poops[i].position.y += stage->poops[i].speedY * deltaTime;
+            stage->poops[i].rotationZ += 360.0f * deltaTime;
 
-                if (stage->poops[i].position.y >= POOP_GROUND_Y) {
-                    stage->poops[i].position.y = POOP_GROUND_Y;
-                    stage->poops[i].landed = true;
-                    stage->poops[i].speedY = 0.0f;
-                    stage->poops[i].groundTimer = POOP_LANDED_DURATION;
-                }
-            } else {
-                stage->poops[i].groundTimer -= deltaTime;
-                if (stage->poops[i].groundTimer <= 0.0f) {
-                    stage->poops[i].active = false;
-                    continue;
-                }
+            if (stage->poops[i].rotationZ >= 360.0f) {
+                stage->poops[i].rotationZ = fmodf(stage->poops[i].rotationZ, 360.0f);
+            }
+
+            if (stage->poops[i].position.y >= POOP_GROUND_Y) {
+                stage->poops[i].active = false;
+                continue;
             }
             
-            Rectangle poopHitbox = stage->poops[i].landed
-                ? (Rectangle){ stage->poops[i].position.x - 28.0f, stage->poops[i].position.y - 9.0f, 56.0f, 18.0f }
-                : (Rectangle){ stage->poops[i].position.x - 16.0f, stage->poops[i].position.y - 8.0f, 32.0f, 36.0f };
+            Rectangle poopHitbox = {
+                stage->poops[i].position.x - 22.5f,
+                stage->poops[i].position.y - 22.5f,
+                45.0f,
+                45.0f
+            };
             if (CheckCollisionRecs(player->hitbox, poopHitbox)) {
-                player->lives = 0; // Se atingido pelas fezes, perde!
+                if (player->hasUmbrella <= 0) {
+                    applySlowDown(player, 50.0f, 2.0f);
+                }
                 stage->poops[i].active = false;
             }
         }
@@ -976,6 +1186,11 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
 }
 
 void drawStage3(Stage3 *stage, Player *player) {
+    if (stage->state == STAGE3_CLIMBING || stage->state == STAGE3_FINISHED) {
+        drawFinalClimbScene(stage, player);
+        return;
+    }
+
     Camera2D camera = {0};
     camera.target = cameraTargetForStage(stage, player);
     camera.offset = (Vector2){ GetScreenWidth() * 0.5f, GetScreenHeight() * 0.5f };
@@ -986,9 +1201,7 @@ void drawStage3(Stage3 *stage, Player *player) {
 
     BeginMode2D(camera);
     
-    // Chão: Recua para baixo conforme a torre desce (simulando a subida)
-    float towerHeight = towerDrawHeight(stage);
-    float floorY = stage->towerPosition.y + towerHeight;
+    float floorY = TOWER_BASE_Y;
     
     drawStage3Floor(stage, player, floorY);
 
@@ -1056,7 +1269,7 @@ void drawStage3(Stage3 *stage, Player *player) {
             if (stage->poops[i].landed) {
                 drawLandedPoop(stage->poopTexture, stage->poops[i].position);
             } else {
-                drawFallingPoop(stage->poopTexture, stage->poops[i].position);
+                drawFallingPoop(stage->poopTexture, stage->poops[i].position, stage->poops[i].rotationZ);
             }
         }
     }
@@ -1072,4 +1285,6 @@ void unloadStage3(Stage3 *stage) {
     if (stage->birdTexture.id > 0) UnloadTexture(stage->birdTexture);
     if (stage->birdTextureAlt.id > 0) UnloadTexture(stage->birdTextureAlt);
     if (stage->poopTexture.id > 0) UnloadTexture(stage->poopTexture);
+    unloadFinalClimbTextures();
+    unloadStage3MapTextures();
 }

@@ -34,6 +34,7 @@ typedef struct {
     bool landed;
     float speedY;
     float groundTimer;
+    float rotationZ;
 } BirdPoop;
 
 typedef struct {

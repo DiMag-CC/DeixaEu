@@ -9,6 +9,7 @@
 #define FRICTION 0.95f
 #define PLAYER_MAX_SPEED 450.0f
 #define KNOCKBACK_DURATION 1.2f
+#define DAMAGE_INVINCIBILITY_DURATION 2.0f
 #define TEXTURE_VALID(tex) ((tex).id > 0)
 
 Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
@@ -42,6 +43,7 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
 
     player.knockbackSpeed = 0.0f;
     player.knockbackTimer = 0.0f;
+    player.invincibilityTimer = 0.0f;
 
     player.slowEffectTimer = 0.0f;
     player.slowEffectDuration = 0.0f;
@@ -295,6 +297,13 @@ void updatePlayer(Player *player, float deltaTime) {
         }
     }
 
+    if (player->invincibilityTimer > 0.0f) {
+        player->invincibilityTimer -= deltaTime;
+        if (player->invincibilityTimer < 0.0f) {
+            player->invincibilityTimer = 0.0f;
+        }
+    }
+
     if (player->hasUmbrella) {
 
         player->umbrellaTimer -= deltaTime;
@@ -342,10 +351,10 @@ void drawPlayer(Player player) {
 
     Color drawColor = WHITE;
 
-    if (player.state == PLAYER_STATE_HIT) {
+    if (player.state == PLAYER_STATE_HIT || player.invincibilityTimer > 0.0f) {
 
         float blink =
-            fmod(player.knockbackTimer * 20.0f, 1.0f);
+            fmod((player.knockbackTimer + player.invincibilityTimer) * 20.0f, 1.0f);
 
         drawColor =
             (blink < 0.5f)
@@ -472,10 +481,12 @@ void drawPlayer(Player player) {
 
 void damagePlayer(Player *player, float knockback) {
     if (player->lives <= 0) return;
+    if (player->invincibilityTimer > 0.0f) return;
 
     player->lives--;
     player->knockbackSpeed = knockback;
     player->knockbackTimer = KNOCKBACK_DURATION;
+    player->invincibilityTimer = DAMAGE_INVINCIBILITY_DURATION;
 
     if (player->lives <= 0) {
         player->state = PLAYER_STATE_DEAD;

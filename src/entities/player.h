@@ -53,6 +53,7 @@ typedef struct {
     // Knockback
     float knockbackSpeed;       // Velocidade de knockback
     float knockbackTimer;       // Timer de knockback
+    float invincibilityTimer;   // Timer de invencibilidade após dano
 
     // Debuffs
     float slowEffectTimer;      // Timer de efeito de lentidão

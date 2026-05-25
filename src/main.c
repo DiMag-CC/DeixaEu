@@ -23,7 +23,66 @@ typedef enum {
     GAME_STAGE_3 = 3
 } GameStage;
 
+typedef enum {
+    PAUSE_RESUME = 0,
+    PAUSE_MENU = 1,
+    PAUSE_RESTART = 2
+} PauseOption;
+
+static Texture2D hudHeartTexture = {0};
+
+static int playerReachedStage1Exit(Player *player) {
+    float visibleWidth = GetScreenWidth() / STAGE1_CAMERA_ZOOM;
+    float rightLimit = GetScreenWidth() * 0.5f + visibleWidth * 0.5f - player->width * 0.5f;
+
+    return player->position.x >= rightLimit - 2.0f;
+}
+
+static void skipToNextStage(Stage1 *stage1,
+                            Stage3 *stage3,
+                            Player *player,
+                            int *stage1Initialized,
+                            int *stage3Initialized,
+                            GameStage *activeStage,
+                            Phase **currentPhase,
+                            Phase *phase3,
+                            float *bikeDropOverlayTimer,
+                            int *pendingStage3Transition) {
+    if (*activeStage != GAME_STAGE_1) {
+        return;
+    }
+
+    int remainingLives = player->lives;
+
+    if (*stage1Initialized) {
+        unloadStage1(stage1);
+        *stage1Initialized = 0;
+    }
+
+    if (*stage3Initialized) {
+        unloadStage3(stage3);
+    }
+
+    initStage3(stage3, player);
+    *stage3Initialized = 1;
+    player->lives = remainingLives;
+    *activeStage = GAME_STAGE_3;
+    *currentPhase = phase3;
+    *bikeDropOverlayTimer = 0.0f;
+    *pendingStage3Transition = 0;
+
+    printf("Fase atual: %s (numero %d)\n", (*currentPhase)->phaseName, (*currentPhase)->phaseNumber);
+    fflush(stdout);
+}
+
 void drawHeartIcon(float x, float y, float size, Color color) {
+    if (hudHeartTexture.id > 0) {
+        Rectangle source = { 0.0f, 0.0f, (float)hudHeartTexture.width, (float)hudHeartTexture.height };
+        Rectangle dest = { x, y, size, size };
+        DrawTexturePro(hudHeartTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, color);
+        return;
+    }
+
     DrawCircle((int)(x + size * 0.30f), (int)(y + size * 0.30f), size * 0.22f, color);
     DrawCircle((int)(x + size * 0.70f), (int)(y + size * 0.30f), size * 0.22f, color);
     DrawTriangle(
@@ -117,6 +176,82 @@ void drawStage3HUD(Player *player, float totalGameTime, int screenWidth) {
     DrawText("Chegue ate a torre", (int)(panelX + panelWidth - 152), (int)(panelY + 54), 15, (Color){ 215, 225, 235, 255 });
 }
 
+void drawPauseMenu(int selectedOption, int screenWidth, int screenHeight) {
+    const char *options[] = { "Voltar", "Menu", "Reiniciar" };
+    int panelWidth = 360;
+    int panelHeight = 300;
+    int panelX = (screenWidth - panelWidth) / 2;
+    int panelY = (screenHeight - panelHeight) / 2;
+
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 0, 0, 0, 145 });
+    DrawRectangleRounded((Rectangle){ panelX, panelY, panelWidth, panelHeight }, 0.08f, 10, (Color){ 8, 18, 32, 235 });
+    DrawRectangleRoundedLines((Rectangle){ panelX, panelY, panelWidth, panelHeight }, 0.08f, 10, (Color){ 255, 255, 255, 120 });
+
+    const char *title = "PAUSE";
+    int titleSize = 42;
+    DrawText(title, panelX + (panelWidth - MeasureText(title, titleSize)) / 2, panelY + 32, titleSize, YELLOW);
+
+    for (int i = 0; i < 3; i++) {
+        int fontSize = 28;
+        int textWidth = MeasureText(options[i], fontSize);
+        int y = panelY + 112 + i * 58;
+        Rectangle hitbox = { panelX + 52.0f, y - 8.0f, panelWidth - 104.0f, 44.0f };
+
+        if (selectedOption == i) {
+            DrawRectangleRounded(hitbox, 0.25f, 8, (Color){ 255, 255, 255, 36 });
+            DrawText(">", panelX + 72, y, fontSize, YELLOW);
+        }
+
+        DrawText(options[i], panelX + (panelWidth - textWidth) / 2, y, fontSize,
+                 selectedOption == i ? YELLOW : RAYWHITE);
+    }
+}
+
+int updatePauseMenu(int selectedOption) {
+    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
+        selectedOption--;
+    }
+    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
+        selectedOption++;
+    }
+    if (selectedOption < 0) selectedOption = 2;
+    if (selectedOption > 2) selectedOption = 0;
+
+    Vector2 mouse = GetMousePosition();
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+    int panelX = (screenWidth - 360) / 2;
+    int panelY = (screenHeight - 300) / 2;
+
+    for (int i = 0; i < 3; i++) {
+        Rectangle hitbox = { panelX + 52.0f, panelY + 112.0f + i * 58.0f - 8.0f, 256.0f, 44.0f };
+        if (CheckCollisionPointRec(mouse, hitbox)) {
+            selectedOption = i;
+        }
+    }
+
+    return selectedOption;
+}
+
+void drawBikeDropOverlay(float timer, int screenWidth, int screenHeight) {
+    float alphaFactor = timer > 1.0f ? 1.0f : timer;
+    unsigned char alpha = (unsigned char)(170.0f * alphaFactor);
+    Color overlay = { 0, 0, 0, alpha };
+
+    DrawRectangle(0, 0, screenWidth, screenHeight, overlay);
+
+    const char *title = "Bicicleta deixada para tras";
+    const char *subtitle = "Agora e a pe ate a torre";
+    int titleSize = 38;
+    int subtitleSize = 22;
+    int titleX = (screenWidth - MeasureText(title, titleSize)) / 2;
+    int subtitleX = (screenWidth - MeasureText(subtitle, subtitleSize)) / 2;
+    int centerY = screenHeight / 2;
+
+    DrawText(title, titleX, centerY - 42, titleSize, (Color){ 255, 238, 117, (unsigned char)(255.0f * alphaFactor) });
+    DrawText(subtitle, subtitleX, centerY + 12, subtitleSize, (Color){ 235, 242, 250, (unsigned char)(240.0f * alphaFactor) });
+}
+
 void refreshStage1Layout(Stage1 *stage) {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
@@ -181,6 +316,7 @@ void drawPlayerDebug(Player player) {
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(WINDOWED_WIDTH, WINDOWED_HEIGHT, "Deixa Eu");
+    SetExitKey(KEY_NULL);
     toggleGameFullscreen();
     SetTargetFPS(FPS);
 
@@ -195,6 +331,7 @@ int main(void) {
     // ========== INICIALIZAR PLAYER ==========
     int screenWidth = GetScreenWidth();
     Player player = createPlayer((Vector2){ screenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
+    hudHeartTexture = LoadTexture("assets/img/HealthHeart.png");
 
     // ========== ESTADOS DO JOGO ==========
     int isGameOver = 0;
@@ -202,6 +339,10 @@ int main(void) {
     float totalGameTime = 0.0f;
     int debugMode = 0;
     GameStage activeStage = GAME_STAGE_1;
+    int isPaused = 0;
+    int pauseSelectedOption = PAUSE_RESUME;
+    float bikeDropOverlayTimer = 0.0f;
+    int pendingStage3Transition = 0;
 
     // ========== MENU ==========
     Menu menu = createMenu();
@@ -249,6 +390,9 @@ int main(void) {
                     inMenu = 0;
                     totalGameTime = 0.0f;
                     isGameOver = 0;
+                    isPaused = 0;
+                    bikeDropOverlayTimer = 0.0f;
+                    pendingStage3Transition = 0;
                     activeStage = GAME_STAGE_1;
                     currentPhase = phase1;
 
@@ -274,25 +418,117 @@ int main(void) {
         }
         // ===== JOGO =====
         else {
+            if (IsKeyPressed(KEY_ESCAPE) && !isGameOver &&
+                !(activeStage == GAME_STAGE_3 && stage3.state == STAGE3_FINISHED)) {
+                isPaused = !isPaused;
+                pauseSelectedOption = PAUSE_RESUME;
+            }
+
+            if (isPaused) {
+                pauseSelectedOption = updatePauseMenu(pauseSelectedOption);
+
+                bool clickedPauseOption = false;
+                Vector2 mouse = GetMousePosition();
+                int panelX = (GetScreenWidth() - 360) / 2;
+                int panelY = (GetScreenHeight() - 300) / 2;
+                for (int i = 0; i < 3; i++) {
+                    Rectangle hitbox = { panelX + 52.0f, panelY + 112.0f + i * 58.0f - 8.0f, 256.0f, 44.0f };
+                    if (CheckCollisionPointRec(mouse, hitbox) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                        clickedPauseOption = true;
+                    }
+                }
+
+                if (IsKeyPressed(KEY_ENTER) || clickedPauseOption) {
+                    if (pauseSelectedOption == PAUSE_RESUME) {
+                        isPaused = 0;
+                    } else {
+                        unloadPlayerResources(&player);
+                        player = createPlayer((Vector2){ GetScreenWidth() * 0.18f, GROUND_LEVEL }, 150, 3);
+
+                        if (stage1Initialized) {
+                            unloadStage1(&stage1);
+                        }
+                        if (stage3Initialized) {
+                            unloadStage3(&stage3);
+                            stage3Initialized = 0;
+                        }
+
+                        initStage1(&stage1);
+                        stage1Initialized = 1;
+                        activeStage = GAME_STAGE_1;
+                        currentPhase = phase1;
+                        isGameOver = 0;
+                        totalGameTime = 0.0f;
+                        bikeDropOverlayTimer = 0.0f;
+                        pendingStage3Transition = 0;
+                        isPaused = 0;
+
+                        if (pauseSelectedOption == PAUSE_MENU) {
+                            menu = createMenu();
+                            inMenu = 1;
+                        }
+                    }
+                }
+            }
+
+            if (!isPaused && !inMenu) {
             // ===== ATUALIZAR STAGE E PLAYER =====
+            if (!isGameOver && IsKeyPressed(KEY_P)) {
+                skipToNextStage(&stage1,
+                                &stage3,
+                                &player,
+                                &stage1Initialized,
+                                &stage3Initialized,
+                                &activeStage,
+                                &currentPhase,
+                                phase3,
+                                &bikeDropOverlayTimer,
+                                &pendingStage3Transition);
+            }
+
             if (activeStage == GAME_STAGE_1) {
                 updateStage1(&stage1, &player, deltaTime);
                 updatePlayer(&player, deltaTime);
 
-                if (stage1.stage1Complete && !isGameOver) {
-                    int remainingLives = player.lives;
-                    unloadStage1(&stage1);
-                    stage1Initialized = 0;
-                    initStage3(&stage3, &player);
-                    stage3Initialized = 1;
-                    player.lives = remainingLives;
-                    activeStage = GAME_STAGE_3;
-                    currentPhase = phase3;
-                    printf("Fase atual: %s (numero %d)\n", currentPhase->phaseName, currentPhase->phaseNumber);
-                    fflush(stdout);
+                if (stage1.stage1Complete &&
+                    stage1.distanceTraveled >= STAGE1_TARGET_DISTANCE &&
+                    playerReachedStage1Exit(&player) &&
+                    !isGameOver &&
+                    !pendingStage3Transition) {
+                    pendingStage3Transition = 1;
+                    bikeDropOverlayTimer = 2.2f;
+                    player.velocity = (Vector2){ 0.0f, 0.0f };
+                }
+
+                if (pendingStage3Transition) {
+                    if (bikeDropOverlayTimer > 0.0f) {
+                        bikeDropOverlayTimer -= deltaTime;
+                    }
+
+                    if (bikeDropOverlayTimer <= 0.0f) {
+                        int remainingLives = player.lives;
+                        unloadStage1(&stage1);
+                        stage1Initialized = 0;
+                        initStage3(&stage3, &player);
+                        stage3Initialized = 1;
+                        player.lives = remainingLives;
+                        activeStage = GAME_STAGE_3;
+                        currentPhase = phase3;
+                        bikeDropOverlayTimer = 0.0f;
+                        pendingStage3Transition = 0;
+                        printf("Fase atual: %s (numero %d)\n", currentPhase->phaseName, currentPhase->phaseNumber);
+                        fflush(stdout);
+                    }
                 }
             } else if (activeStage == GAME_STAGE_3) {
                 updateStage3(&stage3, &player, deltaTime);
+            }
+
+            if (bikeDropOverlayTimer > 0.0f && !pendingStage3Transition) {
+                bikeDropOverlayTimer -= deltaTime;
+                if (bikeDropOverlayTimer < 0.0f) {
+                    bikeDropOverlayTimer = 0.0f;
+                }
             }
 
             // ===== VERIFICAR GAME OVER =====
@@ -323,6 +559,9 @@ int main(void) {
                     currentPhase = phase1;
                     isGameOver = 0;
                     totalGameTime = 0.0f;
+                    isPaused = 0;
+                    bikeDropOverlayTimer = 0.0f;
+                    pendingStage3Transition = 0;
 
                     menu = createMenu();
                     inMenu = 1;
@@ -348,6 +587,9 @@ int main(void) {
                     activeStage = GAME_STAGE_1;
                     currentPhase = phase1;
                     totalGameTime = 0.0f;
+                    isPaused = 0;
+                    bikeDropOverlayTimer = 0.0f;
+                    pendingStage3Transition = 0;
 
                     menu = createMenu();
                     inMenu = 1;
@@ -357,6 +599,7 @@ int main(void) {
             // ===== CONTAR TEMPO =====
             if (!isGameOver && !(activeStage == GAME_STAGE_3 && stage3.state == STAGE3_FINISHED)) {
                 totalGameTime += deltaTime;
+            }
             }
         }
 
@@ -386,6 +629,14 @@ int main(void) {
             } else if (activeStage == GAME_STAGE_3) {
                 drawStage3(&stage3, &player);
                 drawStage3HUD(&player, totalGameTime, screenWidth);
+            }
+
+            if (bikeDropOverlayTimer > 0.0f) {
+                drawBikeDropOverlay(bikeDropOverlayTimer, screenWidth, screenHeight);
+            }
+
+            if (isPaused) {
+                drawPauseMenu(pauseSelectedOption, screenWidth, screenHeight);
             }
 
             // ===== DEBUG MODE =====
@@ -461,6 +712,9 @@ int main(void) {
     unloadPlayerResources(&player);
     if (phaseList != NULL) {
         freePhaseList(phaseList);
+    }
+    if (hudHeartTexture.id > 0) {
+        UnloadTexture(hudHeartTexture);
     }
 
     CloseWindow();
