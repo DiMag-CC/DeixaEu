@@ -1,12 +1,11 @@
 #ifndef CRAB_H
 #define CRAB_H
 
-#include <raylib.h>
+#include "raylib.h"
 
-#define CRAB_WIDTH 64
-#define CRAB_HEIGHT 64
-#define CRAB_NUM_FRAMES 6
-#define CRAB_FRAME_SPEED 8
+#define CRAB_WIDTH  140.0f
+#define CRAB_HEIGHT 85.0f
+#define CRAB_NUM_FRAMES 2
 
 typedef struct {
     Vector2 position;
@@ -18,6 +17,7 @@ typedef struct {
 
 Crab createCrab(Vector2 position, int frameSpeed);
 void updateCrab(Crab* crab);
-void drawCrab(Crab crab, Texture2D crabTexture);
 
-#endif
+void drawCrab(Crab crab, Texture2D crabTextures[]);
+
+#endif // CRAB_H
