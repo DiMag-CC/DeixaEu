@@ -437,11 +437,8 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
         stage->distanceTraveled = 1500.0f;
     }
 
-    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
-        olhandoParaDireita = 1;
-    } else if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
-        olhandoParaDireita = 0;
-    }
+    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) olhandoParaDireita = 1;
+    else if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) olhandoParaDireita = 0;
 
     float fatorDificuldade = 1.0f + (stage->distanceTraveled / 300.0f) * 0.15f;
     if (fatorDificuldade > 2.0f) fatorDificuldade = 2.0f;
