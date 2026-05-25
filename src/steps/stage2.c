@@ -14,8 +14,10 @@ static Texture2D txMoverEsquerda;
 static Texture2D txPuloDireita;
 static Texture2D txPuloEsquerda;
 
-// Controle de carregamento do cenário
+// NOVAS TEXTURAS PARA O CENÁRIO SEPARADO
+static Texture2D plataformaAreia;
 static int bgLoaded = 0;
+static int platformLoaded = 0;
 
 // Variável estática para lembrar para onde o jogador olhou por último (1 = Direita, 0 = Esquerda)
 static int olhandoParaDireita = 1;
@@ -24,54 +26,12 @@ static int olhandoParaDireita = 1;
 #define S2_GRAVIDADE   3200.0f
 #define S2_FORCA_PULO -1220.0f  
 
-// =========================================================================
-// REQUISITO 4: ALGORITMO DE ORDENAÇÃO (INSERTION SORT)
-// Ordena a lista encadeada de obstáculos baseada na posição X (mais próximos primeiro)
-// =========================================================================
-static void sortStage2Obstacles(Stage2Queue *queue) {
-    if (queue->front == NULL || queue->front->next == NULL) return;
-
-    Stage2Node *sorted = NULL;
-    Stage2Node *current = queue->front;
-
-    while (current != NULL) {
-        Stage2Node *next = current->next;
-
-        // Inserção ordenada na lista auxiliar
-        if (sorted == NULL || sorted->obstacle.position.x >= current->obstacle.position.x) {
-            current->next = sorted;
-            sorted = current;
-        } else {
-            Stage2Node *temp = sorted;
-            while (temp->next != NULL && temp->next->obstacle.position.x < current->obstacle.position.x) {
-                temp = temp->next;
-            }
-            current->next = temp->next;
-            temp->next = current;
-        }
-        current = next;
-    }
-    queue->front = sorted;
-
-    // Atualiza o ponteiro do 'rear' (fim da fila) reconstruindo a referência
-    Stage2Node *temp = queue->front;
-    while (temp != NULL && temp->next != NULL) {
-        temp = temp->next;
-    }
-    queue->rear = temp;
-}
-
-// =========================================================================
-// REQUISITO 5 & 6: FUNÇÕES DA ESTRUTURA DE DADOS ADOTADA
-// Mapeamento das funções dinâmicas da fila encadeada FIFO
-// =========================================================================
-
-// Função da ED 1: Geração e Enfileiramento (Enqueue)
 static void spawnSandObstacle(Stage2 *stage) {
     int roll = rand() % 100;
     Stage2ObstacleType type = (roll < 50) ? S2_OBS_CRAB : S2_OBS_TRASH;
 
     Vector2 pos = { (float)GetRenderWidth() + 100.0f, S2_AREIA_Y };
+
     Stage2Obstacle obs = createStage2Obstacle(pos, type);
 
     if (type == S2_OBS_CRAB) {
@@ -87,10 +47,9 @@ static void spawnSandObstacle(Stage2 *stage) {
     obs.hitbox.x = obs.position.x + 10.0f; 
     obs.hitbox.y = obs.position.y + (type == S2_OBS_CRAB ? 25.0f : 15.0f);
 
-    enqueueStage2(&stage->obstacleQueue, obs); 
+    enqueueStage2(&stage->obstacleQueue, obs);
 }
 
-// Função da ED 2: Varredura Linear e Colisão
 static void handleSandCollisions(Stage2 *stage, Player *player) {
     Stage2Node *cur = stage->obstacleQueue.front;
     while (cur != NULL) {
@@ -120,7 +79,6 @@ static void handleSandCollisions(Stage2 *stage, Player *player) {
     }
 }
 
-// Funções da ED 3, 4 e 5: Modificação, Captura de Tamanho e Desenfileiramento (Dequeue)
 static void scrollAndCleanObstacles(Stage2 *stage, Player *player, float deltaTime) {
     Stage2Node *cur = stage->obstacleQueue.front;
     while (cur != NULL) {
@@ -131,8 +89,8 @@ static void scrollAndCleanObstacles(Stage2 *stage, Player *player, float deltaTi
         cur = cur->next;
     }
 
-    int sizeBefore = stage2QueueSize(&stage->obstacleQueue);               
-    removeOffscreenStage2(&stage->obstacleQueue, -200.0f);                 
+    int sizeBefore = stage2QueueSize(&stage->obstacleQueue);
+    removeOffscreenStage2(&stage->obstacleQueue, -200.0f);
     int sizeAfter = stage2QueueSize(&stage->obstacleQueue);
     int passed = sizeBefore - sizeAfter;
     if (passed > 0) {
@@ -140,7 +98,6 @@ static void scrollAndCleanObstacles(Stage2 *stage, Player *player, float deltaTi
     }
 }
 
-// Função da ED 6: Inicialização Construtora
 void initStage2(Stage2 *stage) {
     stage->mode = STAGE2_MODE_SAND;
     stage->modeTimer = 0.0f;
@@ -150,9 +107,10 @@ void initStage2(Stage2 *stage) {
     stage->obstacleSpawnTimer = 0.0f;
     stage->difficultyMultiplier = 1.0f;
     stage->stage2Complete = 0;
+    
     stage->backgroundScroll = 0.0f; 
 
-    initStage2Queue(&stage->obstacleQueue); 
+    initStage2Queue(&stage->obstacleQueue);
 
     stage->hasCoconutBuff = 0;
     stage->coconutBuffTimer = 0.0f;
@@ -168,6 +126,10 @@ void initStage2(Stage2 *stage) {
     stage->bgSand = LoadTexture("assets/img/landscapeLevel2.png");
     if (stage->bgSand.id != 0) bgLoaded = 1;
 
+    platformLoaded = 0;
+    plataformaAreia = LoadTexture("assets/img/plataformLevel2.png");
+    if (plataformaAreia.id != 0) platformLoaded = 1;
+
     stage->bgSea  = (Texture2D){0};
 
     texturaCaranguejo = LoadTexture("assets/img/crab1.png");
@@ -180,16 +142,19 @@ void initStage2(Stage2 *stage) {
 
     olhandoParaDireita = 1; 
 
-    if (!bgLoaded || texturaCaranguejo.id == 0 || texturaBuraco.id == 0) {
+    if (!bgLoaded || !platformLoaded || texturaCaranguejo.id == 0 || texturaBuraco.id == 0) {
         printf("[AVISO] Erro crítico: Falha ao carregar texturas de cenário ou obstáculos na Stage 2!\n");
     }
 }
 
-// Função da ED 7: Destruição e Desalocação (Clear/Free)
 void unloadStage2(Stage2 *stage) {
     if (bgLoaded) {
         UnloadTexture(stage->bgSand);
         bgLoaded = 0;
+    }
+    if (platformLoaded) {
+        UnloadTexture(plataformaAreia);
+        platformLoaded = 0;
     }
     if (stage->bgSea.id  > 0) UnloadTexture(stage->bgSea);
     
@@ -200,7 +165,7 @@ void unloadStage2(Stage2 *stage) {
     UnloadTexture(txPuloDireita);
     UnloadTexture(txPuloEsquerda);
     
-    freeStage2Queue(&stage->obstacleQueue); 
+    freeStage2Queue(&stage->obstacleQueue);
 }
 
 static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
@@ -271,10 +236,6 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
         stage->obstacleSpawnTimer = 0.0f;
     }
 
-    // Ordena a fila dinamicamente antes de mover
-    sortStage2Obstacles(&stage->obstacleQueue);
-
-    // Atualiza o movimento baseado nos ponteiros ordenados
     float velocidadeAntiga = stage->scrollSpeed;
     stage->scrollSpeed = velocidadAtual;
     scrollAndCleanObstacles(stage, player, deltaTime);
@@ -349,32 +310,48 @@ static void drawSand(Stage2 *stage) {
     int screenWidth = GetRenderWidth();
     int screenHeight = GetRenderHeight();
 
-    // =========================================================================
-    // BACKGROUND ÚNICO DA PRAIA EM LOOP INFINITO COM PARALLAX (0.25f)
-    // =========================================================================
+    // =========================================================
+    // CAMADA 1 — BACKGROUND (CÉU / PARTE DISTANTE) LENTO
+    // =========================================================
     if (bgLoaded && stage->bgSand.id > 0) {
         float bgScroll = fmod(stage->backgroundScroll * 0.25f, screenWidth);
         Rectangle source = { 0.0f, 0.0f, (float)stage->bgSand.width, (float)stage->bgSand.height };
 
         for (int i = 0; i < 2; i++) {
-            Rectangle dest = { 
-                (i * screenWidth) - bgScroll, 
-                0.0f, 
-                (float)screenWidth, 
-                (float)screenHeight 
-            };
+            Rectangle dest = { (i * screenWidth) - bgScroll, 0.0f, (float)screenWidth, (float)screenHeight };
             DrawTexturePro(stage->bgSand, source, dest, (Vector2){0, 0}, 0.0f, WHITE);
         }
     }
 
-    // Renderiza os obstáculos na tela seguindo a ordenação estável do sort
+    // =========================================================
+    // CAMADA 2 — PLATAFORMA (ONDE O BONECO PISA) RÁPIDA
+    // CORREÇÃO: Alinhando a areia na parte de baixo da tela
+    // =========================================================
+    if (platformLoaded && plataformaAreia.id > 0) {
+        float platformWidth = (float)screenWidth; 
+        float platformScroll = fmod(stage->backgroundScroll, platformWidth);
+        Rectangle source = { 0.0f, 0.0f, (float)plataformaAreia.width, (float)plataformaAreia.height };
+
+        for (int i = 0; i < 2; i++) {
+            // Posicionado na parte inferior cobrindo a pista
+            Rectangle dest = { 
+                (i * platformWidth) - platformScroll, 
+                0.0f, 
+                platformWidth, 
+                (float)screenHeight 
+            };
+            DrawTexturePro(plataformaAreia, source, dest, (Vector2){0, 0}, 0.0f, WHITE);
+        }
+    } else {
+        DrawRectangle(0, S2_AREIA_Y, screenWidth, screenHeight - S2_AREIA_Y, DARKBROWN);
+    }
+
     Stage2Node *cur = stage->obstacleQueue.front;
     while (cur != NULL) {
         drawStage2Obstacle(cur->obstacle);
         cur = cur->next;
     }
 
-    // Interface HUD
     DrawText("VIDA:", 15, 120, 20, DARKGRAY);
     DrawRectangle(85, 120, 200, 20, (Color){60, 60, 60, 200});
     float pct = stage->breath / 100.0f;
