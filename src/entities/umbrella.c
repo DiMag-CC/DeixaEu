@@ -1,7 +1,7 @@
 #include "umbrella.h"
+#include "../utils/gameConstants.h"
 #include <math.h>
 
-// ========== CRIAR GUARDA-CHUVA ==========
 Umbrella createUmbrella(Vector2 position) {
     Umbrella umbrella;
     umbrella.position = position;
@@ -26,11 +26,9 @@ Umbrella createUmbrella(Vector2 position) {
     return umbrella;
 }
 
-// ========== ATUALIZAR GUARDA-CHUVA ==========
 void updateUmbrella(Umbrella *umbrella, float scrollSpeed, float deltaTime) {
     if (!umbrella->active) return;
 
-    // Mover com scroll
     umbrella->position.x -= scrollSpeed * deltaTime;
 
     // Rotação contínua (animação)
@@ -52,28 +50,41 @@ void updateUmbrella(Umbrella *umbrella, float scrollSpeed, float deltaTime) {
     }
 }
 
-// ========== DESENHAR GUARDA-CHUVA ==========
 void drawUmbrella(Umbrella umbrella) {
     if (!umbrella.active) return;
 
+    float scaledWidth = UMBRELLA_WIDTH;
+    float scaledHeight = UMBRELLA_HEIGHT;
+
     if (umbrella.spriteLoaded) {
-        DrawTextureEx(umbrella.texture,
-                     (Vector2){ umbrella.position.x - UMBRELLA_WIDTH / 2, umbrella.position.y - UMBRELLA_HEIGHT / 2 },
-                     umbrella.rotationAngle, 1.0f, WHITE);
+        // Usar DrawTexturePro com rotação
+        Rectangle source = { 0, 0, (float)umbrella.texture.width, (float)umbrella.texture.height };
+        Rectangle dest = {
+            umbrella.position.x - scaledWidth / 2,
+            umbrella.position.y - scaledHeight / 2,
+            scaledWidth,
+            scaledHeight
+        };
+        Vector2 origin = { scaledWidth / 2, scaledHeight / 2 };
+        DrawTexturePro(umbrella.texture, source, dest, origin, umbrella.rotationAngle, WHITE);
     } else {
-        // Placeholder: semicírculo verde (guarda-chuva)
-        DrawCircleSector(umbrella.position, UMBRELLA_WIDTH / 2, 0, 180, 10, GREEN);
-        DrawCircleSectorLines(umbrella.position, UMBRELLA_WIDTH / 2, 0, 180, 10, DARKGREEN);
+        Vector2 offset = {
+            cosf(umbrella.rotationAngle * PI / 180.0f) * 5.0f,
+            sinf(umbrella.rotationAngle * PI / 180.0f) * 5.0f
+        };
+        Vector2 rotatedPos = { umbrella.position.x + offset.x, umbrella.position.y + offset.y };
+
+        DrawCircleSector(rotatedPos, UMBRELLA_WIDTH / 2, umbrella.rotationAngle, umbrella.rotationAngle + 180, 10, GREEN);
+        DrawCircleSectorLines(rotatedPos, UMBRELLA_WIDTH / 2, umbrella.rotationAngle, umbrella.rotationAngle + 180, 10, DARKGREEN);
 
         // Cabo
-        DrawLine(umbrella.position.x, umbrella.position.y,
-                umbrella.position.x, umbrella.position.y + UMBRELLA_HEIGHT / 2, DARKGREEN);
+        DrawLine((int)rotatedPos.x, (int)rotatedPos.y,
+                (int)(rotatedPos.x + cosf((umbrella.rotationAngle + 270) * PI / 180.0f) * UMBRELLA_HEIGHT / 2),
+                (int)(rotatedPos.y + sinf((umbrella.rotationAngle + 270) * PI / 180.0f) * UMBRELLA_HEIGHT / 2),
+                DARKGREEN);
     }
-
-    // DrawRectangleLinesEx(umbrella.hitbox, 1, RED);
 }
 
-// ========== DESCARREGAR RECURSOS ==========
 void unloadUmbrellaResources(Umbrella *umbrella) {
     if (umbrella->spriteLoaded) {
         UnloadTexture(umbrella->texture);

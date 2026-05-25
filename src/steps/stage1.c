@@ -1,40 +1,115 @@
 #include "stage1.h"
+#include "../utils/gameConstants.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 
-// ========== HELPER: SPAWNAR OBSTÁCULOS ==========
+static float worldScale = 1.0f;
+
 static void spawnRandomObstacle(Stage1 *stage) {
+
     int roll = rand() % 100;
-    Vector2 spawnPos = { SCREEN_WIDTH + 50, GROUND_LEVEL };
+
+    int screenWidth = GetScreenWidth();
+
+    float groundY = stage->groundLevel;
+
+    float spawnX =
+        stage->camera.target.x +
+        screenWidth;
+
+    Vector2 spawnPos = {
+        spawnX,
+        groundY
+    };
 
     QueueObstacle qobs;
-    qobs.position = spawnPos;
-    qobs.active = 1;
 
+    qobs.position = spawnPos;
+
+    qobs.active = 1;
     if (roll < 40) {
-        // 40% Buraco
+
         qobs.type = QUEUE_OBS_HOLE;
-        qobs.data.hole = createObstacle(spawnPos, OBS_HOLE);
-        enqueueObstacle(&stage->obstacleQueue, qobs);
-    } else if (roll < 70) {
-        // 30% Ônibus
+
+        qobs.data.hole =
+            createObstacle(
+                (Vector2){
+                    spawnX,
+                    groundY + 120.0f
+                },
+                OBS_HOLE
+            );
+
+        enqueueObstacle(
+            &stage->obstacleQueue,
+            qobs
+        );
+    }
+    else if (roll < 70) {
+
         qobs.type = QUEUE_OBS_BUS;
-        qobs.data.bus = createBus(spawnPos);
-        enqueueObstacle(&stage->obstacleQueue, qobs);
-    } else if (roll < 95) {
-        // 25% Pombo
+
+        qobs.data.bus =
+            createBus(
+                (Vector2){
+                    spawnX,
+                    groundY + 120.0f
+                }
+            );
+
+        enqueueObstacle(
+            &stage->obstacleQueue,
+            qobs
+        );
+    }
+    else if (roll < 95) {
+
         qobs.type = QUEUE_OBS_PIGEON;
-        qobs.data.pigeon = createPigeon((Vector2){ spawnPos.x, GROUND_LEVEL - 80 });
-        enqueueObstacle(&stage->obstacleQueue, qobs);
-    } else {
-        // 5% Guarda-chuva (power-up)
+
+        float minPigeonY =
+            groundY - (GetScreenHeight() * 0.48f);
+
+        float maxPigeonY =
+            groundY - (GetScreenHeight() * 0.28f);
+
+        float pigeonY =
+            minPigeonY +
+            ((float)rand() / RAND_MAX) *
+            (maxPigeonY - minPigeonY);
+
+        qobs.data.pigeon =
+            createPigeon(
+                (Vector2){
+                    spawnPos.x,
+                    pigeonY
+                }
+            );
+
+        enqueueObstacle(
+            &stage->obstacleQueue,
+            qobs
+        );
+    }
+    else {
+
         qobs.type = QUEUE_OBS_UMBRELLA;
-        qobs.data.pigeon.position = (Vector2){ spawnPos.x, GROUND_LEVEL - 50 };
+
+        qobs.data.umbrella =
+            createUmbrella(
+                (Vector2){
+                    spawnX,
+                    groundY - 120.0f
+                }
+            );
+
+        enqueueObstacle(
+            &stage->obstacleQueue,
+            qobs
+        );
     }
 }
 
-// ========== HELPER: ATUALIZAR OBSTÁCULOS ==========
 static void updateObstacles(Stage1 *stage, float deltaTime) {
     QueueNode *cur = stage->obstacleQueue.front;
 
@@ -56,7 +131,8 @@ static void updateObstacles(Stage1 *stage, float deltaTime) {
                 break;
 
             case QUEUE_OBS_UMBRELLA:
-                // Umbrella é coletável, não obstáculo
+                // Umbrella é coletável, atualizar como item flutuante
+                updateUmbrella(&qobs->data.umbrella, stage->scrollSpeed, deltaTime);
                 break;
         }
 
@@ -67,7 +143,6 @@ static void updateObstacles(Stage1 *stage, float deltaTime) {
     removeOffscreenObstacles(&stage->obstacleQueue, -100.0f);
 }
 
-// ========== HELPER: COLISÕES COM OBSTÁCULOS ==========
 static void handleCollisions(Stage1 *stage, Player *player) {
     QueueNode *cur = stage->obstacleQueue.front;
 
@@ -112,14 +187,24 @@ static void handleCollisions(Stage1 *stage, Player *player) {
                 for (int i = 0; i < MAX_POOPS; i++) {
                     Poop *poop = &qobs->data.pigeon.poops[i];
                     if (poop->active && CheckCollisionRecs(player->hitbox, poop->hitbox)) {
-                        applySlowDown(player, 50.0f, 2.0f);
+                        // Se tem umbrella, não aplica debuff
+                        if (player->hasUmbrella <= 0) {
+                            applySlowDown(player, 50.0f, 2.0f);  // 50% slowdown por 2 segundos
+                        }
                         poop->active = 0;
                     }
                 }
                 break;
 
             case QUEUE_OBS_UMBRELLA:
-                // TODO: Implementar coletável de guarda-chuva
+                // Colisão com guarda-chuva (coletável)
+                obstacleHitbox = qobs->data.umbrella.hitbox;
+                if (qobs->data.umbrella.active && CheckCollisionRecs(player->hitbox, obstacleHitbox)) {
+                    // Coletar umbrella
+                    addUmbrellaShield(player, 8.0f);  // 8 segundos de proteção
+                    qobs->data.umbrella.active = 0;
+                    qobs->active = 0;
+                }
                 break;
         }
 
@@ -127,7 +212,6 @@ static void handleCollisions(Stage1 *stage, Player *player) {
     }
 }
 
-// ========== HELPER: DESENHAR OBSTÁCULOS ==========
 static void drawObstacles(Stage1 *stage) {
     QueueNode *cur = stage->obstacleQueue.front;
 
@@ -158,6 +242,9 @@ static void drawObstacles(Stage1 *stage) {
                 break;
 
             case QUEUE_OBS_UMBRELLA:
+                if (qobs->data.umbrella.active) {
+                    drawUmbrella(qobs->data.umbrella);
+                }
                 break;
         }
 
@@ -165,8 +252,14 @@ static void drawObstacles(Stage1 *stage) {
     }
 }
 
-// ========== INICIALIZAR STAGE 1 ==========
 void initStage1(Stage1 *stage) {
+
+    GLOBAL_WORLD_SCALE =
+        (float)GetScreenHeight() / BASE_SCREEN_HEIGHT;
+
+    GLOBAL_GROUND_LEVEL =
+        GetScreenHeight() * 0.82f;
+
     stage->scrollSpeed = STAGE1_BASE_SCROLL_SPEED;
     stage->distanceTraveled = 0.0f;
     stage->spawnInterval = 1.5f;
@@ -177,10 +270,23 @@ void initStage1(Stage1 *stage) {
     stage->stage1Failed = 0;
 
     // Inicializar câmera side-scrolling
-    stage->camera.target = (Vector2){ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.6f };
-    stage->camera.offset = (Vector2){ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.6f };
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+    worldScale = (float)screenHeight / 720.0f;
+
+    stage->camera.target =
+    (Vector2){ screenWidth * 0.5f,
+            screenHeight * 0.5f };
+
+    stage->camera.offset =
+    (Vector2){
+        screenWidth * 0.35f,
+        screenHeight * 0.50f
+    };
+
     stage->camera.rotation = 0.0f;
     stage->camera.zoom = 1.0f;
+    stage->cameraDamping = 0.15f;  // Damping suave para câmera responsiva
 
     // Inicializar bike
     stage->bike = createBike();
@@ -188,18 +294,33 @@ void initStage1(Stage1 *stage) {
     // Inicializar chuva
     stage->rain = createRainSystem();
 
+    // Inicializar sistema de nuvens
+    stage->cloudSystem = createCloudSystem();
+
     // Inicializar fila de obstáculos
     initObstacleQueue(&stage->obstacleQueue);
 
-    // Carregar background (placeholder se falhar)
+    // Carregar background com parallax
     stage->bgLoaded = 0;
-    stage->backgroundTexture = LoadTexture("assets/img/stage1_bg.png");
+    stage->backgroundTexture = LoadTexture("assets/img/landscapeLevel1.png");
     if (stage->backgroundTexture.id != 0) {
         stage->bgLoaded = 1;
     }
+
+    stage->groundLevel =
+        GetScreenHeight() * GROUND_Y_RATIO;
+
+    // Carregar plataforma (chão)
+    stage->platformLoaded = 0;
+    stage->platformTexture = LoadTexture("assets/img/plataformLevel1.png");
+    if (stage->platformTexture.id != 0) {
+        stage->platformLoaded = 1;
+    }
+
+    // Inicializar parallax
+    stage->parallaxOffset = 0.0f;
 }
 
-// ========== ATUALIZAR STAGE 1 ==========
 void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     if (stage->stage1Complete || stage->stage1Failed) {
         return;
@@ -226,20 +347,34 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
         spawnRandomObstacle(stage);
     }
 
-    // ===== ATUALIZAR ENTIDADES =====
+    float playerGroundY =
+        stage->groundLevel - player->height + 112.0f;
+
+    // Se o player está muito acima do chão, trazer com gravidade
+    if (player->position.y < playerGroundY - 5.0f) {
+        player->velocity.y += 600.0f * deltaTime;
+    } else if (player->position.y > playerGroundY) {
+        // Player no chão
+        player->position.y = playerGroundY;
+        player->velocity.y = 0;
+        player->isGrounded = 1;
+    } else {
+        player->isGrounded = 1;
+    }
+
+
     updateBike(&stage->bike, player, deltaTime);
     updateRainSystem(&stage->rain, deltaTime);
+    updateCloudSystem(&stage->cloudSystem, stage->scrollSpeed, deltaTime);
     updateObstacles(stage, deltaTime);
+
+    stage->parallaxOffset += stage->scrollSpeed * deltaTime;
 
     // ===== COLISÕES =====
     handleCollisions(stage, player);
 
     // ===== DISTÂNCIA PERCORRIDA =====
     stage->distanceTraveled += stage->scrollSpeed * deltaTime;
-
-    // ===== ATUALIZAR CÂMERA SIDE-SCROLLING =====
-    stage->camera.target.x = player->position.x + 100.0f;
-    stage->camera.target.y = player->position.y - 80.0f;
 
     // ===== VERIFICAR GAME OVER =====
     if (player->lives <= 0) {
@@ -252,60 +387,174 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     }
 }
 
-// ========== DESENHAR STAGE 1 ==========
 void drawStage1(Stage1 *stage, Player *player) {
-    // ===== INICIAR MODO 2D COM CÂMERA =====
-    BeginMode2D(stage->camera);
 
-    // ===== DESENHAR BACKGROUND =====
-    if (stage->bgLoaded) {
-        float bgTileWidth = stage->backgroundTexture.width;
-        float worldX = stage->camera.target.x - SCREEN_WIDTH;
-        int firstTile = (int)(worldX / bgTileWidth);
+    // BeginMode2D(stage->camera);
+
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+    float groundY = stage->groundLevel;
+
+    float bgScroll = fmod(stage->parallaxOffset * 0.2f,
+             screenWidth);
+
+    // =========================================
+    // CAMADA 1 — CÉU
+    // =========================================
+    DrawRectangle(
+        -10000,
+        -10000,
+        20000,
+        20000,
+        (Color){135, 206, 235, 255}
+    );
+
+    // =========================================
+    // NUVENS
+    // =========================================
+    for (int i = 0; i < 8; i++) {
+
+        float cloudX =
+            i * 400 - bgScroll;
+
+        float cloudY =
+            screenHeight * 0.12f +
+            (i % 3) * 35;
+
+        DrawCircle(cloudX - 30, cloudY, 20, WHITE);
+        DrawCircle(cloudX,      cloudY, 28, WHITE);
+        DrawCircle(cloudX + 30, cloudY, 20, WHITE);
+    }
+
+    // =========================================
+    // CAMADA 2 — BACKGROUND
+    // =========================================
+    if (stage->bgLoaded &&
+        stage->backgroundTexture.id != 0) {
+
+        float bgScale =
+            ((float)screenHeight * 0.72f) /
+            stage->backgroundTexture.height;
+
+        float bgWidth =
+            stage->backgroundTexture.width *
+            bgScale + 360.0f;
+
+        Rectangle source = {
+            0,
+            0,
+            (float)stage->backgroundTexture.width,
+            (float)stage->backgroundTexture.height
+        };
 
         for (int i = -1; i < 3; i++) {
-            float tileX = (firstTile + i) * bgTileWidth;
-            DrawTextureEx(stage->backgroundTexture, (Vector2){ tileX, 0 }, 0, 1.0f, WHITE);
+
+            float bgHeight =
+                stage->backgroundTexture.height *
+                bgScale + 360.0f;
+
+            Rectangle dest = {
+                i * bgWidth - bgScroll,
+                0,
+                bgWidth,
+                bgHeight
+            };
+
+            dest.y = -24.0f;
+
+            DrawTexturePro(
+                stage->backgroundTexture,
+                source,
+                dest,
+                (Vector2){0,0},
+                0,
+                WHITE
+            );
         }
+    }
+
+    // =========================================
+    // PLATAFORMA / ESTRADA
+    // =========================================
+    if (stage->platformLoaded &&
+        stage->platformTexture.id != 0) {
+
+        float platformWidth =
+            stage->platformTexture.width + 50.0f;
+
+        float platformHeight =
+            stage->platformTexture.height + 12.0f;
+
+        float roadY =
+            screenHeight -
+            platformHeight + 520.0f;
+
+        Rectangle source = {
+            0,
+            0,
+            (float)stage->platformTexture.width,
+            (float)stage->platformTexture.height
+        };
+
+        for (int i = -1; i < 4; i++) {
+
+            float perspectiveOffset = 80.0f;
+
+                Rectangle dest = {
+                    i * platformWidth -
+                    fmod(stage->parallaxOffset,
+                        platformWidth),
+
+                    roadY + 2.0f,
+
+                    platformWidth + perspectiveOffset,
+                    platformHeight
+                };
+
+            DrawTexturePro(
+                stage->platformTexture,
+                source,
+                dest,
+                (Vector2){0,0},
+                0.0f,
+                WHITE
+            );
+
+        }
+
     } else {
-        // Placeholder: céu azul
-        float worldWidth = stage->camera.target.x * 2 + SCREEN_WIDTH;
-        DrawRectangle(-5000, 0, 10000, GROUND_LEVEL - 50, SKYBLUE);
+
+        DrawRectangle(
+            -5000,
+            groundY - 40,
+            10000,
+            80,
+            DARKGRAY
+        );
     }
 
-    // ===== DESENHAR ESTRADA =====
-    float roadY = GROUND_LEVEL;
-    float roadHeight = 60.0f;
-    float roadX = (int)(stage->camera.target.x / 100) * 100;
-    for (int i = -3; i < 5; i++) {
-        float segmentX = roadX + (i * 100);
-        DrawRectangle(segmentX, roadY, 100, roadHeight, (Color){100, 100, 100, 255});
-        DrawLine(segmentX + 50, roadY, segmentX + 50, roadY + roadHeight, WHITE);
-    }
-
-    // ===== DESENHAR CHUVA (ATRÁS DE TUDO) =====
+    drawCloudSystem(stage->cloudSystem);
     drawRainSystem(stage->rain);
 
-    // ===== DESENHAR OBSTÁCULOS =====
     drawObstacles(stage);
 
-    // ===== DESENHAR PLAYER =====
     drawPlayer(*player);
 
-    // ===== DESENHAR BIKE =====
-    drawBike(stage->bike, *player);
-
-    // ===== FINALIZAR MODO 2D =====
-    EndMode2D();
+    // EndMode2D();
 }
 
-// ========== DESCARREGAR RESOURCES STAGE 1 ==========
 void unloadStage1(Stage1 *stage) {
     unloadBikeResources(&stage->bike);
     freeObstacleQueue(&stage->obstacleQueue);
+    resetCloudSystem(&stage->cloudSystem);
 
     if (stage->bgLoaded) {
         UnloadTexture(stage->backgroundTexture);
         stage->bgLoaded = 0;
+    }
+
+    if (stage->platformLoaded) {
+        UnloadTexture(stage->platformTexture);
+        stage->platformLoaded = 0;
     }
 }

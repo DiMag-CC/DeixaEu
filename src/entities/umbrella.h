@@ -3,10 +3,9 @@
 
 #include <raylib.h>
 
-#define UMBRELLA_WIDTH 30.0f
-#define UMBRELLA_HEIGHT 35.0f
+#define UMBRELLA_WIDTH 60.0f
+#define UMBRELLA_HEIGHT 70.0f
 #define UMBRELLA_DURATION 5.0f
-#define GROUND_LEVEL 350.0f
 
 // ========== ESTRUTURA DO GUARDA-CHUVA ==========
 typedef struct {

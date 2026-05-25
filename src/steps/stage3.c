@@ -1,4 +1,5 @@
 #include "stage3.h"
+#include "../utils/gameConstants.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -9,8 +10,8 @@
 #define TOWER_VISIBLE_Y 26.0f
 #define TOWER_VISIBLE_WIDTH 234.0f
 #define TOWER_VISIBLE_HEIGHT 973.0f
-#define TOWER_BASE_Y (GROUND_LEVEL + PLAYER_HEIGHT)
-#define FLOOR_VISUAL_TOP (GROUND_LEVEL - 12.0f)
+#define TOWER_BASE_Y (GLOBAL_GROUND_LEVEL + PLAYER_HEIGHT)
+#define FLOOR_VISUAL_TOP (GLOBAL_GROUND_LEVEL - 12.0f)
 #define TOWER_START_X 2500.0f
 #define PUDDLE_WIDTH 96.0f
 #define PUDDLE_HEIGHT 34.0f
@@ -117,7 +118,7 @@ static void applyHorizontalScroll(Stage3 *stage, float scrollDelta) {
     stage->towerPosition.x -= scrollDelta;
     syncTowerHitbox(stage);
 
-    for (int i = 0; i < MAX_PUDDLES; i++) {
+    for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
         movePuddle(&stage->puddles[i], -scrollDelta);
     }
 }
@@ -159,7 +160,7 @@ static void deactivatePuddle(Puddle *puddle) {
 }
 
 static void clearPuddlesFromTowerArea(Stage3 *stage) {
-    for (int i = 0; i < MAX_PUDDLES; i++) {
+    for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
         if (stage->puddles[i].active && puddleTouchesTowerArea(stage, &stage->puddles[i])) {
             deactivatePuddle(&stage->puddles[i]);
         }
@@ -181,7 +182,7 @@ static void stopAmbientSpawning(Stage3 *stage) {
     stage->ambientSpawningEnabled = false;
 
     // A torre deve ficar sem novos perigos aereos; remove apenas dejetos ativos.
-    for (int i = 0; i < MAX_BIRD_POOPS; i++) {
+    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
         stage->poops[i].active = false;
         stage->poops[i].landed = false;
         stage->poops[i].groundTimer = 0.0f;
@@ -215,7 +216,7 @@ static float randomPuddleSpacing(void) {
 
 static bool resetPuddleAhead(Stage3 *stage, Puddle *puddle, float minX) {
     float baseX = minX;
-    for (int i = 0; i < MAX_PUDDLES; i++) {
+    for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
         if (!stage->puddles[i].active || &stage->puddles[i] == puddle) {
             continue;
         }
@@ -555,13 +556,13 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->birds[2].poopTimer = 0.0f;
     stage->birds[2].poopInterval = 1.0f + (rand() % 200) / 100.0f;
     
-    player->position = (Vector2){ PLAYER_CENTER_X, GROUND_LEVEL };
+    player->position = (Vector2){ PLAYER_CENTER_X, GLOBAL_GROUND_LEVEL };
     player->isClimbing = false;
     player->velocity = (Vector2){0, 0};
     player->speed = 0.0f; // Para o auto-run
     player->movementControlledExternally = true; // Stage 3 controla o movimento
     
-    for (int i = 0; i < MAX_BIRD_POOPS; i++) {
+    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
         stage->poops[i].active = false;
         stage->poops[i].landed = false;
         stage->poops[i].groundTimer = 0.0f;
@@ -569,7 +570,7 @@ void initStage3(Stage3 *stage, Player *player) {
     }
 
     float puddleX = 420.0f + (float)(rand() % 180);
-    for (int i = 0; i < MAX_PUDDLES; i++) {
+    for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
         if (canPlacePuddle(stage, puddleX)) {
             initPuddle(&stage->puddles[i], puddleX);
         } else {
@@ -584,7 +585,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         return;
     }
 
-    for (int i = 0; i < MAX_CLOUDS; i++) {
+    for (int i = 0; i < STAGE3_MAX_CLOUDS; i++) {
         stage->clouds[i].position.x -= stage->clouds[i].speed * deltaTime;
         if (stage->ambientSpawningEnabled && stage->clouds[i].position.x < -200) {
             stage->clouds[i].position.x = WORLD_WIDTH + (i * 400) + (rand() % 200); // Staggered reset
@@ -594,7 +595,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         }
     }
     
-    for (int i = 0; i < MAX_BIRDS; i++) {
+    for (int i = 0; i < STAGE3_MAX_BIRDS; i++) {
         stage->birds[i].position.x -= stage->birds[i].speed * deltaTime;
         if (stage->ambientSpawningEnabled && stage->birds[i].position.x < -150) {
             // Reinicia mantendo-os distantes uns dos outros
@@ -661,7 +662,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         }
 
         float nextPuddleX = visibleWorldLeft() + visibleWorldWidth() + 120.0f;
-        for (int i = 0; i < MAX_PUDDLES; i++) {
+        for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
             bool shouldResetPuddle = !stage->puddles[i].active ||
                                      stage->puddles[i].position.x < visibleWorldLeft() - PUDDLE_WIDTH;
 
@@ -744,7 +745,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
             8.0f
         };
 
-        for (int i = 0; i < MAX_PUDDLES; i++) {
+        for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
             if (!stage->puddles[i].active) {
                 continue;
             }
@@ -787,7 +788,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     
     // ===== GERENCIAMENTO DE COCO DOS PASSAROS =====
     if (stage->ambientSpawningEnabled) {
-        for (int b = 0; b < MAX_BIRDS; b++) {
+        for (int b = 0; b < STAGE3_MAX_BIRDS; b++) {
             stage->birds[b].poopTimer += deltaTime;
             if (stage->birds[b].poopTimer >= stage->birds[b].poopInterval) {
                 stage->birds[b].poopTimer = 0.0f;
@@ -796,7 +797,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
                 
                 // Spawna apenas se o pássaro estiver na tela
                 if (stage->birds[b].position.x > 0.0f && stage->birds[b].position.x < WORLD_WIDTH) {
-                    for (int i = 0; i < MAX_BIRD_POOPS; i++) {
+                    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
                         if (!stage->poops[i].active) {
                             stage->poops[i].position = (Vector2){ stage->birds[b].position.x + 8.0f, stage->birds[b].position.y + 10.0f };
                             stage->poops[i].active = true;
@@ -812,7 +813,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     }
     
     // Atualiza poops
-    for (int i = 0; i < MAX_BIRD_POOPS; i++) {
+    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
         if (stage->poops[i].active) {
             if (!stage->poops[i].landed) {
                 stage->poops[i].position.y += stage->poops[i].speedY * deltaTime;
@@ -851,12 +852,12 @@ void drawStage3(Stage3 *stage, Player *player) {
     
     drawStage3Floor(stage, floorY);
 
-    for (int i = 0; i < MAX_PUDDLES; i++) {
+    for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
         drawPuddle(stage->puddles[i]);
         drawBottle(stage->puddles[i]);
     }
     
-    for (int i = 0; i < MAX_CLOUDS; i++) {
+    for (int i = 0; i < STAGE3_MAX_CLOUDS; i++) {
         Vector2 cloudPosition = ambientToWorld(player, stage->clouds[i].position);
         if (stage->cloudTexture.id > 0) {
             DrawTextureEx(stage->cloudTexture,
@@ -888,7 +889,7 @@ void drawStage3(Stage3 *stage, Player *player) {
     } else {
         DrawRectangleRec(stage->towerHitbox, GRAY);
     }
-    for (int i = 0; i < MAX_BIRDS; i++) {
+    for (int i = 0; i < STAGE3_MAX_BIRDS; i++) {
         if (stage->birds[i].position.x < -170.0f || stage->birds[i].position.x > WORLD_WIDTH + 500.0f) {
             continue;
         }
@@ -906,7 +907,7 @@ void drawStage3(Stage3 *stage, Player *player) {
     }
     
     // Desenha os dejetos dos passaros com sprite diferente ao tocar o chao.
-    for (int i = 0; i < MAX_BIRD_POOPS; i++) {
+    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
         if (stage->poops[i].active) {
             if (stage->poops[i].landed) {
                 drawLandedPoop(stage->poops[i].position);

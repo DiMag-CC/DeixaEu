@@ -8,72 +8,74 @@
 #include "menu.h"
 #include "structure/stepList.h"
 
-// ========== CONSTANTES ==========
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 450
+#define SCREEN_WIDTH 1920.0f
+#define SCREEN_HEIGHT 1080.0f
 #define WORLD_WIDTH 800.0f
 #define WORLD_HEIGHT 450.0f
 #define CAMERA_VERTICAL_LOOKAHEAD 150.0f
 #define FPS 60
 
-// ========== RENDERIZAR HUD ==========
-void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime) {
-    const int HUD_Y_START = 10;
+void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenWidth, int screenHeight) {
+    const int HUD_Y_START = 12;
     const int HUD_Y_STEP = 25;
+    const int HUD_MARGIN = 12;
+
+    // ===== FONTE DINÂMICA BASEADA EM RESOLUÇÃO =====
+    int fontSize = (screenWidth < 1024) ? 14 : 16;
 
     // ===== VIDAS =====
     char livesText[64];
     sprintf(livesText, "Vidas: %d / 3", player->lives);
-    DrawText(livesText, 10, HUD_Y_START, 16, BLACK);
+    DrawText(livesText, HUD_MARGIN, HUD_Y_START, fontSize, BLACK);
 
     // ===== PONTOS =====
     char scoreText[64];
     sprintf(scoreText, "Pontos: %.0f", player->score);
-    DrawText(scoreText, 10, HUD_Y_START + HUD_Y_STEP, 16, BLACK);
+    DrawText(scoreText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP, fontSize, BLACK);
 
     // ===== TEMPO =====
     char timeText[64];
     sprintf(timeText, "Tempo: %.1f s", totalGameTime);
-    DrawText(timeText, 10, HUD_Y_START + HUD_Y_STEP * 2, 16, BLACK);
+    DrawText(timeText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 2, fontSize, BLACK);
 
     // ===== DIFICULDADE =====
     char diffText[64];
     sprintf(diffText, "Dificuldade: x%.1f", stage->difficultyMultiplier);
-    DrawText(diffText, 10, HUD_Y_START + HUD_Y_STEP * 3, 16, DARKBLUE);
+    DrawText(diffText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 3, fontSize, DARKBLUE);
 
     // ===== PROTEÇÃO DE GUARDA-CHUVA =====
     if (player->hasUmbrella > 0) {
         char protectionText[64];
         sprintf(protectionText, "Protecao: %.1f s", player->umbrellaTimer);
-        DrawText(protectionText, SCREEN_WIDTH - 250, HUD_Y_START, 16, GREEN);
+        int protectionX = screenWidth - 250;
+        DrawText(protectionText, protectionX, HUD_Y_START, 16, GREEN);
 
         int barWidth = 150;
         float barProgress = player->umbrellaTimer / 5.0f;
         if (barProgress > 1.0f) barProgress = 1.0f;
 
-        DrawRectangle(SCREEN_WIDTH - 250, HUD_Y_START + 25, barWidth, 10, LIGHTGRAY);
-        DrawRectangle(SCREEN_WIDTH - 250, HUD_Y_START + 25, (int)(barWidth * barProgress), 10, GREEN);
-        DrawRectangleLinesEx((Rectangle){SCREEN_WIDTH - 250, HUD_Y_START + 25, barWidth, 10}, 1, BLACK);
+        DrawRectangle(protectionX, HUD_Y_START + 25, barWidth, 10, LIGHTGRAY);
+        DrawRectangle(protectionX, HUD_Y_START + 25, (int)(barWidth * barProgress), 10, GREEN);
+        DrawRectangleLinesEx((Rectangle){protectionX, HUD_Y_START + 25, barWidth, 10}, 1, BLACK);
     }
 
     // ===== PROGRESSO DA FASE =====
     float progressPercent = stage->distanceTraveled / STAGE1_TARGET_DISTANCE;
     if (progressPercent > 1.0f) progressPercent = 1.0f;
 
-    int progressBarY = SCREEN_HEIGHT - 40;
-    int progressBarWidth = SCREEN_WIDTH - 20;
+    int progressBarY = screenHeight - 40;
+    int progressBarWidth = screenWidth - 20;
     int progressBarHeight = 20;
 
     char progressText[64];
     sprintf(progressText, "Progresso: %.0f / %.0f m", stage->distanceTraveled, STAGE1_TARGET_DISTANCE);
-    DrawText(progressText, 10, progressBarY - 25, 14, BLACK);
+    DrawText(progressText, HUD_MARGIN, progressBarY - 25, 14, BLACK);
 
-    DrawRectangle(10, progressBarY, progressBarWidth, progressBarHeight, LIGHTGRAY);
-    DrawRectangle(10, progressBarY, (int)(progressBarWidth * progressPercent), progressBarHeight, GREEN);
-    DrawRectangleLinesEx((Rectangle){10, progressBarY, progressBarWidth, progressBarHeight}, 2, BLACK);
+    DrawRectangle(HUD_MARGIN, progressBarY, progressBarWidth, progressBarHeight, LIGHTGRAY);
+    DrawRectangle(HUD_MARGIN, progressBarY, (int)(progressBarWidth * progressPercent), progressBarHeight, GREEN);
+    DrawRectangleLinesEx((Rectangle){HUD_MARGIN, progressBarY, progressBarWidth, progressBarHeight}, 2, BLACK);
 }
 
-// ========== DEBUG MODE ==========
 void drawPlayerDebug(Player player) {
     DrawRectangleLinesEx(player.hitbox, 1, RED);
     DrawCircle(player.position.x, player.position.y, 3, GREEN);
@@ -95,10 +97,10 @@ void drawPlayerDebug(Player player) {
     DrawText(debugText, 10, 80, 14, BLACK);
 }
 
-// ========== MAIN ==========
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Deixa Eu");
+    ToggleFullscreen();
     SetTargetFPS(FPS);
 
     // ========== INICIALIZAR STAGE 1 ==========
@@ -106,7 +108,8 @@ int main(void) {
     initStage1(&stage1);
 
     // ========== INICIALIZAR PLAYER ==========
-    Player player = createPlayer((Vector2){ SCREEN_WIDTH / 2, GROUND_LEVEL }, 150, 3);
+    int screenWidth = GetScreenWidth();
+    Player player = createPlayer((Vector2){ screenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
 
     // ========== ESTADOS DO JOGO ==========
     int isGameOver = 0;
@@ -133,8 +136,13 @@ int main(void) {
         float deltaTime = GetFrameTime();
 
         // ===== ALTERAR TELA CHEIA =====
-        if (IsKeyPressed(KEY_F)) {
+        if (IsKeyPressed(KEY_F11) || (IsKeyPressed(KEY_F) && IsKeyDown(KEY_LEFT_ALT))) {
             ToggleFullscreen();
+        }
+
+        // ===== DEBUG MODE =====
+        if (IsKeyPressed(KEY_D)) {
+            debugMode = !debugMode;
         }
 
         // ===== MENU =====
@@ -151,7 +159,8 @@ int main(void) {
                     // Reinicializar stage
                     unloadStage1(&stage1);
                     initStage1(&stage1);
-                    player = createPlayer((Vector2){ SCREEN_WIDTH / 2, GROUND_LEVEL }, 150, 3);
+                    int currentScreenWidth = GetScreenWidth();
+                    player = createPlayer((Vector2){ currentScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
                 }
                 else if (menu.selectedOption == 2) {
                     // Sair do jogo
@@ -177,7 +186,8 @@ int main(void) {
 
                 if (IsKeyPressed(KEY_ENTER) || gameOverTimer <= 0) {
                     // Reset do jogo e voltar para o menu
-                    player = createPlayer((Vector2){ SCREEN_WIDTH / 2, GROUND_LEVEL }, 150, 3);
+                    int resetScreenWidth = GetScreenWidth();
+                    player = createPlayer((Vector2){ resetScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
                     unloadStage1(&stage1);
                     initStage1(&stage1);
                     isGameOver = 0;
@@ -192,7 +202,8 @@ int main(void) {
             if (stage1.stage1Complete && !isGameOver) {
                 if (IsKeyPressed(KEY_ENTER)) {
                     // Reset do jogo e voltar para o menu
-                    player = createPlayer((Vector2){ SCREEN_WIDTH / 2, GROUND_LEVEL }, 150, 3);
+                    int victoryScreenWidth = GetScreenWidth();
+                    player = createPlayer((Vector2){ victoryScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
                     unloadStage1(&stage1);
                     initStage1(&stage1);
                     totalGameTime = 0.0f;
@@ -221,15 +232,11 @@ int main(void) {
         else {
             // ===== DESENHAR JOGO =====
             drawStage1(&stage1, &player);
-            drawPlayer(player);
 
             // ===== DESENHAR HUD =====
-            drawGameHUD(&stage1, &player, totalGameTime);
+            drawGameHUD(&stage1, &player, totalGameTime, screenWidth, screenHeight);
 
             // ===== DEBUG MODE =====
-            if (IsKeyPressed(KEY_D)) {
-                debugMode = !debugMode;
-            }
             if (debugMode) {
                 drawPlayerDebug(player);
                 DrawText("DEBUG MODE (D para desativar)", 10, 30, 14, RED);

@@ -1,12 +1,12 @@
 #include "obstacle.h"
+#include "../utils/gameConstants.h"
 
-// ========== CRIAR OBSTÁCULO ==========
 Obstacle createObstacle(Vector2 position, ObstacleType type) {
     Obstacle obs;
     obs.position = position;
     obs.type = type;
     obs.active = 1;
-    obs.scale = 0.7f;
+    obs.scale = 0.18f;
 
     obs.spriteLoaded = 0;
     obs.texture = LoadTexture("assets/img/hole.png");
@@ -14,10 +14,12 @@ Obstacle createObstacle(Vector2 position, ObstacleType type) {
         obs.spriteLoaded = 1;
     }
 
-    // Hitbox
+    float holeY =
+    GLOBAL_GROUND_LEVEL - HOLE_HEIGHT / 2 + 32.0f;
+
     obs.hitbox = (Rectangle){
         obs.position.x - HOLE_WIDTH / 2,
-        obs.position.y - HOLE_HEIGHT / 2,
+        holeY,
         HOLE_WIDTH,
         HOLE_HEIGHT
     };
@@ -25,7 +27,6 @@ Obstacle createObstacle(Vector2 position, ObstacleType type) {
     return obs;
 }
 
-// ========== ATUALIZAR OBSTÁCULO ==========
 void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
     if (!obs->active) return;
 
@@ -34,7 +35,8 @@ void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
 
     // Atualizar hitbox
     obs->hitbox.x = obs->position.x - HOLE_WIDTH / 2;
-    obs->hitbox.y = obs->position.y - HOLE_HEIGHT / 2;
+    obs->hitbox.y =
+        GLOBAL_GROUND_LEVEL - HOLE_HEIGHT / 2 + 32.0f;
 
     // Deativar se sair da tela
     if (obs->position.x < -HOLE_WIDTH) {
@@ -42,27 +44,35 @@ void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
     }
 }
 
-// ========== DESENHAR OBSTÁCULO ==========
 void drawObstacle(Obstacle obs) {
     if (!obs.active) return;
 
-    float scaledRadius = (HOLE_WIDTH / 2) * obs.scale;
+    const float HOLE_TARGET_WIDTH = 70.0f;
+    float scaleX = HOLE_TARGET_WIDTH / obs.texture.width;
+    float scaleY = scaleX;  // Manter aspect ratio
 
-    if (obs.spriteLoaded) {
-        DrawTextureEx(obs.texture,
-                     (Vector2){ obs.position.x - (HOLE_WIDTH * obs.scale) / 2,
-                               obs.position.y - (HOLE_HEIGHT * obs.scale) / 2 },
-                     0, obs.scale, WHITE);
+    float scaledWidth = HOLE_TARGET_WIDTH;
+    float scaledHeight = obs.texture.height * scaleY;
+
+    if (obs.spriteLoaded && obs.texture.id != 0) {
+        float holeGroundY = GLOBAL_GROUND_LEVEL - scaledHeight / 2 + 32.0f; 
+
+        Rectangle source = { 0, 0, (float)obs.texture.width, (float)obs.texture.height };
+        Rectangle dest = {
+            obs.position.x - scaledWidth / 2,
+            holeGroundY,
+            scaledWidth,
+            scaledHeight
+        };
+        DrawTexturePro(obs.texture, source, dest, (Vector2){0, 0}, 0, WHITE);
     } else {
-        // Placeholder: círculo preto com gradiente (buraco)
-        DrawCircle(obs.position.x, obs.position.y, scaledRadius, BLACK);
-        DrawCircleLines(obs.position.x, obs.position.y, scaledRadius - 2.0f, RED);
-        DrawCircle(obs.position.x - scaledRadius / 3, obs.position.y - scaledRadius / 3,
-                  scaledRadius / 4, DARKGRAY);
+        float holeGroundY = 380.0f - 15.0f;  // Altura aprox
+        float radius = 30.0f;
+        DrawCircle((int)obs.position.x, (int)holeGroundY, radius, BLACK);
+        DrawCircleLines((int)obs.position.x, (int)holeGroundY, radius - 2.0f, RED);
     }
 }
 
-// ========== DESCARREGAR RECURSOS ==========
 void unloadObstacleResources(Obstacle *obs) {
     if (obs->spriteLoaded) {
         UnloadTexture(obs->texture);

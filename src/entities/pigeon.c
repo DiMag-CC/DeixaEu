@@ -1,12 +1,13 @@
 #include "pigeon.h"
+#include "../gfx/animation.h"
+#include "../utils/gameConstants.h"
 #include <math.h>
 #include <stdlib.h>
 
-#define PIGEON_SPEED 150.0f
-#define POOP_SPAWN_INTERVAL 0.8f
-#define POOP_SPEED 200.0f
+#define PIGEON_SPEED 180.0f
+#define POOP_SPAWN_INTERVAL 1.0f
+#define POOP_SPEED 250.0f
 
-// ========== CRIAR POMBO ==========
 Pigeon createPigeon(Vector2 position) {
     Pigeon pigeon;
     pigeon.position = position;
@@ -15,11 +16,18 @@ Pigeon createPigeon(Vector2 position) {
     pigeon.poopTimer = 0.0f;
     pigeon.poopInterval = POOP_SPAWN_INTERVAL;
     pigeon.wavePhase = 0.0f;
-    pigeon.scale = 0.8f;
+    pigeon.scale = 0.05f;
     pigeon.poopCount = 0;
+
+    pigeon.animation = animation_load_directional("pigeon", 12.0f, 1);
+    pigeon.direction = 'L'; // Pombo vem da esquerda para direita (então vira para esquerda)
 
     pigeon.spriteLoaded = 0;
     pigeon.texture = LoadTexture("assets/img/pigeon.png");
+
+    pigeon.poopTexture =
+        LoadTexture("assets/img/pigeonPoop.png");
+
     if (pigeon.texture.id != 0) {
         pigeon.spriteLoaded = 1;
     }
@@ -36,15 +44,18 @@ Pigeon createPigeon(Vector2 position) {
     for (int i = 0; i < MAX_POOPS; i++) {
         pigeon.poops[i].active = 0;
         pigeon.poops[i].position = (Vector2){ 0, 0 };
-        pigeon.poops[i].speed = POOP_SPEED;
+        pigeon.poops[i].velocityY = 0.0f;
+        pigeon.poops[i].rotationZ = 0.0f;
     }
 
     return pigeon;
 }
-
-// ========== ATUALIZAR POMBO ==========
 void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
     if (!pigeon->active) return;
+
+    // Atualizar animação com deltaTime
+    directional_animation_update(&pigeon->animation, deltaTime);
+    pigeon->animation.direction = pigeon->direction;
 
     // Movimento horizontal com scroll
     pigeon->position.x -= scrollSpeed * deltaTime;
@@ -69,6 +80,8 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
                     pigeon->position.x,
                     pigeon->position.y + PIGEON_HEIGHT / 2
                 };
+                pigeon->poops[i].velocityY = 0.0f;  // Iniciar sem velocidade (gravidade acumulará)
+                pigeon->poops[i].rotationZ = 0.0f;
                 pigeon->poops[i].active = 1;
                 pigeon->poopCount++;
                 if (pigeon->poopCount > MAX_POOPS) pigeon->poopCount = MAX_POOPS;
@@ -77,10 +90,23 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
         }
     }
 
-    // Atualizar fezes
+    // Atualizar fezes com física
+    float groundLevel = GLOBAL_GROUND_LEVEL;
     for (int i = 0; i < MAX_POOPS; i++) {
         if (pigeon->poops[i].active) {
-            pigeon->poops[i].position.y += pigeon->poops[i].speed * deltaTime;
+            // Aplicar gravidade
+            pigeon->poops[i].velocityY += 400.0f * deltaTime;  // Gravidade (400 px/s²)
+
+            // Atualizar posição
+            pigeon->poops[i].position.y += pigeon->poops[i].velocityY * deltaTime;
+
+            // Aplicar rotação
+            pigeon->poops[i].rotationZ += 360.0f * deltaTime;  // Girar 360° por segundo
+            if (pigeon->poops[i].rotationZ >= 360.0f) {
+                pigeon->poops[i].rotationZ = fmod(pigeon->poops[i].rotationZ, 360.0f);
+            }
+
+            // Atualizar hitbox
             pigeon->poops[i].hitbox = (Rectangle){
                 pigeon->poops[i].position.x - POOP_WIDTH / 2,
                 pigeon->poops[i].position.y - POOP_HEIGHT / 2,
@@ -88,8 +114,13 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
                 POOP_HEIGHT
             };
 
-            // Remover fora da tela
-            if (pigeon->poops[i].position.y > SCREEN_HEIGHT + 20) {
+            // Remover se tocar o chão
+            if (pigeon->poops[i].position.y >= groundLevel) {
+                pigeon->poops[i].active = 0;
+                pigeon->poopCount--;
+            }
+            // Remover fora da tela (fallback)
+            else if (pigeon->poops[i].position.y > GetScreenHeight() + 50) {
                 pigeon->poops[i].active = 0;
                 pigeon->poopCount--;
             }
@@ -102,65 +133,100 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
     }
 }
 
-// ========== DESENHAR POMBO ==========
 void drawPigeon(Pigeon pigeon) {
     if (!pigeon.active) return;
 
-    float scaledWidth = PIGEON_WIDTH * pigeon.scale;
-    float scaledHeight = PIGEON_HEIGHT * pigeon.scale;
+    const float PIGEON_TARGET_WIDTH = 5.0f;
+    float scaleRatio = PIGEON_TARGET_WIDTH / PIGEON_WIDTH;
 
-    if (pigeon.spriteLoaded) {
-        DrawTextureEx(pigeon.texture,
-                     (Vector2){ pigeon.position.x - scaledWidth / 2,
-                               pigeon.position.y - scaledHeight / 2 },
-                     0, pigeon.scale, WHITE);
+    float scaledWidth = PIGEON_TARGET_WIDTH;
+    float scaledHeight = PIGEON_HEIGHT * scaleRatio;
+
+    // Renderizar animação se disponível
+    if (pigeon.animation.left.frame_count > 0) {
+        directional_animation_render((DirectionalAnimationSet*)&pigeon.animation,
+                                    pigeon.position.x, pigeon.position.y, scaleRatio, WHITE);
+    } else if (pigeon.spriteLoaded && pigeon.texture.id != 0) {
+        Rectangle source = { 0, 0, (float)pigeon.texture.width, (float)pigeon.texture.height };
+        Rectangle dest = {
+            pigeon.position.x - scaledWidth / 2,
+            pigeon.position.y - scaledHeight / 2,
+            scaledWidth,
+            scaledHeight
+        };
+        DrawTexturePro(pigeon.texture, source, dest, (Vector2){0, 0}, 0, WHITE);
     } else {
-        // Placeholder visual melhorado: pombo reconhecível
+        // Placeholder: pombo pequeno reconhecível
         float centerX = pigeon.position.x;
         float centerY = pigeon.position.y;
+        float s = scaleRatio;
 
-        // Corpo (círculo)
-        DrawCircle(centerX, centerY, 6.0f * pigeon.scale, GRAY);
-        DrawCircleLines(centerX, centerY, 6.0f * pigeon.scale, BLACK);
+        // Corpo
+        DrawCircle((int)centerX, (int)centerY, 5.0f * s, GRAY);
+        DrawCircleLines((int)centerX, (int)centerY, 5.0f * s, BLACK);
 
         // Cabeça
-        DrawCircle(centerX + 5.0f * pigeon.scale, centerY - 3.0f * pigeon.scale,
-                  3.0f * pigeon.scale, DARKGRAY);
+        DrawCircle((int)(centerX + 3.0f * s), (int)(centerY - 2.0f * s), 2.0f * s, DARKGRAY);
 
         // Olho
-        DrawCircle(centerX + 6.5f * pigeon.scale, centerY - 4.0f * pigeon.scale,
-                  1.0f * pigeon.scale, BLACK);
+        DrawCircle((int)(centerX + 4.0f * s), (int)(centerY - 3.0f * s), 0.7f * s, BLACK);
 
-        // Asas (triângulos)
+        // Asas
         DrawTriangle(
-            (Vector2){ centerX - 4.0f * pigeon.scale, centerY },
-            (Vector2){ centerX - 10.0f * pigeon.scale, centerY - 2.0f * pigeon.scale },
-            (Vector2){ centerX - 10.0f * pigeon.scale, centerY + 2.0f * pigeon.scale },
-            LIGHTGRAY
-        );
-        DrawTriangle(
-            (Vector2){ centerX + 4.0f * pigeon.scale, centerY },
-            (Vector2){ centerX + 10.0f * pigeon.scale, centerY - 2.0f * pigeon.scale },
-            (Vector2){ centerX + 10.0f * pigeon.scale, centerY + 2.0f * pigeon.scale },
+            (Vector2){ centerX - 3.0f * s, centerY },
+            (Vector2){ centerX - 7.0f * s, centerY - 1.0f * s },
+            (Vector2){ centerX - 7.0f * s, centerY + 1.0f * s },
             LIGHTGRAY
         );
     }
 
-    // Desenhar fezes com círculos
+    // Desenhar fezes com rotação
     for (int i = 0; i < MAX_POOPS; i++) {
         if (pigeon.poops[i].active) {
-            DrawCircle(pigeon.poops[i].position.x, pigeon.poops[i].position.y,
-                      4.0f, BROWN);
-            DrawCircleLines(pigeon.poops[i].position.x, pigeon.poops[i].position.y,
-                           4.0f, DARKBROWN);
+            // Desenhar com rotação visual (usando retângulo girado)
+            float poop_x = pigeon.poops[i].position.x;
+            float poop_y = pigeon.poops[i].position.y;
+            float rot = pigeon.poops[i].rotationZ;
+
+            float poopSize = 80.0f;
+
+            Rectangle source = {
+                0.0f,
+                0.0f,
+                (float)pigeon.poopTexture.width,
+                (float)pigeon.poopTexture.height
+            };
+
+            Rectangle dest = {
+                poop_x - poopSize * 0.5f,
+                poop_y - poopSize * 0.5f,
+                poopSize,
+                poopSize
+            };
+
+            DrawTexturePro(
+                pigeon.poopTexture,
+                source,
+                dest,
+                (Vector2){
+                    poopSize * 0.5f,
+                    poopSize * 0.5f
+                },
+                rot,
+                WHITE
+            );
         }
     }
 }
 
-// ========== DESCARREGAR RECURSOS ==========
 void unloadPigeonResources(Pigeon *pigeon) {
+    // Descarregar animação
+    directional_animation_unload(&pigeon->animation);
+
+    // Descarregar textura (deprecated)
     if (pigeon->spriteLoaded) {
         UnloadTexture(pigeon->texture);
+        UnloadTexture(pigeon->poopTexture);
         pigeon->spriteLoaded = 0;
     }
 }

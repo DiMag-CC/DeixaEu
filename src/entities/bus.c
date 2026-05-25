@@ -1,79 +1,167 @@
 #include "bus.h"
+#include "../utils/gameConstants.h"
 
-#define BUS_SPEED_MULTIPLIER 1.5f
+#define BUS_SPEED_MULTIPLIER 1.2f
 
-// ========== CRIAR ÔNIBUS ==========
 Bus createBus(Vector2 position) {
+
     Bus bus;
+
     bus.position = position;
+
     bus.active = 1;
+
     bus.speed = 150.0f * BUS_SPEED_MULTIPLIER;
+
     bus.scale = 1.0f;
 
     bus.spriteLoaded = 0;
-    bus.texture = LoadTexture("assets/img/bus.png");
+
+    bus.texture = LoadTexture(
+        "assets/img/busR.png"
+    );
+
     if (bus.texture.id != 0) {
         bus.spriteLoaded = 1;
     }
 
-    // Hitbox
+    const float BUS_TARGET_WIDTH = 320.0f;
+    const float BUS_TARGET_HEIGHT = 140.0f;
+
     bus.hitbox = (Rectangle){
-        bus.position.x - BUS_WIDTH / 2,
-        bus.position.y - BUS_HEIGHT / 2,
-        BUS_WIDTH,
-        BUS_HEIGHT
+
+        bus.position.x - BUS_TARGET_WIDTH / 2,
+
+        bus.position.y - BUS_TARGET_HEIGHT,
+
+        BUS_TARGET_WIDTH,
+
+        BUS_TARGET_HEIGHT
     };
 
     return bus;
 }
 
-// ========== ATUALIZAR ÔNIBUS ==========
+
 void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
+
     if (!bus->active) return;
 
-    // Mover com scroll + velocidade própria
-    bus->position.x -= (scrollSpeed + bus->speed) * deltaTime;
+    // Movimento lateral
+    bus->position.x -=
+        (scrollSpeed + bus->speed) * deltaTime;
+
+    // Escala visual usada também na hitbox
+    const float BUS_TARGET_WIDTH = 320.0f;
+    const float BUS_TARGET_HEIGHT = 140.0f;
+
+    // Ground global
+    float groundY =
+        GLOBAL_GROUND_LEVEL;
 
     // Atualizar hitbox
-    bus->hitbox.x = bus->position.x - BUS_WIDTH / 2;
-    bus->hitbox.y = bus->position.y - BUS_HEIGHT / 2;
+    bus->hitbox.x =
+        bus->position.x - BUS_TARGET_WIDTH / 2;
 
-    // Deativar se sair da tela
-    if (bus->position.x < -BUS_WIDTH) {
+    bus->hitbox.y =
+        groundY - BUS_TARGET_HEIGHT;
+
+    bus->hitbox.width =
+        BUS_TARGET_WIDTH;
+
+    bus->hitbox.height =
+        BUS_TARGET_HEIGHT;
+
+    // Desativar fora da tela
+    if (bus->position.x < -BUS_TARGET_WIDTH) {
         bus->active = 0;
     }
 }
 
-// ========== DESENHAR ÔNIBUS ==========
 void drawBus(Bus bus) {
     if (!bus.active) return;
 
-    float scaledWidth = BUS_WIDTH * bus.scale;
-    float scaledHeight = BUS_HEIGHT * bus.scale;
-    Vector2 drawPos = { bus.position.x - scaledWidth / 2, bus.position.y - scaledHeight / 2 };
+    const float BUS_TARGET_WIDTH = 420.0f;
+    const float BUS_TARGET_HEIGHT = 320.0f;
 
-    if (bus.spriteLoaded) {
-        DrawTextureEx(bus.texture, drawPos, 0, bus.scale, WHITE);
+    float scaledWidth = BUS_TARGET_WIDTH;
+    float scaledHeight = BUS_TARGET_HEIGHT;
+
+    // Posicionar alinhado ao chão
+    float groundY = GLOBAL_GROUND_LEVEL + 140.0f;
+
+    Rectangle dest = {
+        bus.position.x - scaledWidth / 2,
+        groundY - scaledHeight,
+        scaledWidth,
+        scaledHeight
+    };
+
+    if (bus.spriteLoaded && bus.texture.id != 0) {
+
+        Rectangle source = {
+            0,
+            0,
+            (float)bus.texture.width,
+            (float)bus.texture.height
+        };
+
+        DrawTexturePro(
+            bus.texture,
+            source,
+            dest,
+            (Vector2){0, 0},
+            0,
+            WHITE
+        );
+
     } else {
-        // Placeholder: retângulo amarelo (ônibus) escalado
-        DrawRectangle(drawPos.x, drawPos.y, scaledWidth, scaledHeight, YELLOW);
-        DrawRectangleLinesEx((Rectangle){ drawPos.x, drawPos.y, scaledWidth, scaledHeight }, 2, BLACK);
 
-        // Janelas escaladas
-        float ww = 10 * bus.scale;
-        float wh = 8 * bus.scale;
-        DrawRectangle(drawPos.x + 10 * bus.scale, drawPos.y + 5 * bus.scale, ww, wh, SKYBLUE);
-        DrawRectangle(drawPos.x + 25 * bus.scale, drawPos.y + 5 * bus.scale, ww, wh, SKYBLUE);
-        DrawRectangle(drawPos.x + 40 * bus.scale, drawPos.y + 5 * bus.scale, ww, wh, SKYBLUE);
+        DrawRectangleRec(dest, ORANGE);
+        DrawRectangleLinesEx(dest, 2, BLACK);
 
-        // Rodas escaladas
-        float wheelRadius = 3.0f * bus.scale;
-        DrawCircle(drawPos.x + 15 * bus.scale, drawPos.y + scaledHeight - wheelRadius, wheelRadius, BLACK);
-        DrawCircle(drawPos.x + scaledWidth - 15 * bus.scale, drawPos.y + scaledHeight - wheelRadius, wheelRadius, BLACK);
+        // Rodas
+        DrawCircle(
+            (int)(dest.x + 50),
+            (int)(dest.y + dest.height - 12),
+            14,
+            BLACK
+        );
+
+        DrawCircle(
+            (int)(dest.x + dest.width - 50),
+            (int)(dest.y + dest.height - 12),
+            14,
+            BLACK
+        );
+
+        // Janelas
+        DrawRectangle(
+            (int)(dest.x + 40),
+            (int)(dest.y + 25),
+            45,
+            30,
+            SKYBLUE
+        );
+
+        DrawRectangle(
+            (int)(dest.x + 100),
+            (int)(dest.y + 25),
+            45,
+            30,
+            SKYBLUE
+        );
+
+        DrawRectangle(
+            (int)(dest.x + 160),
+            (int)(dest.y + 25),
+            45,
+            30,
+            SKYBLUE
+        );
     }
 }
 
-// ========== DESCARREGAR RECURSOS ==========
 void unloadBusResources(Bus *bus) {
     if (bus->spriteLoaded) {
         UnloadTexture(bus->texture);
