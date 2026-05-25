@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <math.h>
 
+<<<<<<< HEAD
 // Protótipos antecipados para o GCC aceitar a ordem de chamada das funções
 static void drawStage2Obstacle(Stage2Obstacle obs);
 static void drawTransition(Stage2 *stage);
@@ -39,11 +40,19 @@ static Texture2D txJelly2;
 static Texture2D txFishingNet; 
 
 // Texturas de animação do personagem (Modo Areia)
+=======
+// Texturas dos obstáculos
+static Texture2D texturaCaranguejo;
+static Texture2D texturaBuraco;
+
+// Texturas de animação do personagem
+>>>>>>> 14f6ee5 ( atualizando fase 2)
 static Texture2D txMoverDireita;
 static Texture2D txMoverEsquerda;
 static Texture2D txPuloDireita;
 static Texture2D txPuloEsquerda;
 
+<<<<<<< HEAD
 // Texturas de animação do personagem (Modo Mar - Mergulho)
 static Texture2D txNadarDireitaAtivo;   
 static Texture2D txNadarDireitaParado;  
@@ -60,16 +69,29 @@ static int olhandoParaDireita = 1;
 
 // Cronômetro estático interno para controlar a duração do efeito de lentidão da rede
 static float netDebuffTimer = 0.0f;
+=======
+// Controle de carregamento do cenário
+static int bgLoaded = 0;
+
+// Variável estática para lembrar para onde o jogador olhou por último (1 = Direita, 0 = Esquerda)
+static int olhandoParaDireita = 1;
+>>>>>>> 14f6ee5 ( atualizando fase 2)
 
 #define S2_AREIA_Y      975.0f  
 #define S2_GRAVIDADE   3200.0f
 #define S2_FORCA_PULO -1220.0f  
 
+<<<<<<< HEAD
 // Constante de velocidade de nado livre no mar
 #define S2_VELOCIDADE_NADO 400.0f
 
 // =========================================================================
 // REQUISITO 4: ALGORITMO DE ORDENAÇÃO (INSERTION SORT)
+=======
+// =========================================================================
+// REQUISITO 4: ALGORITMO DE ORDENAÇÃO (INSERTION SORT)
+// Ordena a lista encadeada de obstáculos baseada na posição X (mais próximos primeiro)
+>>>>>>> 14f6ee5 ( atualizando fase 2)
 // =========================================================================
 static void sortStage2Obstacles(Stage2Queue *queue) {
     if (queue->front == NULL || queue->front->next == NULL) return;
@@ -80,6 +102,10 @@ static void sortStage2Obstacles(Stage2Queue *queue) {
     while (current != NULL) {
         Stage2Node *next = current->next;
 
+<<<<<<< HEAD
+=======
+        // Inserção ordenada na lista auxiliar
+>>>>>>> 14f6ee5 ( atualizando fase 2)
         if (sorted == NULL || sorted->obstacle.position.x >= current->obstacle.position.x) {
             current->next = sorted;
             sorted = current;
@@ -95,6 +121,10 @@ static void sortStage2Obstacles(Stage2Queue *queue) {
     }
     queue->front = sorted;
 
+<<<<<<< HEAD
+=======
+    // Atualiza o ponteiro do 'rear' (fim da fila) reconstruindo a referência
+>>>>>>> 14f6ee5 ( atualizando fase 2)
     Stage2Node *temp = queue->front;
     while (temp != NULL && temp->next != NULL) {
         temp = temp->next;
@@ -103,10 +133,18 @@ static void sortStage2Obstacles(Stage2Queue *queue) {
 }
 
 // =========================================================================
+<<<<<<< HEAD
 // GESTÃO DE OBSTÁCULOS E SISTEMA FIFO
 // =========================================================================
 
 // Geração de Obstáculos na Areia
+=======
+// REQUISITO 5 & 6: FUNÇÕES DA ESTRUTURA DE DADOS ADOTADA
+// Mapeamento das funções dinâmicas da fila encadeada FIFO
+// =========================================================================
+
+// Função da ED 1: Geração e Enfileiramento (Enqueue)
+>>>>>>> 14f6ee5 ( atualizando fase 2)
 static void spawnSandObstacle(Stage2 *stage) {
     int roll = rand() % 100;
     int type = (roll < 50) ? S2_OBS_CRAB : S2_OBS_TRASH;
@@ -129,6 +167,7 @@ static void spawnSandObstacle(Stage2 *stage) {
     obs.hitbox.y = obs.position.y + (type == S2_OBS_CRAB ? 25.0f : 15.0f);
 
     enqueueStage2(&stage->obstacleQueue, obs); 
+<<<<<<< HEAD
 }
 
 // Geração de Inimigos no Mar (Tubarão, Água-viva e Rede de Pesca)
@@ -192,6 +231,12 @@ static void spawnSeaObstacle(Stage2 *stage) {
 
 // Colisões e penalidades de vida
 static void handleCollisionsStage2(Stage2 *stage, Player *player) {
+=======
+}
+
+// Função da ED 2: Varredura Linear e Colisão
+static void handleSandCollisions(Stage2 *stage, Player *player) {
+>>>>>>> 14f6ee5 ( atualizando fase 2)
     Stage2Node *cur = stage->obstacleQueue.front;
     while (cur != NULL) {
         Stage2Obstacle *o = &cur->obstacle;
@@ -233,7 +278,11 @@ static void handleCollisionsStage2(Stage2 *stage, Player *player) {
     }
 }
 
+<<<<<<< HEAD
 // Movimentação dos obstáculos ativos na tela
+=======
+// Funções da ED 3, 4 e 5: Modificação, Captura de Tamanho e Desenfileiramento (Dequeue)
+>>>>>>> 14f6ee5 ( atualizando fase 2)
 static void scrollAndCleanObstacles(Stage2 *stage, Player *player, float deltaTime) {
     Stage2Node *cur = stage->obstacleQueue.front;
     while (cur != NULL) {
@@ -275,7 +324,11 @@ static void scrollAndCleanObstacles(Stage2 *stage, Player *player, float deltaTi
     }
 
     int sizeBefore = stage2QueueSize(&stage->obstacleQueue);               
+<<<<<<< HEAD
     removeOffscreenStage2(&stage->obstacleQueue, -600.0f);                 
+=======
+    removeOffscreenStage2(&stage->obstacleQueue, -200.0f);                 
+>>>>>>> 14f6ee5 ( atualizando fase 2)
     int sizeAfter = stage2QueueSize(&stage->obstacleQueue);
     int passed = sizeBefore - sizeAfter;
     if (passed > 0) {
@@ -283,9 +336,13 @@ static void scrollAndCleanObstacles(Stage2 *stage, Player *player, float deltaTi
     }
 }
 
+<<<<<<< HEAD
 // =========================================================================
 // INICIALIZAÇÃO E CARREGAMENTO DE TEXTURAS
 // =========================================================================
+=======
+// Função da ED 6: Inicialização Construtora
+>>>>>>> 14f6ee5 ( atualizando fase 2)
 void initStage2(Stage2 *stage) {
     stage->mode = STAGE2_MODE_SAND;
     stage->modeTimer = 0.0f;
@@ -309,16 +366,22 @@ void initStage2(Stage2 *stage) {
     stage->stormActive = 0;
     stage->currentPushY = 0.0f;
 
+<<<<<<< HEAD
     netDebuffTimer = 0.0f; 
 
+=======
+>>>>>>> 14f6ee5 ( atualizando fase 2)
     bgLoaded = 0;
     stage->bgSand = LoadTexture("assets/img/landscapeLevel2.png");
     if (stage->bgSand.id != 0) bgLoaded = 1;
 
+<<<<<<< HEAD
     bgOceanLoaded = 0;
     bgOceano = LoadTexture("assets/img/landscapeOceanlevel2.png");
     if (bgOceano.id != 0) bgOceanLoaded = 1;
 
+=======
+>>>>>>> 14f6ee5 ( atualizando fase 2)
     stage->bgSea  = (Texture2D){0};
 
     // CORREÇÃO: Alimenta o array estático com os dois frames separados
@@ -326,6 +389,7 @@ void initStage2(Stage2 *stage) {
     crabTextures[1] = LoadTexture("assets/img/crab2.png");
     texturaBuraco     = LoadTexture("assets/img/hole.png");
     
+<<<<<<< HEAD
     txSharkR1 = LoadTexture("assets/img/sharkR1.png");
     txSharkR2 = LoadTexture("assets/img/sharkR2.png");
     txSharkL1 = LoadTexture("assets/img/sharkL1.png");
@@ -345,13 +409,27 @@ void initStage2(Stage2 *stage) {
     txNadarEsquerdaParado = LoadTexture("assets/img/CharacterSwimmingL2.png");
 
     olhandoParaDireita = 1; 
+=======
+    txMoverDireita  = LoadTexture("assets/img/characterMovingR1.png");
+    txMoverEsquerda = LoadTexture("assets/img/characterMovingL1.png");
+    txPuloDireita   = LoadTexture("assets/img/CharacterJumpingR.png");
+    txPuloEsquerda  = LoadTexture("assets/img/CharacterJumpingL.png");
+
+    olhandoParaDireita = 1; 
+
+    if (!bgLoaded || texturaCaranguejo.id == 0 || texturaBuraco.id == 0) {
+        printf("[AVISO] Erro crítico: Falha ao carregar texturas de cenário ou obstáculos na Stage 2!\n");
+    }
+>>>>>>> 14f6ee5 ( atualizando fase 2)
 }
 
+// Função da ED 7: Destruição e Desalocação (Clear/Free)
 void unloadStage2(Stage2 *stage) {
     if (bgLoaded) {
         UnloadTexture(stage->bgSand);
         bgLoaded = 0;
     }
+<<<<<<< HEAD
     if (bgOceanLoaded) {
         UnloadTexture(bgOceano);
         bgOceanLoaded = 0;
@@ -360,11 +438,17 @@ void unloadStage2(Stage2 *stage) {
     
     UnloadTexture(crabTextures[0]);
     UnloadTexture(crabTextures[1]);
+=======
+    if (stage->bgSea.id  > 0) UnloadTexture(stage->bgSea);
+    
+    UnloadTexture(texturaCaranguejo);
+>>>>>>> 14f6ee5 ( atualizando fase 2)
     UnloadTexture(texturaBuraco);
     UnloadTexture(txMoverDireita);
     UnloadTexture(txMoverEsquerda);
     UnloadTexture(txPuloDireita);
     UnloadTexture(txPuloEsquerda);
+<<<<<<< HEAD
 
     UnloadTexture(txNadarDireitaAtivo);
     UnloadTexture(txNadarDireitaParado);
@@ -379,6 +463,10 @@ void unloadStage2(Stage2 *stage) {
     UnloadTexture(txFishingNet); 
     
     freeStage2Queue(&stage->obstacleQueue);
+=======
+    
+    freeStage2Queue(&stage->obstacleQueue); 
+>>>>>>> 14f6ee5 ( atualizando fase 2)
 }
 
 void updateStage2(Stage2 *stage, Player *player, float deltaTime) {
@@ -402,10 +490,15 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
             freeStage2Queue(&stage->obstacleQueue);
             initStage2Queue(&stage->obstacleQueue);
             olhandoParaDireita = 1;
+<<<<<<< HEAD
+=======
+            printf("[STAGE 2] Reset interno executado!\n");
+>>>>>>> 14f6ee5 ( atualizando fase 2)
         }
         return; 
     }
 
+<<<<<<< HEAD
     if (IsKeyPressed(KEY_R)) {
         stage->distanceTraveled = 1500.0f;
     }
@@ -413,6 +506,14 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) olhandoParaDireita = 1;
     else if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) olhandoParaDireita = 0;
 
+=======
+    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
+        olhandoParaDireita = 1;
+    } else if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
+        olhandoParaDireita = 0;
+    }
+
+>>>>>>> 14f6ee5 ( atualizando fase 2)
     float fatorDificuldade = 1.0f + (stage->distanceTraveled / 300.0f) * 0.15f;
     if (fatorDificuldade > 2.0f) fatorDificuldade = 2.0f;
 
@@ -433,6 +534,8 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
 
     float velocidadAtual = 450.0f * fatorDificuldade; 
     stage->spawnInterval = 1.3f / fatorDificuldade;
+    stage->backgroundScroll += velocidadAtual * deltaTime;
+
     stage->backgroundScroll += velocidadAtual * deltaTime;
 
     player->width = 140.0f;
@@ -460,8 +563,15 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
         stage->obstacleSpawnTimer = 0.0f;
     }
 
+<<<<<<< HEAD
     sortStage2Obstacles(&stage->obstacleQueue);
 
+=======
+    // Ordena a fila dinamicamente antes de mover
+    sortStage2Obstacles(&stage->obstacleQueue);
+
+    // Atualiza o movimento baseado nos ponteiros ordenados
+>>>>>>> 14f6ee5 ( atualizando fase 2)
     float velocidadeAntiga = stage->scrollSpeed;
     stage->scrollSpeed = velocidadAtual;
     scrollAndCleanObstacles(stage, player, deltaTime);
@@ -641,23 +751,41 @@ static void drawSand(Stage2 *stage) {
     int screenWidth = GetRenderWidth();
     int screenHeight = GetRenderHeight();
 
+<<<<<<< HEAD
+=======
+    // =========================================================================
+    // BACKGROUND ÚNICO DA PRAIA EM LOOP INFINITO COM PARALLAX (0.25f)
+    // =========================================================================
+>>>>>>> 14f6ee5 ( atualizando fase 2)
     if (bgLoaded && stage->bgSand.id > 0) {
         float bgScroll = fmod(stage->backgroundScroll * 0.25f, screenWidth);
         Rectangle source = { 0.0f, 0.0f, (float)stage->bgSand.width, (float)stage->bgSand.height };
 
         for (int i = 0; i < 2; i++) {
+<<<<<<< HEAD
             Rectangle dest = { (i * screenWidth) - bgScroll, 0.0f, (float)screenWidth, (float)screenHeight };
             Vector2 origin = { 0.0f, 0.0f };
             DrawTexturePro(stage->bgSand, source, dest, origin, 0.0f, WHITE);
+=======
+            Rectangle dest = { 
+                (i * screenWidth) - bgScroll, 
+                0.0f, 
+                (float)screenWidth, 
+                (float)screenHeight 
+            };
+            DrawTexturePro(stage->bgSand, source, dest, (Vector2){0, 0}, 0.0f, WHITE);
+>>>>>>> 14f6ee5 ( atualizando fase 2)
         }
     }
 
+    // Renderiza os obstáculos na tela seguindo a ordenação estável do sort
     Stage2Node *cur = stage->obstacleQueue.front;
     while (cur != NULL) {
         drawStage2Obstacle(cur->obstacle);
         cur = cur->next;
     }
 
+    // Interface HUD
     DrawText("VIDA:", 15, 120, 20, DARKGRAY);
     DrawRectangle(85, 120, 200, 20, (Color){60, 60, 60, 200});
     float pct = stage->breath / 100.0f;
@@ -722,11 +850,32 @@ void drawStage2(Stage2 *stage, Player *player) {
     Texture2D texturaAtual = txMoverDireita;
 
     if (stage->mode == STAGE2_MODE_SAND) {
+<<<<<<< HEAD
+=======
+        Texture2D texturaAtual = txMoverDireita; 
+>>>>>>> 14f6ee5 ( atualizando fase 2)
         float limiteChao = S2_AREIA_Y - player->height;
         int noAr = (player->position.y < limiteChao - 5.0f);
 
         if (noAr) {
             texturaAtual = olhandoParaDireita ? txPuloDireita : txPuloEsquerda;
+<<<<<<< HEAD
+=======
+        } else {
+            texturaAtual = olhandoParaDireita ? txMoverDireita : txMoverEsquerda;
+        }
+
+        if (texturaAtual.id > 0) {
+            Rectangle source = { 0.0f, 0.0f, (float)texturaAtual.width, (float)texturaAtual.height };
+            Rectangle dest = {
+                player->position.x,
+                player->position.y, 
+                player->width,
+                player->height
+            };
+            Vector2 origin = { 0.0f, 0.0f };
+            DrawTexturePro(texturaAtual, source, dest, origin, 0.0f, WHITE);
+>>>>>>> 14f6ee5 ( atualizando fase 2)
         } else {
             texturaAtual = olhandoParaDireita ? txMoverDireita : txMoverEsquerda;
         }

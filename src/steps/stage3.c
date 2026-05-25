@@ -37,10 +37,10 @@
 #define CLIMB_AUTO_SPEED 210.0f
 #define CLIMB_CHALLENGE_LIMIT 2.0f
 #define CLIMB_MAX_MISSES 3
-#define FINAL_CLIMB_PLAYER_WIDTH 220.0f
-#define FINAL_CLIMB_PLAYER_HEIGHT 286.0f
+#define FINAL_CLIMB_PLAYER_WIDTH 168.0f
+#define FINAL_CLIMB_PLAYER_HEIGHT 218.0f
 #define STAGE3_BIRD_SCALE 0.13f
-#define CLIMB_BIRD_SCALE 0.19f
+#define CLIMB_BIRD_SCALE 0.24f
 #define STAGE3_POOP_SIZE 45.0f
 #define CLIMB_POOP_SIZE 72.0f
 
@@ -242,10 +242,12 @@ static void resetStage3ApproachBird(Bird *bird, int index) {
 static void resetStage3ClimbBird(Bird *bird, int index) {
     bool fromRight = (index % 2) == 0;
     float offset = 80.0f + (float)((index * 95) + (rand() % 160));
+    int verticalRange = GetScreenHeight() - 180;
+    float baseY = 48.0f + (float)(rand() % (verticalRange > 80 ? verticalRange : 80));
 
     bird->position.x = fromRight ? GetScreenWidth() + offset : -180.0f - offset;
-    randomizeStage3BirdFlow(bird, 42.0f + (float)(rand() % 145), 12.0f, 26.0f);
-    bird->speed = (fromRight ? 1.0f : -1.0f) * (125.0f + (rand() % 115));
+    randomizeStage3BirdFlow(bird, baseY, 18.0f, 34.0f);
+    bird->speed = (fromRight ? 1.0f : -1.0f) * (230.0f + (rand() % 170));
     bird->poopTimer = 0.0f;
     bird->poopInterval = stage3BirdInterval();
 }
@@ -889,9 +891,32 @@ static Rectangle finalClimbPlayerDest(Stage3 *stage, Player *player, float scree
     };
 }
 
-static void drawStage3ScreenHazards(Stage3 *stage) {
+static Rectangle stage3BirdScreenRect(Stage3 *stage, int index) {
     float birdScale = stage->state == STAGE3_CLIMBING ? CLIMB_BIRD_SCALE : STAGE3_BIRD_SCALE;
+    Texture2D birdSprite = stage->birdTexture.id > 0 ? stage->birdTexture : stage->birdTextureAlt;
+    float width = birdSprite.id > 0 ? (float)birdSprite.width * birdScale : 48.0f;
+    float height = birdSprite.id > 0 ? (float)birdSprite.height * birdScale : 32.0f;
 
+    return (Rectangle){
+        stage->birds[index].position.x,
+        stage->birds[index].position.y,
+        width,
+        height
+    };
+}
+
+static Rectangle stage3BirdHitbox(Stage3 *stage, int index) {
+    Rectangle rect = stage3BirdScreenRect(stage, index);
+
+    return (Rectangle){
+        rect.x + rect.width * 0.18f,
+        rect.y + rect.height * 0.20f,
+        rect.width * 0.64f,
+        rect.height * 0.60f
+    };
+}
+
+static void drawStage3ScreenHazards(Stage3 *stage) {
     for (int i = 0; i < STAGE3_MAX_BIRDS; i++) {
         if (stage->birds[i].position.x < -220.0f || stage->birds[i].position.x > GetScreenWidth() + 520.0f) {
             continue;
@@ -903,12 +928,7 @@ static void drawStage3ScreenHazards(Stage3 *stage) {
 
         if (birdSprite.id > 0) {
             Rectangle source = { 0.0f, 0.0f, (float)birdSprite.width, (float)birdSprite.height };
-            Rectangle dest = {
-                stage->birds[i].position.x,
-                stage->birds[i].position.y,
-                (float)birdSprite.width * birdScale,
-                (float)birdSprite.height * birdScale
-            };
+            Rectangle dest = stage3BirdScreenRect(stage, i);
 
             if (stage->birds[i].speed < 0.0f) {
                 source.width = -source.width;
@@ -1344,6 +1364,9 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
                 resetClimbChallenge();
                 player->isClimbing = true;
                 player->velocity.y = 0;
+                if (player->lives < 3) {
+                    healPlayer(player);
+                }
                 player->position.x = stage->towerHitbox.x + stage->towerHitbox.width / 2.0f - PLAYER_WIDTH / 2.0f;
                 resetStage3ClimbBirds(stage);
                 for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
@@ -1462,7 +1485,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     }
     
     // ===== GERENCIAMENTO DE COCO DOS PASSAROS =====
-    bool birdPoopEnabled = stage->ambientSpawningEnabled || stage->state == STAGE3_CLIMBING;
+    bool birdPoopEnabled = stage->ambientSpawningEnabled && stage->state == STAGE3_APPROACH;
     if (birdPoopEnabled) {
         for (int b = 0; b < STAGE3_MAX_BIRDS; b++) {
             stage->birds[b].poopTimer += deltaTime;
@@ -1517,6 +1540,16 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
             player->hitbox.width * collisionCamera.zoom,
             player->hitbox.height * collisionCamera.zoom
         };
+    }
+
+    if (stage->state == STAGE3_CLIMBING) {
+        for (int i = 0; i < STAGE3_MAX_BIRDS; i++) {
+            Rectangle birdHitbox = stage3BirdHitbox(stage, i);
+            if (CheckCollisionRecs(playerScreenHitbox, birdHitbox)) {
+                damagePlayer(player, 0.0f);
+                resetStage3ClimbBird(&stage->birds[i], i);
+            }
+        }
     }
 
     for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
