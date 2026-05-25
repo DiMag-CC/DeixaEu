@@ -63,3 +63,4 @@ dkms.conf
 
 # Ignorar pasta de agentes
 .agents/
+.DS_Store
