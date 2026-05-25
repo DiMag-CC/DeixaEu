@@ -11,6 +11,7 @@ typedef enum {
 typedef struct Menu {
     MenuScreen screen;
     int selectedOption; // 0 = Play, 1 = Credist, 2 = Exit
+    int confirmPressed;
 } Menu;
 
 Menu createMenu();

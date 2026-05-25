@@ -257,17 +257,17 @@ void updatePlayer(Player *player, float deltaTime) {
         player->grounded = 0;
     }
 
-    float minX = player->width * 0.5f;
-    float maxX = GetScreenWidth() - player->width * 0.5f;
+    float zoom = player->on_bike ? STAGE1_CAMERA_ZOOM : 1.0f;
+    float visibleWidth = GetScreenWidth() / zoom;
+    float minX = GetScreenWidth() * 0.5f - visibleWidth * 0.5f + player->width * 0.5f;
+    float maxX = GetScreenWidth() * 0.5f + visibleWidth * 0.5f - player->width * 0.5f;
 
     if (player->position.x < minX) {
-
         player->position.x = minX;
         player->velocity.x = 0.0f;
     }
 
     if (player->position.x > maxX) {
-
         player->position.x = maxX;
         player->velocity.x = 0.0f;
     }

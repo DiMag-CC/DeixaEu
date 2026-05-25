@@ -5,6 +5,7 @@
 #define BASE_SCREEN_HEIGHT 1080.0f
 
 #define GROUND_Y_RATIO 0.82f
+#define STAGE1_CAMERA_ZOOM 1.18f
 
 extern float GLOBAL_GROUND_LEVEL;
 extern float GLOBAL_WORLD_SCALE;

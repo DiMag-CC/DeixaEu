@@ -1,6 +1,10 @@
 #include "menu.h"
 #include <stdio.h>
 
+static int maxInt(int a, int b) {
+    return a > b ? a : b;
+}
+
 static float menuScale(void) {
     float scaleX = GetScreenWidth() / 800.0f;
     float scaleY = GetScreenHeight() / 450.0f;
@@ -28,10 +32,12 @@ static void drawMenuCloud(float x, float y, float scale, Color base, Color shado
 static void drawMenuBackground(float scale) {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
+    int canvasWidth = maxInt(screenWidth, GetRenderWidth());
+    int canvasHeight = maxInt(screenHeight, GetRenderHeight());
     float floorY = screenHeight * 0.78f;
     float tile = 34.0f * scale;
 
-    DrawRectangleGradientV(0, 0, screenWidth, screenHeight,
+    DrawRectangleGradientV(0, 0, canvasWidth, canvasHeight,
                            (Color){ 10, 29, 60, 255 },
                            (Color){ 113, 84, 104, 255 });
 
@@ -54,13 +60,13 @@ static void drawMenuBackground(float scale) {
                   (Color){ 38, 72, 101, 160 },
                   (Color){ 143, 130, 145, 100 });
 
-    DrawRectangle(0, (int)(floorY - 18 * scale), screenWidth, (int)(18 * scale),
+    DrawRectangle(0, (int)(floorY - 18 * scale), canvasWidth, (int)(18 * scale),
                   (Color){ 56, 63, 66, 180 });
-    DrawRectangle(0, (int)floorY, screenWidth, screenHeight - (int)floorY,
+    DrawRectangle(0, (int)floorY, canvasWidth, canvasHeight - (int)floorY,
                   (Color){ 164, 88, 48, 255 });
 
     int startCol = -2;
-    int cols = (int)(screenWidth / tile) + 5;
+    int cols = (int)(canvasWidth / tile) + 5;
     for (int row = 0; row < 5; row++) {
         for (int col = startCol; col < cols; col++) {
             float x = col * tile + ((row % 2) ? tile * 0.5f : 0.0f);
@@ -76,18 +82,59 @@ static void drawMenuBackground(float scale) {
         }
     }
 
-    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 5, 8, 24, 58 });
+    DrawRectangle(0, 0, canvasWidth, canvasHeight, (Color){ 5, 8, 24, 58 });
 }
 
 Menu createMenu() {
     Menu menu;
     menu.screen = MENU_MAIN;
     menu.selectedOption = 0;
+    menu.confirmPressed = 0;
     return menu;
 }
 
 void updateMenu(Menu *menu) {
+    menu->confirmPressed = 0;
+
     if (menu->screen == MENU_MAIN) {
+        int screenWidth = GetScreenWidth();
+        int screenHeight = GetScreenHeight();
+        float scale = menuScale();
+        int subtitleY = (int)(40 * scale) + (int)(95 * scale);
+        int optionsStartY = subtitleY + (int)(105 * scale);
+        int optionGap = (int)(65 * scale);
+        int optionSize = (int)(40 * scale);
+        const char *options[] = { "Iniciar Jogo", "Creditos", "Sair" };
+        Vector2 mouse = GetMousePosition();
+
+        if (screenHeight < 420) {
+            optionsStartY = subtitleY + (int)(75 * scale);
+            optionGap = (int)(50 * scale);
+        }
+
+        for (int i = 0; i < 3; i++) {
+            int optionWidth = MeasureText(options[i], optionSize);
+            int optionX = (screenWidth - optionWidth) / 2;
+            int optionY = optionsStartY + (i * optionGap);
+            Rectangle hitbox = {
+                optionX - 24.0f * scale,
+                optionY - 6.0f * scale,
+                optionWidth + 48.0f * scale,
+                optionSize + 12.0f * scale
+            };
+
+            if (CheckCollisionPointRec(mouse, hitbox)) {
+                menu->selectedOption = i;
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    if (i == 1) {
+                        menu->screen = MENU_CREDITS;
+                    } else {
+                        menu->confirmPressed = 1;
+                    }
+                }
+            }
+        }
+
         if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
             menu->selectedOption--;
         }
@@ -103,11 +150,14 @@ void updateMenu(Menu *menu) {
         if (IsKeyPressed(KEY_ENTER)) {
             if (menu->selectedOption == 1) {
                 menu->screen = MENU_CREDITS;
+            } else {
+                menu->confirmPressed = 1;
             }
         }
     }
     else if (menu->screen == MENU_CREDITS) {
-        if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER)) {
+        if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER) ||
+            IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             menu->screen = MENU_MAIN;
             menu->selectedOption = 1; // Cursor retorna posicionado na opção "Creditos"
         }
@@ -140,13 +190,25 @@ void drawMenu(Menu menu) {
         drawTextCentered("Fuja de casa pela cidade do Recife!", subtitleY, subtitleSize, LIGHTGRAY);
         
         const char *options[] = { "Iniciar Jogo", "Creditos", "Sair" };
+        Vector2 mouse = GetMousePosition();
         
         for (int i = 0; i < 3; i++) {
             Color textColor = (menu.selectedOption == i) ? YELLOW : WHITE;
             int optionY = optionsStartY + (i * optionGap);
             int optionWidth = MeasureText(options[i], optionSize);
             int optionX = (screenWidth - optionWidth) / 2;
+            Rectangle hitbox = {
+                optionX - 24.0f * scale,
+                optionY - 6.0f * scale,
+                optionWidth + 48.0f * scale,
+                optionSize + 12.0f * scale
+            };
+            int hovered = CheckCollisionPointRec(mouse, hitbox);
             
+            if (hovered) {
+                DrawRectangleRounded(hitbox, 0.18f, 8, (Color){ 255, 255, 255, 32 });
+            }
+
             if (menu.selectedOption == i) {
                 DrawText(">", optionX - (int)(42 * scale), optionY, optionSize, YELLOW);
             }
@@ -154,7 +216,7 @@ void drawMenu(Menu menu) {
             DrawText(options[i], optionX, optionY, optionSize, textColor);
         }
         
-        drawTextCentered("Use W/S ou Setas para navegar | ENTER para confirmar", 
+        drawTextCentered("Use mouse, W/S ou Setas | ENTER para confirmar",
                          screenHeight - (int)(36 * scale), hintSize, GRAY);
     }
     else if (menu.screen == MENU_CREDITS) {

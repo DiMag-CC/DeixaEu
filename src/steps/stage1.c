@@ -290,12 +290,12 @@ void initStage1(Stage1 *stage) {
 
     stage->camera.offset =
     (Vector2){
-        screenWidth * 0.35f,
-        screenHeight * 0.50f
+        screenWidth * 0.5f,
+        screenHeight * 0.5f
     };
 
     stage->camera.rotation = 0.0f;
-    stage->camera.zoom = 1.0f;
+    stage->camera.zoom = STAGE1_CAMERA_ZOOM;
     stage->cameraDamping = 0.15f;  // Damping suave para câmera responsiva
 
     // Inicializar bike
@@ -399,7 +399,7 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
 
 void drawStage1(Stage1 *stage, Player *player) {
 
-    // BeginMode2D(stage->camera);
+    BeginMode2D(stage->camera);
 
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
@@ -550,7 +550,7 @@ void drawStage1(Stage1 *stage, Player *player) {
 
     drawPlayer(*player);
 
-    // EndMode2D();
+    EndMode2D();
 }
 
 void unloadStage1(Stage1 *stage) {

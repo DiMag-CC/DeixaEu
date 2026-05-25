@@ -23,85 +23,98 @@ typedef enum {
     GAME_STAGE_3 = 3
 } GameStage;
 
+void drawHeartIcon(float x, float y, float size, Color color) {
+    DrawCircle((int)(x + size * 0.30f), (int)(y + size * 0.30f), size * 0.22f, color);
+    DrawCircle((int)(x + size * 0.70f), (int)(y + size * 0.30f), size * 0.22f, color);
+    DrawTriangle(
+        (Vector2){ x + size * 0.08f, y + size * 0.38f },
+        (Vector2){ x + size * 0.92f, y + size * 0.38f },
+        (Vector2){ x + size * 0.50f, y + size * 0.98f },
+        color
+    );
+}
+
+void drawHudBar(float x, float y, float width, float height, float percent, Color fillColor) {
+    if (percent < 0.0f) percent = 0.0f;
+    if (percent > 1.0f) percent = 1.0f;
+
+    Rectangle bg = { x, y, width, height };
+    Rectangle fill = { x, y, width * percent, height };
+
+    DrawRectangleRounded(bg, 0.45f, 8, (Color){ 28, 35, 46, 210 });
+    DrawRectangleRounded(fill, 0.45f, 8, fillColor);
+    DrawRectangleRoundedLines(bg, 0.45f, 8, (Color){ 255, 255, 255, 120 });
+}
+
 void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenWidth, int screenHeight) {
-    const int HUD_Y_START = 12;
-    const int HUD_Y_STEP = 25;
-    const int HUD_MARGIN = 12;
+    (void)screenHeight;
 
-    // ===== FONTE DINÂMICA BASEADA EM RESOLUÇÃO =====
-    int fontSize = (screenWidth < 1024) ? 14 : 16;
-
-    // ===== VIDAS =====
-    char livesText[64];
-    sprintf(livesText, "Vidas: %d / 3", player->lives);
-    DrawText(livesText, HUD_MARGIN, HUD_Y_START, fontSize, BLACK);
-
-    // ===== PONTOS =====
-    char scoreText[64];
-    sprintf(scoreText, "Pontos: %.0f", player->score);
-    DrawText(scoreText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP, fontSize, BLACK);
-
-    // ===== TEMPO =====
-    char timeText[64];
-    sprintf(timeText, "Tempo: %.1f s", totalGameTime);
-    DrawText(timeText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 2, fontSize, BLACK);
-
-    // ===== DIFICULDADE =====
-    char diffText[64];
-    sprintf(diffText, "Dificuldade: x%.1f", stage->difficultyMultiplier);
-    DrawText(diffText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 3, fontSize, DARKBLUE);
-
-    // ===== PROTEÇÃO DE GUARDA-CHUVA =====
-    if (player->hasUmbrella > 0) {
-        char protectionText[64];
-        sprintf(protectionText, "Protecao: %.1f s", player->umbrellaTimer);
-        int protectionX = screenWidth - 250;
-        DrawText(protectionText, protectionX, HUD_Y_START, 16, GREEN);
-
-        int barWidth = 150;
-        float barProgress = player->umbrellaTimer / 5.0f;
-        if (barProgress > 1.0f) barProgress = 1.0f;
-
-        DrawRectangle(protectionX, HUD_Y_START + 25, barWidth, 10, LIGHTGRAY);
-        DrawRectangle(protectionX, HUD_Y_START + 25, (int)(barWidth * barProgress), 10, GREEN);
-        DrawRectangleLinesEx((Rectangle){protectionX, HUD_Y_START + 25, barWidth, 10}, 1, BLACK);
-    }
-
-    // ===== PROGRESSO DA FASE =====
     float progressPercent = stage->distanceTraveled / STAGE1_TARGET_DISTANCE;
     if (progressPercent > 1.0f) progressPercent = 1.0f;
+    if (progressPercent < 0.0f) progressPercent = 0.0f;
 
-    int progressBarY = screenHeight - 40;
-    int progressBarWidth = screenWidth - 20;
-    int progressBarHeight = 20;
+    float panelWidth = screenWidth < 760 ? screenWidth - 24.0f : 620.0f;
+    float panelHeight = 116.0f;
+    float panelX = 12.0f;
+    float panelY = 12.0f;
+    Rectangle panel = { panelX, panelY, panelWidth, panelHeight };
 
-    char progressText[64];
-    sprintf(progressText, "Progresso: %.0f / %.0f m", stage->distanceTraveled, STAGE1_TARGET_DISTANCE);
-    DrawText(progressText, HUD_MARGIN, progressBarY - 25, 14, BLACK);
+    DrawRectangleRounded(panel, 0.08f, 10, (Color){ 7, 18, 32, 185 });
+    DrawRectangleRoundedLines(panel, 0.08f, 10, (Color){ 255, 255, 255, 95 });
 
-    DrawRectangle(HUD_MARGIN, progressBarY, progressBarWidth, progressBarHeight, LIGHTGRAY);
-    DrawRectangle(HUD_MARGIN, progressBarY, (int)(progressBarWidth * progressPercent), progressBarHeight, GREEN);
-    DrawRectangleLinesEx((Rectangle){HUD_MARGIN, progressBarY, progressBarWidth, progressBarHeight}, 2, BLACK);
+    DrawText("Fase 1", (int)(panelX + 18), (int)(panelY + 14), 18, RAYWHITE);
+    for (int i = 0; i < 3; i++) {
+        Color heartColor = (i < player->lives) ? (Color){ 226, 48, 70, 255 } : (Color){ 81, 88, 101, 230 };
+        drawHeartIcon(panelX + 90.0f + i * 30.0f, panelY + 12.0f, 24.0f, heartColor);
+    }
+
+    char scoreText[64];
+    sprintf(scoreText, "%.0f pts", player->score);
+    DrawText(scoreText, (int)(panelX + panelWidth - MeasureText(scoreText, 18) - 18), (int)(panelY + 14), 18, RAYWHITE);
+
+    DrawText("Progresso", (int)(panelX + 18), (int)(panelY + 52), 14, (Color){ 215, 225, 235, 255 });
+    drawHudBar(panelX + 100.0f, panelY + 53.0f, panelWidth - 118.0f, 16.0f, progressPercent, (Color){ 64, 197, 112, 255 });
+
+    char timeText[64];
+    sprintf(timeText, "Tempo %.1fs", totalGameTime);
+    DrawText(timeText, (int)(panelX + 18), (int)(panelY + 84), 14, (Color){ 215, 225, 235, 255 });
+
+    char diffText[64];
+    sprintf(diffText, "Dificuldade x%.1f", stage->difficultyMultiplier);
+    DrawText(diffText, (int)(panelX + 150), (int)(panelY + 84), 14, (Color){ 215, 225, 235, 255 });
+
+    if (player->hasUmbrella > 0) {
+        float umbrellaPercent = player->umbrellaTimer / 8.0f;
+        DrawText("Protecao", (int)(panelX + panelWidth - 210), (int)(panelY + 84), 14, (Color){ 215, 225, 235, 255 });
+        drawHudBar(panelX + panelWidth - 132.0f, panelY + 86.0f, 112.0f, 12.0f, umbrellaPercent, (Color){ 89, 167, 255, 255 });
+    }
 }
 
 void drawStage3HUD(Player *player, float totalGameTime, int screenWidth) {
-    const int hudMargin = 12;
-    const int fontSize = 16;
+    float panelWidth = screenWidth < 620 ? screenWidth - 24.0f : 430.0f;
+    float panelX = 12.0f;
+    float panelY = 12.0f;
+    Rectangle panel = { panelX, panelY, panelWidth, 86.0f };
 
-    char livesText[64];
-    sprintf(livesText, "Vidas: %d / 3", player->lives);
-    DrawText(livesText, hudMargin, 12, fontSize, BLACK);
+    DrawRectangleRounded(panel, 0.08f, 10, (Color){ 7, 18, 32, 185 });
+    DrawRectangleRoundedLines(panel, 0.08f, 10, (Color){ 255, 255, 255, 95 });
+
+    DrawText("Fase 3", (int)(panelX + 18), (int)(panelY + 14), 18, RAYWHITE);
+
+    for (int i = 0; i < 3; i++) {
+        Color heartColor = (i < player->lives) ? (Color){ 226, 48, 70, 255 } : (Color){ 81, 88, 101, 230 };
+        drawHeartIcon(panelX + 90.0f + i * 30.0f, panelY + 12.0f, 24.0f, heartColor);
+    }
 
     char scoreText[64];
-    sprintf(scoreText, "Pontos: %.0f", player->score);
-    DrawText(scoreText, hudMargin, 37, fontSize, BLACK);
+    sprintf(scoreText, "%.0f pts", player->score);
+    DrawText(scoreText, (int)(panelX + panelWidth - MeasureText(scoreText, 18) - 18), (int)(panelY + 14), 18, RAYWHITE);
 
     char timeText[64];
-    sprintf(timeText, "Tempo: %.1f s", totalGameTime);
-    DrawText(timeText, hudMargin, 62, fontSize, BLACK);
+    sprintf(timeText, "Tempo %.1fs", totalGameTime);
+    DrawText(timeText, (int)(panelX + 18), (int)(panelY + 54), 15, (Color){ 215, 225, 235, 255 });
 
-    const char *stageText = "Fase 3";
-    DrawText(stageText, screenWidth - MeasureText(stageText, fontSize) - hudMargin, 12, fontSize, DARKBLUE);
+    DrawText("Chegue ate a torre", (int)(panelX + panelWidth - 152), (int)(panelY + 54), 15, (Color){ 215, 225, 235, 255 });
 }
 
 void refreshStage1Layout(Stage1 *stage) {
@@ -112,7 +125,8 @@ void refreshStage1Layout(Stage1 *stage) {
     GLOBAL_GROUND_LEVEL = screenHeight * GROUND_Y_RATIO;
     stage->groundLevel = GLOBAL_GROUND_LEVEL;
     stage->camera.target = (Vector2){ screenWidth * 0.5f, screenHeight * 0.5f };
-    stage->camera.offset = (Vector2){ screenWidth * 0.35f, screenHeight * 0.50f };
+    stage->camera.offset = (Vector2){ screenWidth * 0.5f, screenHeight * 0.5f };
+    stage->camera.zoom = STAGE1_CAMERA_ZOOM;
 }
 
 void centerWindowOnCurrentMonitor(int width, int height) {
@@ -129,12 +143,15 @@ void centerWindowOnCurrentMonitor(int width, int height) {
 }
 
 void toggleGameFullscreen(void) {
-    if (!IsWindowFullscreen()) {
+    if (!IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE)) {
         int monitor = GetCurrentMonitor();
+        int monitorX = (int)GetMonitorPosition(monitor).x;
+        int monitorY = (int)GetMonitorPosition(monitor).y;
+        SetWindowPosition(monitorX, monitorY);
         SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
-        ToggleFullscreen();
+        SetWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
     } else {
-        ToggleFullscreen();
+        ClearWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
         SetWindowSize(WINDOWED_WIDTH, WINDOWED_HEIGHT);
         centerWindowOnCurrentMonitor(WINDOWED_WIDTH, WINDOWED_HEIGHT);
     }
@@ -220,16 +237,13 @@ int main(void) {
             }
         }
 
-        // ===== DEBUG MODE =====
-        if (IsKeyPressed(KEY_D)) {
-            debugMode = !debugMode;
-        }
+        // Debug visual desativado por padrão para não conflitar com movimento em A/D.
 
         // ===== MENU =====
         if (inMenu) {
             updateMenu(&menu);
 
-            if (menu.screen == MENU_MAIN && IsKeyPressed(KEY_ENTER)) {
+            if (menu.screen == MENU_MAIN && menu.confirmPressed) {
                 if (menu.selectedOption == 0) {
                     // Iniciar jogo
                     inMenu = 0;
@@ -350,7 +364,13 @@ int main(void) {
         BeginDrawing();
         int screenWidth = GetScreenWidth();
         int screenHeight = GetScreenHeight();
-        ClearBackground(SKYBLUE);
+        if (inMenu) {
+            ClearBackground((Color){ 164, 88, 48, 255 });
+        } else if (activeStage == GAME_STAGE_3) {
+            ClearBackground((Color){ 176, 96, 48, 255 });
+        } else {
+            ClearBackground(SKYBLUE);
+        }
 
         if (inMenu) {
             // ===== DESENHAR MENU =====

@@ -24,7 +24,7 @@
 #define PLAYER_CENTER_X (WORLD_WIDTH * 0.5f - PLAYER_WIDTH * 0.5f)
 #define PLAYER_LEFT_LIMIT 80.0f
 #define PLAYER_RIGHT_LIMIT 620.0f
-#define CAMERA_ZOOM_FACTOR 0.90f
+#define CAMERA_ZOOM_FACTOR 0.65f
 #define CAMERA_VERTICAL_LOOKAHEAD 150.0f
 #define POOP_GROUND_Y (TOWER_BASE_Y - 13.0f)
 #define POOP_LANDED_DURATION 0.5f
@@ -33,7 +33,7 @@
 
 static void movePuddle(Puddle *puddle, float deltaX);
 static void syncTowerHitbox(Stage3 *stage);
-static Vector2 ambientToWorld(Player *player, Vector2 localPosition);
+static Vector2 ambientToWorld(Stage3 *stage, Player *player, Vector2 localPosition);
 
 static float clampFloat(float value, float min, float max) {
     if (value < min) return min;
@@ -57,15 +57,29 @@ static float visibleWorldHeight(void) {
     return GetScreenHeight() / zoom;
 }
 
-static Vector2 cameraTargetForPlayer(Player *player) {
+static float stage3CameraZoom(void) {
+    float scaleX = GetScreenWidth() / WORLD_WIDTH;
+    float scaleY = GetScreenHeight() / WORLD_HEIGHT;
+    return ((scaleX < scaleY) ? scaleX : scaleY) * CAMERA_ZOOM_FACTOR;
+}
+
+static Vector2 cameraTargetForStage(Stage3 *stage, Player *player) {
+    float zoom = stage3CameraZoom();
+    float targetY = player->position.y + player->height / 2.0f - CAMERA_VERTICAL_LOOKAHEAD;
+
+    if (stage->state == STAGE3_APPROACH) {
+        float floorScreenY = GetScreenHeight() * 0.88f;
+        targetY = TOWER_BASE_Y - (floorScreenY - GetScreenHeight() * 0.5f) / zoom;
+    }
+
     return (Vector2){
         player->position.x + PLAYER_WIDTH / 2.0f,
-        player->position.y + player->height / 2.0f - CAMERA_VERTICAL_LOOKAHEAD
+        targetY
     };
 }
 
-static Rectangle cameraWorldRect(Player *player, float padding) {
-    Vector2 target = cameraTargetForPlayer(player);
+static Rectangle cameraWorldRect(Stage3 *stage, Player *player, float padding) {
+    Vector2 target = cameraTargetForStage(stage, player);
     float width = visibleWorldWidth();
     float height = visibleWorldHeight();
 
@@ -77,8 +91,8 @@ static Rectangle cameraWorldRect(Player *player, float padding) {
     };
 }
 
-static Vector2 ambientToWorld(Player *player, Vector2 localPosition) {
-    Rectangle view = cameraWorldRect(player, 0.0f);
+static Vector2 ambientToWorld(Stage3 *stage, Player *player, Vector2 localPosition) {
+    Rectangle view = cameraWorldRect(stage, player, 0.0f);
 
     return (Vector2){
         view.x + localPosition.x,
@@ -86,16 +100,21 @@ static Vector2 ambientToWorld(Player *player, Vector2 localPosition) {
     };
 }
 
+static float stage3SkyBirdY(Stage3 *stage, Player *player) {
+    Rectangle view = cameraWorldRect(stage, player, 0.0f);
+    return view.y + 20.0f + (float)(rand() % 40);
+}
+
 static float visibleWorldLeft(void) {
     return (WORLD_WIDTH - visibleWorldWidth()) * 0.5f;
 }
 
 static float towerDrawWidth(Stage3 *stage) {
-    return stage->towerTexture.id > 0 ? 360.0f : 100.0f;
+    return stage->towerTexture.id > 0 ? 460.0f : 100.0f;
 }
 
 static float towerDrawHeight(Stage3 *stage) {
-    return stage->towerTexture.id > 0 ? 360.0f : 600.0f;
+    return stage->towerTexture.id > 0 ? 460.0f : 600.0f;
 }
 
 static Rectangle towerSourceRect(Stage3 *stage) {
@@ -320,7 +339,28 @@ static void drawBottle(Puddle puddle) {
     DrawRectangle((int)(x + 1), (int)(y + 27), 5, 4, glassEdge);
 }
 
-static void drawFallingPoop(Vector2 position) {
+static int drawPoopTexture(Texture2D texture, Vector2 position, float size) {
+    if (texture.id <= 0) {
+        return 0;
+    }
+
+    Rectangle source = { 0.0f, 0.0f, (float)texture.width, (float)texture.height };
+    Rectangle dest = {
+        position.x - size * 0.5f,
+        position.y - size * 0.5f,
+        size,
+        size
+    };
+
+    DrawTexturePro(texture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+    return 1;
+}
+
+static void drawFallingPoop(Texture2D texture, Vector2 position) {
+    if (drawPoopTexture(texture, position, 42.0f)) {
+        return;
+    }
+
     float x = position.x;
     float y = position.y;
     Color paperShadow = (Color){ 152, 151, 143, 235 };
@@ -346,7 +386,11 @@ static void drawFallingPoop(Vector2 position) {
     DrawRectangle((int)(x + 1.0f), (int)(y + 32.0f), 4, 8, paperShadow);
 }
 
-static void drawLandedPoop(Vector2 position) {
+static void drawLandedPoop(Texture2D texture, Vector2 position) {
+    if (drawPoopTexture(texture, position, 54.0f)) {
+        return;
+    }
+
     float x = position.x;
     float y = position.y;
     Color paperShadow = (Color){ 147, 146, 137, 235 };
@@ -395,14 +439,18 @@ static void drawRain(float left, float top, float width, float height, float int
 }
 
 static void drawStage3Background(Stage3 *stage, Player *player) {
-    Rectangle view = cameraWorldRect(player, 180.0f);
-    float climbProgress = clampFloat((TOWER_BASE_Y - player->position.y) / (towerDrawHeight(stage) * 0.82f), 0.0f, 1.0f);
+    float climbProgress = 0.0f;
+    if (stage->state == STAGE3_CLIMBING) {
+        climbProgress = clampFloat((TOWER_BASE_Y - player->position.y) / (towerDrawHeight(stage) * 0.82f), 0.0f, 1.0f);
+    } else if (stage->state == STAGE3_FINISHED) {
+        climbProgress = 1.0f;
+    }
     float sunrise = clampFloat(fmaxf(-stage->scrollY / 650.0f, climbProgress), 0.0f, 1.0f);
     float rainIntensity = 1.0f - sunrise;
-    float left = view.x;
-    float top = view.y;
-    float width = view.width;
-    float height = view.height;
+    float left = 0.0f;
+    float top = 0.0f;
+    float width = (float)GetScreenWidth();
+    float height = (float)GetScreenHeight();
     float time = (float)GetTime();
     Color skyTop = lerpColor((Color){ 13, 38, 72, 255 }, (Color){ 55, 38, 93, 255 }, sunrise);
     Color skyBottom = lerpColor((Color){ 75, 98, 120, 255 }, (Color){ 221, 116, 70, 255 }, sunrise);
@@ -442,11 +490,12 @@ static void drawStage3Background(Stage3 *stage, Player *player) {
     drawRain(left, top, width, height, rainIntensity);
 }
 
-static void drawStage3Floor(Stage3 *stage, float floorY) {
-    float left = visibleWorldLeft() - WORLD_WIDTH;
-    float width = visibleWorldWidth() + WORLD_WIDTH * 2.0f;
+static void drawStage3Floor(Stage3 *stage, Player *player, float floorY) {
+    Rectangle view = cameraWorldRect(stage, player, 0.0f);
+    float left = view.x - WORLD_WIDTH;
+    float width = view.width + WORLD_WIDTH * 2.0f;
     float height = visibleWorldHeight();
-    float drawY = floorY - 72.0f;
+    float drawY = floorY - 32.0f;
     float tileSize = 32.0f;
     float floorScroll = stage->scrollX * 0.95f;
     int baseCol = (int)floorf(floorScroll / tileSize);
@@ -456,7 +505,7 @@ static void drawStage3Floor(Stage3 *stage, float floorY) {
     DrawRectangle((int)left - 120, (int)drawY, (int)width + 240, (int)(height + WORLD_HEIGHT - drawY + 160),
                   (Color){ 176, 96, 48, 255 });
 
-    for (int row = 0; row < 6; row++) {
+    for (int row = 0; row < 4; row++) {
         for (int col = -8; col < visibleCols; col++) {
             int worldCol = baseCol + col;
             float x = left + col * tileSize - offset + ((row % 2) ? tileSize * 0.5f : 0.0f);
@@ -576,6 +625,7 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->cloudTexture = LoadTexture("assets/img/nuvem.png");
     stage->birdTexture = LoadTexture("assets/img/pigeon1L.png");
     stage->birdTextureAlt = LoadTexture("assets/img/pigeon2L.png");
+    stage->poopTexture = LoadTexture("assets/img/pigeonPoop.png");
     
     // Posiciona a torre mais para a direita para expandir o mapa (1200px)
     // Desenha apenas a area visivel do PNG para a base da torre ficar exatamente no chao.
@@ -592,17 +642,17 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->clouds[1].scale = 0.15f + (rand() % 10) / 100.0f;
     
     // Inicializa 3 pássaros com distâncias e timers de cocô individuais
-    stage->birds[0].position = (Vector2){ rand() % 250, 30 + (rand() % 30) };
+    stage->birds[0].position = (Vector2){ rand() % 250, stage3SkyBirdY(stage, player) };
     stage->birds[0].speed = 50.0f + (rand() % 30);
     stage->birds[0].poopTimer = 0.0f;
     stage->birds[0].poopInterval = 1.0f + (rand() % 200) / 100.0f;
     
-    stage->birds[1].position = (Vector2){ 350 + (rand() % 300), 20 + (rand() % 30) };
+    stage->birds[1].position = (Vector2){ 350 + (rand() % 300), stage3SkyBirdY(stage, player) };
     stage->birds[1].speed = 45.0f + (rand() % 40);
     stage->birds[1].poopTimer = 0.0f;
     stage->birds[1].poopInterval = 1.0f + (rand() % 200) / 100.0f;
     
-    stage->birds[2].position = (Vector2){ 800 + (rand() % 400), 35 + (rand() % 25) };
+    stage->birds[2].position = (Vector2){ 800 + (rand() % 400), stage3SkyBirdY(stage, player) };
     stage->birds[2].speed = 60.0f + (rand() % 30);
     stage->birds[2].poopTimer = 0.0f;
     stage->birds[2].poopInterval = 1.0f + (rand() % 200) / 100.0f;
@@ -659,7 +709,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         if (stage->ambientSpawningEnabled && stage->birds[i].position.x < -150) {
             // Reinicia mantendo-os distantes uns dos outros
             stage->birds[i].position.x = WORLD_WIDTH + (i * 300) + (rand() % 200);
-            stage->birds[i].position.y = 20 + (rand() % 35); 
+            stage->birds[i].position.y = stage3SkyBirdY(stage, player);
             stage->birds[i].poopTimer = 0.0f;
             stage->birds[i].poopInterval = 1.0f + (rand() % 250) / 100.0f;
         }
@@ -926,13 +976,21 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
 }
 
 void drawStage3(Stage3 *stage, Player *player) {
+    Camera2D camera = {0};
+    camera.target = cameraTargetForStage(stage, player);
+    camera.offset = (Vector2){ GetScreenWidth() * 0.5f, GetScreenHeight() * 0.5f };
+    camera.rotation = 0.0f;
+    camera.zoom = stage3CameraZoom();
+
     drawStage3Background(stage, player);
+
+    BeginMode2D(camera);
     
     // Chão: Recua para baixo conforme a torre desce (simulando a subida)
     float towerHeight = towerDrawHeight(stage);
     float floorY = stage->towerPosition.y + towerHeight;
     
-    drawStage3Floor(stage, floorY);
+    drawStage3Floor(stage, player, floorY);
 
     for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
         drawPuddle(stage->puddles[i]);
@@ -940,7 +998,7 @@ void drawStage3(Stage3 *stage, Player *player) {
     }
     
     for (int i = 0; i < STAGE3_MAX_CLOUDS; i++) {
-        Vector2 cloudPosition = ambientToWorld(player, stage->clouds[i].position);
+        Vector2 cloudPosition = ambientToWorld(stage, player, stage->clouds[i].position);
         if (stage->cloudTexture.id > 0) {
             DrawTextureEx(stage->cloudTexture,
                           cloudPosition,
@@ -981,7 +1039,7 @@ void drawStage3(Stage3 *stage, Player *player) {
             : stage->birdTextureAlt;
 
         if (birdSprite.id > 0) {
-            DrawTextureEx(birdSprite, stage->birds[i].position, 0.0f, 0.05f, WHITE);
+            DrawTextureEx(birdSprite, stage->birds[i].position, 0.0f, 0.11f, WHITE);
         } else {
             DrawTriangle(
                 (Vector2){stage->birds[i].position.x, stage->birds[i].position.y},
@@ -996,14 +1054,16 @@ void drawStage3(Stage3 *stage, Player *player) {
     for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
         if (stage->poops[i].active) {
             if (stage->poops[i].landed) {
-                drawLandedPoop(stage->poops[i].position);
+                drawLandedPoop(stage->poopTexture, stage->poops[i].position);
             } else {
-                drawFallingPoop(stage->poops[i].position);
+                drawFallingPoop(stage->poopTexture, stage->poops[i].position);
             }
         }
     }
 
     drawStage3Player(player);
+
+    EndMode2D();
 }
 
 void unloadStage3(Stage3 *stage) {
@@ -1011,4 +1071,5 @@ void unloadStage3(Stage3 *stage) {
     if (stage->cloudTexture.id > 0) UnloadTexture(stage->cloudTexture);
     if (stage->birdTexture.id > 0) UnloadTexture(stage->birdTexture);
     if (stage->birdTextureAlt.id > 0) UnloadTexture(stage->birdTextureAlt);
+    if (stage->poopTexture.id > 0) UnloadTexture(stage->poopTexture);
 }
