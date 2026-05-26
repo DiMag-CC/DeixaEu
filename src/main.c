@@ -322,6 +322,7 @@ void drawPlayerDebug(Player player) {
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(WINDOWED_WIDTH, WINDOWED_HEIGHT, "Deixa Eu");
+    InitAudioDevice();
     SetExitKey(KEY_NULL);
     toggleGameFullscreen();
     SetTargetFPS(FPS);
@@ -723,6 +724,7 @@ int main(void) {
         UnloadTexture(hudHeartTexture);
     }
 
+    CloseAudioDevice();
     CloseWindow();
     return 0;
 }
