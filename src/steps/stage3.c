@@ -13,14 +13,14 @@
 #define TOWER_BASE_Y (GLOBAL_GROUND_LEVEL + PLAYER_HEIGHT)
 #define FLOOR_VISUAL_TOP (GLOBAL_GROUND_LEVEL - 12.0f)
 #define TOWER_START_X 5000.0f
-#define PUDDLE_WIDTH 96.0f
-#define PUDDLE_HEIGHT 34.0f
-#define BOTTLE_WIDTH 52.0f
-#define BOTTLE_HEIGHT 30.0f
+#define PUDDLE_WIDTH 112.0f
+#define PUDDLE_HEIGHT 40.0f
+#define BOTTLE_WIDTH 62.0f
+#define BOTTLE_HEIGHT 36.0f
 #define BOTTLE_GAP 6.0f
 #define PUDDLE_CLUSTER_WIDTH (PUDDLE_WIDTH + BOTTLE_GAP + BOTTLE_WIDTH)
 #define PUDDLE_MIN_GAP 320.0f
-#define TOWER_PUDDLE_CLEARANCE 180.0f
+#define TOWER_PUDDLE_CLEARANCE 520.0f
 #define PLAYER_CENTER_X (WORLD_WIDTH * 0.5f - PLAYER_WIDTH * 0.5f)
 #define PLAYER_LEFT_LIMIT 80.0f
 #define PLAYER_RIGHT_LIMIT 620.0f
@@ -31,16 +31,17 @@
 #define STAGE3_GRAVITY 760.0f
 #define STAGE3_JUMP_FORCE 470.0f
 #define FINAL_CLIMB_BACKGROUND_COUNT 5
-#define TOWER_STAGE3_VERTICAL_OFFSET 55.0f
-#define CLIMB_STEP_UP 38.0f
+#define TOWER_STAGE3_VERTICAL_OFFSET -25.0f
+#define CLIMB_STEP_UP 20.0f
 #define CLIMB_STEP_SIDE 72.0f
 #define CLIMB_AUTO_SPEED 210.0f
+#define CLIMB_DESCEND_SPEED 120.0f
 #define CLIMB_CHALLENGE_LIMIT 2.0f
 #define CLIMB_MAX_MISSES 3
 #define FINAL_CLIMB_PLAYER_WIDTH 168.0f
 #define FINAL_CLIMB_PLAYER_HEIGHT 218.0f
 #define STAGE3_BIRD_SCALE 0.13f
-#define CLIMB_BIRD_SCALE 0.24f
+#define CLIMB_BIRD_SCALE 0.19f
 #define STAGE3_POOP_SIZE 45.0f
 #define CLIMB_POOP_SIZE 72.0f
 
@@ -55,10 +56,15 @@ static void movePuddle(Puddle *puddle, float deltaX);
 static void syncTowerHitbox(Stage3 *stage);
 static Vector2 ambientToWorld(Stage3 *stage, Player *player, Vector2 localPosition);
 static void resetStage3ClimbBirds(Stage3 *stage);
+static float approachMaxScroll(Stage3 *stage);
+static void applyHorizontalScroll(Stage3 *stage, float scrollDelta);
 
 static Texture2D finalClimbBackgrounds[FINAL_CLIMB_BACKGROUND_COUNT] = {0};
 static Texture2D finalClimbTowerFrames[2] = {0};
+static Texture2D finalClimbPeakTexture = {0};
 static Texture2D finalClimbCharacterFrames[2] = {0};
+static Texture2D finalClimbSideFrames[2] = {0};
+static Texture2D finalClimbFallingFrames[2] = {0};
 static Texture2D stage3FloorTexture = {0};
 static Texture2D stage3PuddleTexture = {0};
 static Texture2D stage3BottleTexture = {0};
@@ -73,6 +79,11 @@ static float climbChallengeTimer = 0.0f;
 static int climbMissCount = 0;
 static ClimbMove climbAutoMove = CLIMB_MOVE_NONE;
 static float climbAutoDistance = 0.0f;
+static int climbFallingActive = 0;
+static char climbFallingDirection = 'R';
+static float climbFallingOffsetX = 0.0f;
+static float climbFallingOffsetY = 0.0f;
+static float climbFallingVelocityY = 0.0f;
 
 static float clampFloat(float value, float min, float max) {
     if (value < min) return min;
@@ -111,6 +122,24 @@ static void resetClimbChallenge(void) {
     climbMissCount = 0;
     climbAutoMove = CLIMB_MOVE_NONE;
     climbAutoDistance = 0.0f;
+    climbFallingActive = 0;
+    climbFallingDirection = 'R';
+    climbFallingOffsetX = 0.0f;
+    climbFallingOffsetY = 0.0f;
+    climbFallingVelocityY = 0.0f;
+}
+
+static void startClimbFall(Player *player) {
+    climbChallengeActive = 0;
+    climbChallengeMove = CLIMB_MOVE_NONE;
+    climbAutoMove = CLIMB_MOVE_NONE;
+    climbAutoDistance = 0.0f;
+    climbFallingActive = 1;
+    climbFallingDirection = player->direction == 'L' ? 'L' : 'R';
+    climbFallingOffsetX = 0.0f;
+    climbFallingOffsetY = 0.0f;
+    climbFallingVelocityY = 190.0f;
+    player->state = PLAYER_STATE_FALLING;
 }
 
 static void startClimbChallenge(ClimbMove move) {
@@ -134,9 +163,7 @@ static void failClimbChallenge(Player *player) {
     climbMissCount++;
 
     if (climbMissCount >= CLIMB_MAX_MISSES) {
-        player->lives = 0;
-        player->state = PLAYER_STATE_DEAD;
-        resetClimbChallenge();
+        startClimbFall(player);
     }
 }
 
@@ -180,15 +207,17 @@ static float stage3CameraZoom(void) {
 
 static Vector2 cameraTargetForStage(Stage3 *stage, Player *player) {
     float zoom = stage3CameraZoom();
+    float targetX = player->position.x + PLAYER_WIDTH / 2.0f;
     float targetY = player->position.y + player->height / 2.0f - CAMERA_VERTICAL_LOOKAHEAD;
 
     if (stage->state == STAGE3_APPROACH) {
         float floorScreenY = GetScreenHeight() * 0.88f;
+        targetX = PLAYER_CENTER_X + PLAYER_WIDTH / 2.0f;
         targetY = TOWER_BASE_Y - (floorScreenY - GetScreenHeight() * 0.5f) / zoom;
     }
 
     return (Vector2){
-        player->position.x + PLAYER_WIDTH / 2.0f,
+        targetX,
         targetY
     };
 }
@@ -242,11 +271,19 @@ static void resetStage3ApproachBird(Bird *bird, int index) {
 static void resetStage3ClimbBird(Bird *bird, int index) {
     bool fromRight = (index % 2) == 0;
     float offset = 80.0f + (float)((index * 95) + (rand() % 160));
-    int verticalRange = GetScreenHeight() - 180;
-    float baseY = 48.0f + (float)(rand() % (verticalRange > 80 ? verticalRange : 80));
+    float screenHeight = (float)GetScreenHeight();
+    float playerStartTop = screenHeight * 0.80f;
+    float blockedTop = playerStartTop - FINAL_CLIMB_PLAYER_HEIGHT * 0.65f;
+    float blockedBottom = playerStartTop + FINAL_CLIMB_PLAYER_HEIGHT * 0.65f;
+    float baseY = 44.0f + (float)(rand() % (int)fmaxf(80.0f, blockedTop - 90.0f));
+
+    if ((rand() % 2) == 0 && blockedBottom < screenHeight - 120.0f) {
+        float lowerRange = screenHeight - blockedBottom - 130.0f;
+        baseY = blockedBottom + 70.0f + (float)(rand() % (lowerRange > 60.0f ? (int)lowerRange : 60));
+    }
 
     bird->position.x = fromRight ? GetScreenWidth() + offset : -180.0f - offset;
-    randomizeStage3BirdFlow(bird, baseY, 18.0f, 34.0f);
+    randomizeStage3BirdFlow(bird, baseY, 8.0f, 14.0f);
     bird->speed = (fromRight ? 1.0f : -1.0f) * (230.0f + (rand() % 170));
     bird->poopTimer = 0.0f;
     bird->poopInterval = stage3BirdInterval();
@@ -258,16 +295,47 @@ static void resetStage3ClimbBirds(Stage3 *stage) {
     }
 }
 
+static void startStage3Climb(Stage3 *stage, Player *player) {
+    if (stage->state == STAGE3_APPROACH) {
+        float scrollDelta = approachMaxScroll(stage) - stage->scrollX;
+        if (scrollDelta > 0.0f) {
+            applyHorizontalScroll(stage, scrollDelta);
+        }
+    }
+
+    stage->state = STAGE3_CLIMBING;
+    resetClimbChallenge();
+    player->isClimbing = true;
+    player->velocity = (Vector2){ 0.0f, 0.0f };
+    player->grounded = true;
+    player->isGrounded = true;
+
+    if (player->lives < 3) {
+        healPlayer(player);
+    }
+
+    player->position.x = stage->towerHitbox.x + stage->towerHitbox.width * 0.5f - PLAYER_WIDTH * 0.5f;
+    player->position.y = TOWER_BASE_Y - player->height;
+    resetStage3ClimbBirds(stage);
+
+    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
+        stage->poops[i].active = false;
+        stage->poops[i].landed = false;
+        stage->poops[i].speedY = 0.0f;
+        stage->poops[i].rotationZ = 0.0f;
+    }
+}
+
 static float visibleWorldLeft(void) {
     return (WORLD_WIDTH - visibleWorldWidth()) * 0.5f;
 }
 
 static float towerDrawWidth(Stage3 *stage) {
-    return stage->towerTexture.id > 0 ? 680.0f : 160.0f;
+    return stage->towerTexture.id > 0 ? 240.0f : 160.0f;
 }
 
 static float towerDrawHeight(Stage3 *stage) {
-    return stage->towerTexture.id > 0 ? 680.0f : 680.0f;
+    return stage->towerTexture.id > 0 ? 760.0f : 680.0f;
 }
 
 static Rectangle towerSourceRect(Stage3 *stage) {
@@ -295,6 +363,12 @@ static void applyHorizontalScroll(Stage3 *stage, float scrollDelta) {
     for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
         movePuddle(&stage->puddles[i], -scrollDelta);
     }
+
+    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
+        if (stage->poops[i].active) {
+            stage->poops[i].position.x -= scrollDelta;
+        }
+    }
 }
 
 static void syncTowerHitbox(Stage3 *stage) {
@@ -314,7 +388,7 @@ static float towerPuddleClearLeft(Stage3 *stage) {
 }
 
 static bool canPlacePuddle(Stage3 *stage, float x) {
-    return x < stage->towerPosition.x - PUDDLE_WIDTH * 0.45f;
+    return x + PUDDLE_CLUSTER_WIDTH < towerPuddleClearLeft(stage);
 }
 
 static bool puddleTouchesTowerArea(Stage3 *stage, Puddle *puddle) {
@@ -674,17 +748,23 @@ static void drawStage3Floor(Stage3 *stage, Player *player, float floorY) {
             (float)stage3FloorTexture.width,
             (float)stage3FloorTexture.height * 0.27f
         };
-        float platformWidth = view.width * 1.18f;
+        float platformWidth = source.width * 0.62f;
         float platformHeight = platformWidth * (source.height / source.width);
         float roadY = floorY - 42.0f;
-        Rectangle dest = {
-            view.x + view.width * 0.5f - platformWidth * 0.5f,
-            roadY,
-            platformWidth,
-            platformHeight
-        };
+        float perspectiveOffset = 80.0f;
+        float scrollOffset = fmodf(stage->scrollX * 0.95f, platformWidth);
+        int visiblePlatforms = (int)(width / platformWidth) + 5;
 
-        DrawTexturePro(stage3FloorTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+        for (int i = -2; i < visiblePlatforms; i++) {
+            Rectangle dest = {
+                left + i * platformWidth - scrollOffset,
+                roadY,
+                platformWidth + perspectiveOffset,
+                platformHeight
+            };
+
+            DrawTexturePro(stage3FloorTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+        }
         return;
     }
 
@@ -947,6 +1027,10 @@ static void drawStage3ScreenHazards(Stage3 *stage) {
     }
 
     for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
+        if (stage->state == STAGE3_CLIMBING) {
+            break;
+        }
+
         if (stage->poops[i].active) {
             if (stage->poops[i].landed) {
                 drawLandedPoop(stage->poopTexture, stage->poops[i].position);
@@ -976,6 +1060,14 @@ static void loadFinalClimbTextures(void) {
         "assets/img/CharactherClibing1.png",
         "assets/img/CharactherClibing2.png"
     };
+    const char *sidePaths[2] = {
+        "assets/img/CharacterClibimSideL.png",
+        "assets/img/CharacterClibimSideR.png"
+    };
+    const char *fallingPaths[2] = {
+        "assets/img/CharacterFalingL.png",
+        "assets/img/CharacterFalingR.png"
+    };
 
     for (int i = 0; i < FINAL_CLIMB_BACKGROUND_COUNT; i++) {
         if (finalClimbBackgrounds[i].id == 0) {
@@ -988,10 +1080,19 @@ static void loadFinalClimbTextures(void) {
             finalClimbTowerFrames[i] = LoadTexture(towerPaths[i]);
         }
     }
+    if (finalClimbPeakTexture.id == 0) {
+        finalClimbPeakTexture = LoadTexture("assets/img/BrenandPeak.png");
+    }
 
     for (int i = 0; i < 2; i++) {
         if (finalClimbCharacterFrames[i].id == 0) {
             finalClimbCharacterFrames[i] = LoadTexture(characterPaths[i]);
+        }
+        if (finalClimbSideFrames[i].id == 0) {
+            finalClimbSideFrames[i] = LoadTexture(sidePaths[i]);
+        }
+        if (finalClimbFallingFrames[i].id == 0) {
+            finalClimbFallingFrames[i] = LoadTexture(fallingPaths[i]);
         }
     }
 }
@@ -1010,11 +1111,23 @@ static void unloadFinalClimbTextures(void) {
             finalClimbTowerFrames[i] = (Texture2D){0};
         }
     }
+    if (finalClimbPeakTexture.id > 0) {
+        UnloadTexture(finalClimbPeakTexture);
+        finalClimbPeakTexture = (Texture2D){0};
+    }
 
     for (int i = 0; i < 2; i++) {
         if (finalClimbCharacterFrames[i].id > 0) {
             UnloadTexture(finalClimbCharacterFrames[i]);
             finalClimbCharacterFrames[i] = (Texture2D){0};
+        }
+        if (finalClimbSideFrames[i].id > 0) {
+            UnloadTexture(finalClimbSideFrames[i]);
+            finalClimbSideFrames[i] = (Texture2D){0};
+        }
+        if (finalClimbFallingFrames[i].id > 0) {
+            UnloadTexture(finalClimbFallingFrames[i]);
+            finalClimbFallingFrames[i] = (Texture2D){0};
         }
     }
 }
@@ -1057,7 +1170,7 @@ static void drawFinalClimbScene(Stage3 *stage, Player *player) {
     float screenWidth = (float)GetScreenWidth();
     float screenHeight = (float)GetScreenHeight();
     int backgroundIndex = 0;
-    finalClimbLocalProgress(stage, player, &backgroundIndex);
+    float localClimbProgress = finalClimbLocalProgress(stage, player, &backgroundIndex);
 
     Texture2D background = finalClimbBackgrounds[backgroundIndex];
     if (background.id > 0) {
@@ -1070,7 +1183,11 @@ static void drawFinalClimbScene(Stage3 *stage, Player *player) {
                                (Color){ 229, 158, 92, 255 });
     }
 
-    Texture2D towerFrame = finalClimbTowerFrames[backgroundIndex % 2];
+    bool peakReached = stage->state == STAGE3_FINISHED ||
+                       (backgroundIndex == FINAL_CLIMB_BACKGROUND_COUNT - 1 && localClimbProgress >= 1.0f);
+    Texture2D towerFrame = peakReached && finalClimbPeakTexture.id > 0
+        ? finalClimbPeakTexture
+        : finalClimbTowerFrames[backgroundIndex % 2];
     Rectangle towerDest = finalClimbTowerDest(screenWidth, screenHeight);
 
     if (towerFrame.id > 0) {
@@ -1085,12 +1202,28 @@ static void drawFinalClimbScene(Stage3 *stage, Player *player) {
         drawRain(0.0f, 0.0f, screenWidth, screenHeight, 1.0f);
     }
 
-    int climbFrame = (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP) ||
-                      IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT) ||
-                      IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT) ||
-                      climbChallengeActive ||
-                      climbAutoMove != CLIMB_MOVE_NONE) ? 1 : 0;
-    Texture2D currentSprite = finalClimbCharacterFrames[climbFrame];
+    bool sideClimb = climbAutoMove == CLIMB_MOVE_LEFT ||
+                     climbAutoMove == CLIMB_MOVE_RIGHT ||
+                     climbChallengeMove == CLIMB_MOVE_LEFT ||
+                     climbChallengeMove == CLIMB_MOVE_RIGHT ||
+                     IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT) ||
+                     IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT);
+    bool upClimb = IsKeyDown(KEY_W) || IsKeyDown(KEY_UP) ||
+                   climbChallengeMove == CLIMB_MOVE_UP ||
+                   climbAutoMove == CLIMB_MOVE_UP;
+    int directionIndex = player->direction == 'L' ? 0 : 1;
+    int climbFrame = (upClimb || climbChallengeActive || climbAutoMove != CLIMB_MOVE_NONE) ? 1 : 0;
+    Texture2D currentSprite = {0};
+
+    if (climbFallingActive) {
+        directionIndex = climbFallingDirection == 'L' ? 0 : 1;
+        currentSprite = finalClimbFallingFrames[directionIndex];
+    } else if (sideClimb) {
+        currentSprite = finalClimbSideFrames[directionIndex];
+    }
+    if (currentSprite.id == 0) {
+        currentSprite = finalClimbCharacterFrames[climbFrame];
+    }
     if (currentSprite.id == 0) {
         currentSprite = player->direction == 'R' ? player->spriteJumpingR : player->spriteJumpingL;
     }
@@ -1099,6 +1232,10 @@ static void drawFinalClimbScene(Stage3 *stage, Player *player) {
     }
 
     Rectangle playerDest = finalClimbPlayerDest(stage, player, screenWidth, screenHeight);
+    if (climbFallingActive) {
+        playerDest.x += climbFallingOffsetX;
+        playerDest.y += climbFallingOffsetY;
+    }
 
     if (currentSprite.id > 0) {
         Rectangle source = { 0.0f, 0.0f, (float)currentSprite.width, (float)currentSprite.height };
@@ -1120,7 +1257,7 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->ambientSpawningEnabled = true;
     resetClimbChallenge();
     
-    stage->towerTexture = LoadTexture("assets/img/brenadFinal.png");
+    stage->towerTexture = LoadTexture("assets/img/brenadFinalCropped.png");
     stage->cloudTexture = LoadTexture("assets/img/nuvem.png");
     stage->birdTexture = LoadTexture("assets/img/pigeon1L.png");
     stage->birdTextureAlt = LoadTexture("assets/img/pigeon2L.png");
@@ -1207,6 +1344,10 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         }
     }
 
+    if (stage->state == STAGE3_APPROACH && IsKeyPressed(KEY_K)) {
+        startStage3Climb(stage, player);
+    }
+
     for (int i = 0; i < STAGE3_MAX_CLOUDS; i++) {
         stage->clouds[i].position.x -= stage->clouds[i].speed * deltaTime;
         if (stage->ambientSpawningEnabled && stage->clouds[i].position.x < -200) {
@@ -1240,10 +1381,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         float moveDelta = moveSpeed * deltaTime;
         float scrollDelta = 0.0f;
         float maxScrollX = approachMaxScroll(stage);
-        float towerAppearScroll = TOWER_START_X -
-                                  (PLAYER_CENTER_X + PLAYER_WIDTH * 0.5f +
-                                   visibleWorldWidth() * 0.5f - 120.0f);
-        float autoStopScroll = clampFloat(towerAppearScroll, 0.0f, maxScrollX);
+        float autoStopScroll = maxScrollX;
         bool movementLockedByPuddle = stage->puddleLockTimer > 0.0f;
         float groundY = TOWER_BASE_Y - player->height;
 
@@ -1324,6 +1462,8 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
                 nextPuddleX = stage->puddles[i].position.x + randomPuddleSpacing();
             }
         }
+
+        clearPuddlesFromTowerArea(stage);
         
         // Barreira física após a torre: permite passar pela frente, andar no espaço extra, mas impede ir além do limite do mapa expandido
         float towerWidth = towerDrawWidth(stage);
@@ -1332,7 +1472,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
             player->position.x += pushScrollDelta;
             player->velocity.x = stage->puddlePushVelocity;
 
-            stage->puddlePushVelocity *= 0.96f;
+            stage->puddlePushVelocity *= 0.985f;
         }
 
         float barrierX = stage->towerPosition.x + towerWidth + 150.0f;
@@ -1342,7 +1482,9 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         if (player->position.x < PLAYER_LEFT_LIMIT) {
             player->position.x = PLAYER_LEFT_LIMIT;
         }
-        float rightLimit = towerVisible ? stage->towerPosition.x + towerWidth - player->width : PLAYER_RIGHT_LIMIT;
+        float rightLimit = towerVisible
+            ? barrierX - player->width
+            : PLAYER_RIGHT_LIMIT;
         if (player->position.x > rightLimit) {
             player->position.x = rightLimit;
         }
@@ -1360,21 +1502,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         // Se estiver sobreposto e pressionar W ou SETA PARA CIMA, inicia a escalada
         if (isOverlappingTowerX) {
             if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) {
-                stage->state = STAGE3_CLIMBING;
-                resetClimbChallenge();
-                player->isClimbing = true;
-                player->velocity.y = 0;
-                if (player->lives < 3) {
-                    healPlayer(player);
-                }
-                player->position.x = stage->towerHitbox.x + stage->towerHitbox.width / 2.0f - PLAYER_WIDTH / 2.0f;
-                resetStage3ClimbBirds(stage);
-                for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
-                    stage->poops[i].active = false;
-                    stage->poops[i].landed = false;
-                    stage->poops[i].speedY = 0.0f;
-                    stage->poops[i].rotationZ = 0.0f;
-                }
+                startStage3Climb(stage, player);
             }
         }
 
@@ -1405,8 +1533,10 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
             }
 
             if (playerOnPuddle && stage->puddles[i].canLockPlayer) {
-                stage->puddleLockTimer = 0.52f;
-                stage->puddlePushVelocity = 700.0f;
+                float distanceToBottle = stage->puddles[i].bottleHitbox.x - (player->position.x + PLAYER_WIDTH);
+                float slideDistance = fmaxf(70.0f, distanceToBottle + 26.0f);
+                stage->puddleLockTimer = 0.72f;
+                stage->puddlePushVelocity = slideDistance / stage->puddleLockTimer;
                 stage->puddles[i].canLockPlayer = false;
                 break;
             } else if (!playerOnPuddle) {
@@ -1423,17 +1553,46 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         float climbAutoSpeed = CLIMB_AUTO_SPEED;
         player->velocity.x = 0.0f;
 
-        if (climbAutoMove == CLIMB_MOVE_NONE) {
-            if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
+        if (climbFallingActive) {
+            climbFallingVelocityY += 760.0f * deltaTime;
+            climbFallingOffsetY += climbFallingVelocityY * deltaTime;
+            climbFallingOffsetX += (climbFallingDirection == 'L' ? -95.0f : 95.0f) * deltaTime;
+            player->state = PLAYER_STATE_FALLING;
+
+            if (climbFallingOffsetY > GetScreenHeight() + FINAL_CLIMB_PLAYER_HEIGHT) {
+                player->lives = 0;
+                player->state = PLAYER_STATE_DEAD;
+                player->isClimbing = false;
+            }
+        } else if (climbAutoMove == CLIMB_MOVE_NONE) {
+            if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) {
+                climbChallengeActive = 0;
+                climbChallengeMove = CLIMB_MOVE_NONE;
+                climbChallengeTimer = 0.0f;
+                player->position.y += CLIMB_DESCEND_SPEED * deltaTime;
+                player->state = PLAYER_STATE_FALLING;
+            } else if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
+                climbChallengeActive = 0;
+                climbChallengeMove = CLIMB_MOVE_NONE;
+                climbChallengeTimer = 0.0f;
+                player->position.x -= CLIMB_AUTO_SPEED * deltaTime;
+                player->velocity.x = -CLIMB_AUTO_SPEED;
+                player->direction = 'L';
+                player->state = PLAYER_STATE_RUNNING;
+            } else if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
+                climbChallengeActive = 0;
+                climbChallengeMove = CLIMB_MOVE_NONE;
+                climbChallengeTimer = 0.0f;
+                player->position.x += CLIMB_AUTO_SPEED * deltaTime;
+                player->velocity.x = CLIMB_AUTO_SPEED;
+                player->direction = 'R';
+                player->state = PLAYER_STATE_RUNNING;
+            } else if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
                 startClimbChallenge(CLIMB_MOVE_UP);
-            } else if (IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT)) {
-                startClimbChallenge(CLIMB_MOVE_LEFT);
-            } else if (IsKeyPressed(KEY_D) || IsKeyPressed(KEY_RIGHT)) {
-                startClimbChallenge(CLIMB_MOVE_RIGHT);
             }
         }
 
-        if (climbChallengeActive) {
+        if (!climbFallingActive && climbChallengeActive) {
             climbChallengeTimer += deltaTime;
             climbPointerAngle = normalizeDegrees(climbPointerAngle + climbPointerSpeed * deltaTime);
             if (climbChallengeTimer >= CLIMB_CHALLENGE_LIMIT) {
@@ -1444,7 +1603,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
             }
         }
 
-        if (climbAutoMove != CLIMB_MOVE_NONE) {
+        if (!climbFallingActive && climbAutoMove != CLIMB_MOVE_NONE) {
             float step = climbAutoSpeed * deltaTime;
             if (step > climbAutoDistance) {
                 step = climbAutoDistance;
@@ -1472,13 +1631,13 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
 
         float climbBottom = TOWER_BASE_Y - player->height;
         float climbTop = stage->towerPosition.y + 60.0f;
-        if (player->position.y > climbBottom) player->position.y = climbBottom;
-        if (player->position.y < climbTop) player->position.y = climbTop;
+        if (!climbFallingActive && player->position.y > climbBottom) player->position.y = climbBottom;
+        if (!climbFallingActive && player->position.y < climbTop) player->position.y = climbTop;
         
-        if (player->position.x < stage->towerHitbox.x) player->position.x = stage->towerHitbox.x;
-        if (player->position.x + PLAYER_WIDTH > stage->towerHitbox.x + stage->towerHitbox.width) player->position.x = stage->towerHitbox.x + stage->towerHitbox.width - PLAYER_WIDTH;
+        if (!climbFallingActive && player->position.x < stage->towerHitbox.x) player->position.x = stage->towerHitbox.x;
+        if (!climbFallingActive && player->position.x + PLAYER_WIDTH > stage->towerHitbox.x + stage->towerHitbox.width) player->position.x = stage->towerHitbox.x + stage->towerHitbox.width - PLAYER_WIDTH;
         
-        if (player->position.y <= stage->towerPosition.y + 80.0f) { 
+        if (!climbFallingActive && player->position.y <= stage->towerPosition.y + 80.0f) {
             stage->state = STAGE3_FINISHED;
             player->isClimbing = false; // finalizou subida
         }
@@ -1498,9 +1657,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
                 if (stage->birds[b].position.x > -20.0f && stage->birds[b].position.x < GetScreenWidth() + 20.0f) {
                     for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
                         if (!stage->poops[i].active) {
-                            float poopOffsetX = stage->state == STAGE3_CLIMBING
-                                ? (stage->birds[b].speed < 0.0f ? 52.0f : 22.0f)
-                                : (stage->birds[b].speed < 0.0f ? 30.0f : 8.0f);
+                            float poopOffsetX = stage->birds[b].speed < 0.0f ? 30.0f : 8.0f;
                             stage->poops[i].position = (Vector2){ stage->birds[b].position.x + poopOffsetX, stage->birds[b].position.y + 10.0f };
                             stage->poops[i].active = true;
                             stage->poops[i].landed = false;
@@ -1521,6 +1678,8 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     Rectangle playerScreenHitbox = {0};
     if (stage->state == STAGE3_CLIMBING) {
         Rectangle climbPlayerDest = finalClimbPlayerDest(stage, player, (float)GetScreenWidth(), (float)GetScreenHeight());
+        climbPlayerDest.x += climbFallingOffsetX;
+        climbPlayerDest.y += climbFallingOffsetY;
         playerScreenHitbox = (Rectangle){
             climbPlayerDest.x + climbPlayerDest.width * 0.24f,
             climbPlayerDest.y + climbPlayerDest.height * 0.12f,
@@ -1543,9 +1702,19 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     }
 
     if (stage->state == STAGE3_CLIMBING) {
+        for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
+            stage->poops[i].active = false;
+            stage->poops[i].landed = false;
+            stage->poops[i].speedY = 0.0f;
+            stage->poops[i].rotationZ = 0.0f;
+        }
+    }
+
+    if (stage->state == STAGE3_CLIMBING && !climbFallingActive) {
         for (int i = 0; i < STAGE3_MAX_BIRDS; i++) {
             Rectangle birdHitbox = stage3BirdHitbox(stage, i);
             if (CheckCollisionRecs(playerScreenHitbox, birdHitbox)) {
+                player->invincibilityTimer = 0.0f;
                 damagePlayer(player, 0.0f);
                 resetStage3ClimbBird(&stage->birds[i], i);
             }
@@ -1588,7 +1757,12 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     }
 
     syncStage3PlayerHitbox(player);
-    updateStage3PlayerVisualState(player);
+    if (player->lives <= 0) {
+        return;
+    }
+    if (!climbFallingActive) {
+        updateStage3PlayerVisualState(player);
+    }
 }
 
 void drawStage3(Stage3 *stage, Player *player) {
