@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define GRAVITY 520.0f
-#define JUMP_FORCE 480.0f
+#define GRAVITY 550.0f
+#define JUMP_FORCE 620.0f
 #define FRICTION 0.95f
 #define PLAYER_MAX_SPEED 450.0f
 #define KNOCKBACK_DURATION 1.2f
