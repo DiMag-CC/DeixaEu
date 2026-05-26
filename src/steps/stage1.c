@@ -465,6 +465,15 @@ void initStage1(Stage1 *stage) {
 
     // Inicializar parallax
     stage->parallaxOffset = 0.0f;
+
+    stage->music = LoadMusicStream("assets/music/sambaSongLevel1.wav");
+    
+    // Verificar se a música foi carregada corretamente
+    if (stage->music.frameCount > 0) {
+        // Música carregada com sucesso
+        SetMusicVolume(stage->music, 1.5f);  // 70% de volume
+        PlayMusicStream(stage->music);  
+    }
 }
 
 void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
@@ -501,6 +510,13 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
     updateObstacles(stage, deltaTime);
 
     stage->parallaxOffset += stage->scrollSpeed * deltaTime;
+
+    UpdateMusicStream(stage->music);
+    
+    // Se a música parou, tocar novamente (loop)
+    if (!IsMusicStreamPlaying(stage->music)) {
+        PlayMusicStream(stage->music);
+    }
 
     // ===== COLISÕES PRIMEIRO (ANTES de gravidade) =====
     handleCollisions(stage, player);
@@ -697,4 +713,7 @@ void unloadStage1(Stage1 *stage) {
         UnloadTexture(stage->platformTexture);
         stage->platformLoaded = 0;
     }
+
+    StopMusicStream(stage->music);  // Parar a música
+    UnloadMusicStream(stage->music);  // Liberar recursos
 }

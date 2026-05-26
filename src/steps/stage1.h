@@ -14,10 +14,10 @@
 #define GROUND_Y_RATIO 0.82f
 
 
-#define STAGE1_TARGET_DISTANCE 8000.0f
-#define STAGE1_BASE_SCROLL_SPEED 320.0f
-#define STAGE1_MAX_SCROLL_SPEED 550.0f
-#define STAGE1_DIFFICULTY_RAMP 0.001f
+#define STAGE1_TARGET_DISTANCE 16000.0f
+#define STAGE1_BASE_SCROLL_SPEED 300.0f
+#define STAGE1_MAX_SCROLL_SPEED 500.0f
+#define STAGE1_DIFFICULTY_RAMP 0.01f
 
 typedef struct {
 
@@ -46,6 +46,7 @@ typedef struct {
     int stage1Complete;             // 1 = fase completa, 0 = rodando
     int stage1Failed;               // 1 = jogador morreu, 0 = vivo
 
+    Music music;  
 } Stage1;
 
 void initStage1(Stage1 *stage);
