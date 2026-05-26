@@ -573,7 +573,6 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
     handleCollisionsStage2(stage, player);
 }
 
-// BONECO NADA MAIS EM BAIXO (82% DA ALTURA)
 static void updateTransition(Stage2 *stage, Player *player, float deltaTime) {
     stage->modeTimer += deltaTime;
 
@@ -915,12 +914,11 @@ static void drawSea(Stage2 *stage, Player *player) {
     }
 }
 
-// REMOVIDO AS ONDAS E AJUSTADO PARA O FUNDO RENDERIZAR SEMPRE PRIMEIRO
+// RESTAURADO COM SCROLL DE SUPERFÍCIE, SINAL DE ALERTA ALPHABYTE E REQUISITOS DE BOLD MANUAL
 static void drawTransition(Stage2 *stage) {
     int screenWidth = GetRenderWidth();
     int screenHeight = GetRenderHeight();
     
-    // 1. Renderiza o fundo animado (Scroll horizontal da superfície do oceano)
     if (bgSurfaceLoaded && bgSuperficieMar.id > 0) {
         float scrollSurf = fmod(stage->backgroundScroll * 0.25f, screenWidth);
         Rectangle source = { 0.0f, 0.0f, (float)bgSuperficieMar.width, (float)bgSuperficieMar.height };
@@ -934,7 +932,6 @@ static void drawTransition(Stage2 *stage) {
         DrawRectangle(0, 0, screenWidth, screenHeight, (Color){15, 60, 140, 255});
     }
 
-    // 2. Sinal de alerta piscando dinamicamente via canal Alpha
     float frequenciaPisca = 8.0f; 
     float alphaPisca = (sinf(stage->modeTimer * frequenciaPisca) + 1.0f) / 2.0f; 
     unsigned char alphaByte = (unsigned char)(alphaPisca * 255);
@@ -956,21 +953,16 @@ static void drawTransition(Stage2 *stage) {
     int posX = (screenWidth - textWidth) / 2;
     int posY = (int)(screenHeight * 0.48f);
 
-    // Efeito de "Negrito" (Bold manual): Desenha o texto 4 vezes deslocado em 1 pixel
-    // Isso engrossa os traços da fonte original mantendo o estilo padrão.
     DrawText(warningMsg, posX + 1, posY, fontSize, (Color){255, 60, 60, alphaByte});
     DrawText(warningMsg, posX - 1, posY, fontSize, (Color){255, 60, 60, alphaByte});
     DrawText(warningMsg, posX, posY + 1, fontSize, (Color){255, 60, 60, alphaByte});
     DrawText(warningMsg, posX, posY - 1, fontSize, (Color){255, 60, 60, alphaByte});
-
-    // Desenha o texto principal por cima
     DrawText(warningMsg, posX, posY, fontSize, (Color){255, 60, 60, alphaByte});
 }
 
 void drawStage2(Stage2 *stage, Player *player) {
     if (stage->mode == STAGE2_MODE_FINISHED) return;
 
-    // RENDERIZAÇÃO ORDENADA POR CAMADAS: O Fundo renderiza PRIMEIRO.
     switch (stage->mode) {
         case STAGE2_MODE_SAND:       drawSand(stage); break;
         case STAGE2_MODE_TRANSITION: drawTransition(stage); break;
@@ -1004,6 +996,7 @@ void drawStage2(Stage2 *stage, Player *player) {
         }
     } 
     else if (stage->mode == STAGE2_MODE_TRANSITION) {
+        // AJUSTADO: Garante que a animação de nado seja exibida durante a transição
         texturaAtual = (frameGlobal == 0) ? txNadarDireitaParado : txNadarDireitaAtivo;
     }
     else if (stage->mode == STAGE2_MODE_SEA) {
