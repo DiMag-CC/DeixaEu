@@ -122,35 +122,49 @@ static void updateObstacles(Stage1 *stage, float deltaTime) {
     while (cur != NULL) {
         QueueObstacle *qobs = &cur->obstacle;
 
-        // Atualizar específico por tipo
+        if (!qobs->active) {
+            cur = cur->next;
+            continue;
+        }
+
+        // Atualizar espec??fico por tipo
         switch (qobs->type) {
             case QUEUE_OBS_HOLE:
                 updateObstacle(&qobs->data.hole, stage->scrollSpeed, deltaTime);
+                qobs->position = qobs->data.hole.position;
+                qobs->active = qobs->data.hole.active;
                 break;
 
             case QUEUE_OBS_BUS:
                 updateBus(&qobs->data.bus, stage->scrollSpeed, deltaTime);
+                qobs->position = qobs->data.bus.position;
+                qobs->active = qobs->data.bus.active;
                 break;
 
             case QUEUE_OBS_PIGEON:
                 updatePigeon(&qobs->data.pigeon, stage->scrollSpeed, deltaTime);
+                qobs->position = qobs->data.pigeon.position;
+                qobs->active = qobs->data.pigeon.active;
                 break;
 
             case QUEUE_OBS_UMBRELLA:
-                // Umbrella é coletável, atualizar como item flutuante
+                // Umbrella ?? colet??vel, atualizar como item flutuante
                 updateUmbrella(&qobs->data.umbrella, stage->scrollSpeed, deltaTime);
+                qobs->position = qobs->data.umbrella.position;
+                qobs->active = qobs->data.umbrella.active;
                 break;
         }
 
         cur = cur->next;
     }
 
-    // Remover obstáculos fora da tela
+    // Remover obst??culos fora da tela
     removeOffscreenObstacles(&stage->obstacleQueue, -100.0f);
 }
 
 static void handleCollisions(Stage1 *stage, Player *player) {
     QueueNode *cur = stage->obstacleQueue.front;
+    int standingOnBus = 0;
 
     while (cur != NULL) {
         QueueObstacle *qobs = &cur->obstacle;
@@ -164,12 +178,35 @@ static void handleCollisions(Stage1 *stage, Player *player) {
         switch (qobs->type) {
             case QUEUE_OBS_HOLE:
                 obstacleHitbox = qobs->data.hole.hitbox;
-                if (qobs->data.hole.active && CheckCollisionRecs(player->hitbox, obstacleHitbox)) {
+                if (qobs->data.hole.active) {
+                    Rectangle holeDamageHitbox = obstacleHitbox;
+                    holeDamageHitbox.x -= 8.0f;
+                    holeDamageHitbox.width += 16.0f;
+                    holeDamageHitbox.y -= 6.0f;
+                    holeDamageHitbox.height += 14.0f;
+
+                    Rectangle playerFootProbe = {
+                        player->hitbox.x + 8.0f,
+                        player->hitbox.y + player->hitbox.height - 6.0f,
+                        player->hitbox.width - 16.0f,
+                        12.0f
+                    };
+
+                    float playerGroundY = GLOBAL_GROUND_LEVEL - player->height + 112.0f;
+                    int nearGround = player->position.y >= playerGroundY - 25.0f;
+                    int touchingHole =
+                        CheckCollisionRecs(player->hitbox, holeDamageHitbox) ||
+                        CheckCollisionRecs(playerFootProbe, holeDamageHitbox);
+
+                    if (!nearGround || !touchingHole) {
+                        break;
+                    }
+
                     // ===== APLICAR DANO =====
                     damagePlayer(player, 200.0f);
                     
-                    // ===== RESETAR POSIÇÃO (não deixar descer) =====
-                    float groundY = GLOBAL_GROUND_LEVEL - player->height + 300.0f;
+                    // ===== RESETAR POSI????O (n??o deixar descer) =====
+                    float groundY = GLOBAL_GROUND_LEVEL - player->height + 112.0f;
                     player->position.y = groundY;
                     player->velocity.y = 0.0f;
                     player->isGrounded = 1;
@@ -188,7 +225,7 @@ static void handleCollisions(Stage1 *stage, Player *player) {
                     player->hitbox.height =
                         player->height - 20.0f;
                     
-                    // Desativar obstáculo
+                    // Desativar obst??culo
                     qobs->data.hole.active = 0;
                     qobs->active = 0;
                 }
@@ -202,43 +239,78 @@ static void handleCollisions(Stage1 *stage, Player *player) {
                     continue;
                 }
 
-                Rectangle busTopHitbox = bus->topHitbox;
+                Rectangle busStandHitbox = bus->standPlatformHitbox;
                 Rectangle busFullHitbox = bus->hitbox;
+                Rectangle busDamageHitbox = busFullHitbox;
+                float busDeltaX = bus->position.x - bus->prevX;
+
+                // Hitbox de dano reduzida: metade do ônibus e sem a faixa superior.
+                // A plataforma de cima continua inteira no busStandHitbox.
+                busDamageHitbox.x += busDamageHitbox.width * 0.25f;
+                busDamageHitbox.width *= 0.5f;
+                busDamageHitbox.y += busDamageHitbox.height * 0.28f;
+                busDamageHitbox.height *= 0.72f;
+
+                // Evita dano indevido na borda esquerda da tela:
+                // quando o ônibus está saindo do mapa, removemos sua colisão.
+                if (busFullHitbox.x + busFullHitbox.width <= 8.0f) {
+                    bus->playerOnTop = 0;
+                    bus->active = 0;
+                    qobs->active = 0;
+                    break;
+                }
 
                 float playerBottom = player->hitbox.y + player->hitbox.height;
                 float playerTop = player->hitbox.y;
                 float playerLeft = player->hitbox.x;
                 float playerRight = player->hitbox.x + player->hitbox.width;
 
-                float busTop = busFullHitbox.y;
-                float busLeft = busFullHitbox.x;
-                float busRight = busFullHitbox.x + busFullHitbox.width;
-                float busBottom = busFullHitbox.y + busFullHitbox.height;
+                float busTop = busDamageHitbox.y;
+                float busLeft = busDamageHitbox.x;
+                float busRight = busDamageHitbox.x + busDamageHitbox.width;
+                float busBottom = busDamageHitbox.y + busDamageHitbox.height;
 
-                if (
-                    player->velocity.y > 0 &&
-                    playerBottom >= busTop &&
-                    playerBottom <= busTop + 40.0f &&
-                    playerRight > busLeft + 20.0f &&
-                    playerLeft < busRight - 20.0f
-                ) {
-                    // ===== PLAYER EM PÉ SOBRE O ÔNIBUS =====
-                    
-                    // Calcular posição Y correta (em cima do ônibus)
-                    float newPlayerY = busTop - player->height + 20.0f;
-                    
-                    player->position.y = newPlayerY;
+                Rectangle playerFootProbe = {
+                    player->hitbox.x + 6.0f,
+                    player->hitbox.y + player->hitbox.height - 5.0f,
+                    player->hitbox.width - 12.0f,
+                    10.0f
+                };
 
-                    // Resetar velocidade vertical
+                int horizontalStandOverlap =
+                    playerFootProbe.x + playerFootProbe.width > busStandHitbox.x + 4.0f &&
+                    playerFootProbe.x < busStandHitbox.x + busStandHitbox.width - 4.0f;
+
+                int nearStandHeight =
+                    playerBottom >= busStandHitbox.y - 12.0f &&
+                    playerBottom <= busStandHitbox.y + 18.0f;
+
+                int descendingOrStable = (player->velocity.y >= -30.0f);
+
+                int canSnapOnStand = horizontalStandOverlap &&
+                                     nearStandHeight &&
+                                     descendingOrStable &&
+                                     playerTop < busStandHitbox.y + busStandHitbox.height;
+
+                int tryingToJump = IsKeyDown(KEY_SPACE) || IsKeyPressed(KEY_SPACE);
+                int keepOnStand = bus->playerOnTop &&
+                                  horizontalStandOverlap &&
+                                  playerBottom <= busStandHitbox.y + 28.0f &&
+                                  playerTop < busStandHitbox.y + busStandHitbox.height &&
+                                  !tryingToJump &&
+                                  player->velocity.y >= -40.0f;
+
+                if (canSnapOnStand || keepOnStand) {
+                    // Plataforma fina invis??vel: estabiliza o player sem flicker.
+                    player->position.x += busDeltaX;
+                    player->position.y = busStandHitbox.y + 4.0f;
                     player->velocity.y = 0.0f;
-
-                    // Player está "groundado" (em pé)
                     player->isGrounded = 1;
                     player->grounded = 1;
                     player->isJumping = 0;
 
-                    // Flag do ônibus: player está em cima
                     bus->playerOnTop = 1;
+                    standingOnBus = 1;
 
                     player->hitbox.x =
                         player->position.x - player->width * 0.35f;
@@ -251,19 +323,14 @@ static void handleCollisions(Stage1 *stage, Player *player) {
 
                     player->hitbox.height =
                         player->height - 20.0f;
+                } else if (bus->playerOnTop) {
+                    bus->playerOnTop = 0;
                 }
-                // =====================================
-                // PLAYER SAIU DE CIMA DO ÔNIBUS
-                // =====================================
-                else if (bus->playerOnTop) {
-                    if (!CheckCollisionRecs(player->hitbox, busTopHitbox)) {
-                        bus->playerOnTop = 0;
-                    }
-                }
+
                 // =====================================
                 // BATIDA LATERAL OU POR BAIXO
                 // =====================================
-                else if (CheckCollisionRecs(player->hitbox, busFullHitbox)) {
+                if (!standingOnBus && CheckCollisionRecs(player->hitbox, busDamageHitbox)) {
                     float overlapLeft = 
                         (playerRight) - (busLeft);
                     
@@ -321,7 +388,7 @@ static void handleCollisions(Stage1 *stage, Player *player) {
             }
 
             case QUEUE_OBS_PIGEON:
-                // Colisão com pombo
+                // Colis??o com pombo
                 obstacleHitbox = qobs->data.pigeon.hitbox;
                 if (qobs->data.pigeon.active && CheckCollisionRecs(player->hitbox, obstacleHitbox)) {
                     damagePlayer(player, 100.0f);
@@ -329,25 +396,27 @@ static void handleCollisions(Stage1 *stage, Player *player) {
                     qobs->active = 0;
                 }
 
-                // Colisão com fezes do pombo
+                // Colis??o com fezes do pombo
                 for (int i = 0; i < MAX_POOPS; i++) {
                     Poop *poop = &qobs->data.pigeon.poops[i];
                     if (poop->active && CheckCollisionRecs(player->hitbox, poop->hitbox)) {
-                        // Se tem umbrella, não aplica debuff
+                        // Sem umbrella, o coc?? causa dano e lentid??o.
                         if (player->hasUmbrella <= 0) {
+                            damagePlayer(player, 110.0f);
                             applySlowDown(player, 50.0f, 2.0f);  // 50% slowdown por 2 segundos
                         }
                         poop->active = 0;
+                        break;
                     }
                 }
                 break;
 
             case QUEUE_OBS_UMBRELLA:
-                // Colisão com guarda-chuva (coletável)
+                // Colis??o com guarda-chuva (colet??vel)
                 obstacleHitbox = qobs->data.umbrella.hitbox;
                 if (qobs->data.umbrella.active && CheckCollisionRecs(player->hitbox, obstacleHitbox)) {
                     // Coletar umbrella
-                    addUmbrellaShield(player, 8.0f);  // 8 segundos de proteção
+                    addUmbrellaShield(player, 8.0f);  // 8 segundos de prote????o
                     qobs->data.umbrella.active = 0;
                     qobs->active = 0;
                 }
@@ -356,6 +425,8 @@ static void handleCollisions(Stage1 *stage, Player *player) {
 
         cur = cur->next;
     }
+
+    player->movementControlledExternally = standingOnBus;
 }
 
 static void drawObstacles(Stage1 *stage) {
@@ -415,7 +486,7 @@ void initStage1(Stage1 *stage) {
     stage->stage1Complete = 0;
     stage->stage1Failed = 0;
 
-    // Inicializar câmera side-scrolling
+    // Inicializar c??mera side-scrolling
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
     worldScale = (float)screenHeight / 720.0f;
@@ -443,7 +514,7 @@ void initStage1(Stage1 *stage) {
     // Inicializar sistema de nuvens
     stage->cloudSystem = createCloudSystem();
 
-    // Inicializar fila de obstáculos
+    // Inicializar fila de obst??culos
     initObstacleQueue(&stage->obstacleQueue);
 
     // Carregar background com parallax
@@ -456,7 +527,7 @@ void initStage1(Stage1 *stage) {
     stage->groundLevel =
         GetScreenHeight() * GROUND_Y_RATIO;
 
-    // Carregar plataforma (chão)
+    // Carregar plataforma (ch??o)
     stage->platformLoaded = 0;
     stage->platformTexture = LoadTexture("assets/img/plataformLevel1.png");
     if (stage->platformTexture.id != 0) {
@@ -465,15 +536,6 @@ void initStage1(Stage1 *stage) {
 
     // Inicializar parallax
     stage->parallaxOffset = 0.0f;
-
-    stage->music = LoadMusicStream("assets/music/sambaSongLevel1.wav");
-    
-    // Verificar se a música foi carregada corretamente
-    if (stage->music.frameCount > 0) {
-        // Música carregada com sucesso
-        SetMusicVolume(stage->music, 1.5f);  // 70% de volume
-        PlayMusicStream(stage->music);  
-    }
 }
 
 void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
@@ -498,12 +560,7 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
         spawnRandomObstacle(stage);
     }
 
-    float playerGroundY =
-        stage->groundLevel -
-        player->height +
-        112.0f;
-
-    // ===== ATUALIZAR OBSTÁCULOS PRIMEIRO =====
+    // ===== ATUALIZAR OBST??CULOS PRIMEIRO =====
     updateBike(&stage->bike, player, deltaTime);
     updateRainSystem(&stage->rain, deltaTime);
     updateCloudSystem(&stage->cloudSystem, stage->scrollSpeed, deltaTime);
@@ -511,63 +568,20 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
 
     stage->parallaxOffset += stage->scrollSpeed * deltaTime;
 
-    UpdateMusicStream(stage->music);
-    
-    // Se a música parou, tocar novamente (loop)
-    if (!IsMusicStreamPlaying(stage->music)) {
-        PlayMusicStream(stage->music);
-    }
-
-    // ===== COLISÕES PRIMEIRO (ANTES de gravidade) =====
+    // ===== COLIS??ES PRIMEIRO (ANTES de gravidade) =====
     handleCollisions(stage, player);
-
-    // ===== GRAVIDADE (AGORA, DEPOIS DE COLISÕES) =====
-    // Só aplica gravidade se NÃO está groundado!
-    
-    if (!player->isGrounded) {
-        player->velocity.y +=
-            900.0f * deltaTime;
-    }
-
-    // ===== COLISÃO COM O CHÃO =====
-    
-    if (
-        !player->isGrounded &&
-        player->position.y >= playerGroundY &&
-        player->velocity.y >= 0
-    ) {
-        player->position.y =
-            playerGroundY;
-
-        player->velocity.y = 0.0f;
-
-        player->isGrounded = 1;
-
-        player->isJumping = 0;
-    }
-
-    // ===== SEGURANÇA: Nunca deixar player descer muito =====
-    // Se por algum motivo ele cair abaixo do chão, resetar
-    float maxGroundY = GLOBAL_GROUND_LEVEL + 500.0f;  // Limite máximo
-    
-    if (player->position.y > maxGroundY) {
-        player->position.y = playerGroundY;
-        player->velocity.y = 0.0f;
-        player->isGrounded = 1;
-    }
-    // ====================================================
 
     // ===== VERIFICAR GAME OVER =====
     if (player->lives <= 0) {
         stage->stage1Failed = 1;
     }
 
-    // ===== VERIFICAR VITÓRIA =====
+    // ===== VERIFICAR VIT??RIA =====
     if (stage->distanceTraveled >= STAGE1_TARGET_DISTANCE) {
         stage->stage1Complete = 1;
     }
 
-    // ===== DISTÂNCIA PERCORRIDA =====
+    // ===== DIST??NCIA PERCORRIDA =====
     stage->distanceTraveled += stage->scrollSpeed * deltaTime;
 }
 
@@ -583,7 +597,7 @@ void drawStage1(Stage1 *stage, Player *player) {
              screenWidth);
 
     // =========================================
-    // CAMADA 2 — BACKGROUND
+    // CAMADA 2 ??? BACKGROUND
     // =========================================
     if (stage->bgLoaded &&
         stage->backgroundTexture.id != 0) {
@@ -713,7 +727,5 @@ void unloadStage1(Stage1 *stage) {
         UnloadTexture(stage->platformTexture);
         stage->platformLoaded = 0;
     }
-
-    StopMusicStream(stage->music);  // Parar a música
-    UnloadMusicStream(stage->music);  // Liberar recursos
 }
+

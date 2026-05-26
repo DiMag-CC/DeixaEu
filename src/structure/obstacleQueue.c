@@ -1,6 +1,25 @@
 #include "obstacleQueue.h"
 #include <stdlib.h>
 
+static void releaseQueueObstacleResources(QueueObstacle *obstacle) {
+    if (obstacle == NULL) return;
+
+    switch (obstacle->type) {
+        case QUEUE_OBS_HOLE:
+            unloadObstacleResources(&obstacle->data.hole);
+            break;
+        case QUEUE_OBS_BUS:
+            unloadBusResources(&obstacle->data.bus);
+            break;
+        case QUEUE_OBS_PIGEON:
+            unloadPigeonResources(&obstacle->data.pigeon);
+            break;
+        case QUEUE_OBS_UMBRELLA:
+            unloadUmbrellaResources(&obstacle->data.umbrella);
+            break;
+    }
+}
+
 // ========== INICIALIZAR FILA ==========
 void initObstacleQueue(ObstacleQueue *queue) {
     queue->front = NULL;
@@ -42,6 +61,7 @@ void dequeueObstacle(ObstacleQueue *queue) {
 
     QueueNode *tmp = queue->front;
     queue->front = queue->front->next;
+    releaseQueueObstacleResources(&tmp->obstacle);
     free(tmp);
     queue->size--;
 
@@ -62,7 +82,7 @@ void removeOffscreenObstacles(ObstacleQueue *queue, float minX) {
     while (!isObstacleQueueEmpty(queue)) {
         QueueNode *front = queue->front;
 
-        if (front->obstacle.position.x < minX) {
+        if (!front->obstacle.active || front->obstacle.position.x < minX) {
             dequeueObstacle(queue);
         } else {
             break;

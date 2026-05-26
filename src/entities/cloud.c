@@ -6,11 +6,27 @@
 #define CLOUD_SPEED_MAX 80.0f
 #define RAINDROP_SPEED_MIN 200.0f
 #define RAINDROP_SPEED_MAX 350.0f
+#define RAINDROP_EMIT_INTERVAL_BASE 0.22f
+#define RAINDROP_EMIT_CHANCE_PERCENT 45
 #define CLOUD_SPAWN_INTERVAL 3.0f
+
+static Texture2D gCloudTexture = {0};
+static Texture2D gDropTexture = {0};
+
+static void ensureCloudTexturesLoaded(void) {
+    if (gCloudTexture.id == 0) {
+        gCloudTexture = LoadTexture("assets/img/RainCloud.png");
+    }
+
+    if (gDropTexture.id == 0) {
+        gDropTexture = LoadTexture("assets/img/RainDrops.png");
+    }
+}
 
 CloudSystem createCloudSystem(void) {
 
     CloudSystem system;
+    ensureCloudTexturesLoaded();
 
     system.cloudCount = 0;
 
@@ -44,7 +60,7 @@ static CloudEntity createCloudAtPosition(Vector2 position, float depth) {
     cloud.rainTimer = 0.0f;
 
     cloud.rainInterval =
-        0.1f / depth;
+        RAINDROP_EMIT_INTERVAL_BASE / depth;
 
     cloud.intensity =
         0.5f + (depth * 1.5f);
@@ -70,11 +86,8 @@ static CloudEntity createCloudAtPosition(Vector2 position, float depth) {
         CLOUD_HEIGHT * cloud.scale
     };
 
-        cloud.cloudTexture =
-        LoadTexture("assets/img/RainCloud.png");
-
-    cloud.textureLoaded =
-        (cloud.cloudTexture.id != 0);
+    cloud.cloudTexture = gCloudTexture;
+    cloud.textureLoaded = (gCloudTexture.id != 0);
 
     for (int i = 0; i < MAX_RAINDROPS_PER_CLOUD; i++) {
 
@@ -89,11 +102,8 @@ static CloudEntity createCloudAtPosition(Vector2 position, float depth) {
             RAINDROP_SPEED_MIN +
             (float)(rand() % 150);
 
-        cloud.drops[i].dropTexture =
-            LoadTexture("assets/img/RainDrops.png");
-
-        cloud.drops[i].textureLoaded =
-            (cloud.drops[i].dropTexture.id != 0);
+        cloud.drops[i].dropTexture = gDropTexture;
+        cloud.drops[i].textureLoaded = (gDropTexture.id != 0);
     }
 
     return cloud;
@@ -210,31 +220,35 @@ void updateCloudSystem(
 
             cloud->rainTimer = 0.0f;
 
-            for (int j = 0; j < MAX_RAINDROPS_PER_CLOUD; j++) {
+            if ((rand() % 100) < RAINDROP_EMIT_CHANCE_PERCENT) {
+                float spawnHalfWidth = (CLOUD_WIDTH * cloud->scale) * 0.5f;
+                float random01 = (float)rand() / (float)RAND_MAX;
+                float spawnX = cloud->position.x - spawnHalfWidth + random01 * (spawnHalfWidth * 2.0f);
 
-                if (!cloud->drops[j].active) {
+                for (int j = 0; j < MAX_RAINDROPS_PER_CLOUD; j++) {
 
-                    cloud->drops[j].position =
-                        (Vector2){
+                    if (!cloud->drops[j].active) {
 
-                        cloud->position.x +
-                        (float)(rand() %
-                        (int)(CLOUD_WIDTH * cloud->scale)),
+                        cloud->drops[j].position =
+                            (Vector2){
 
-                        cloud->position.y +
-                        CLOUD_HEIGHT *
-                        cloud->scale / 2
-                    };
+                            spawnX,
 
-                    cloud->drops[j].speed =
-                        RAINDROP_SPEED_MIN +
-                        (float)(rand() % 150);
+                            cloud->position.y +
+                            CLOUD_HEIGHT *
+                            cloud->scale / 2
+                        };
 
-                    cloud->drops[j].active = 1;
+                        cloud->drops[j].speed =
+                            RAINDROP_SPEED_MIN +
+                            (float)(rand() % 150);
 
-                    cloud->dropCount++;
+                        cloud->drops[j].active = 1;
 
-                    break;
+                        cloud->dropCount++;
+
+                        break;
+                    }
                 }
             }
         }
@@ -303,8 +317,8 @@ void drawCloudSystem(CloudSystem system) {
             if (cloud.drops[j].active) {
 
                 Rectangle source = {
-                    .x = 0,
-                    .y = 0,
+                    0.0f,
+                    0.0f,
                     (float)cloud.drops[j].dropTexture.width,
                     (float)cloud.drops[j].dropTexture.height
                 };
@@ -314,7 +328,7 @@ void drawCloudSystem(CloudSystem system) {
                     (cloud.depth * 16.0f);
 
                 Rectangle dest = {
-                    cloud.drops[j].position.x,
+                    cloud.drops[j].position.x - size * 0.5f,
                     cloud.drops[j].position.y,
                     size,
                     size * 3.0f
@@ -324,8 +338,8 @@ void drawCloudSystem(CloudSystem system) {
                     cloud.drops[j].dropTexture,
                     source,
                     dest,
-                    (Vector2){0,0},
-                    12.0f,
+                    (Vector2){0.0f, 0.0f},
+                    0.0f,
                     WHITE
                 );
             }
@@ -350,37 +364,31 @@ void resetCloudSystem(CloudSystem *system) {
     system->cloudCount = 0;
 
     system->spawnTimer = 0.0f;
+    system->rainIntensity = 1.0f;
 
     for (int i = 0; i < MAX_CLOUDS; i++) {
-
         system->clouds[i].active = 0;
-    }
+        system->clouds[i].dropCount = 0;
+        system->clouds[i].rainTimer = 0.0f;
+        system->clouds[i].cloudTexture = (Texture2D){0};
+        system->clouds[i].textureLoaded = 0;
 
-    for (int i = 0; i < MAX_CLOUDS; i++) {
-
-    if (
-        system->clouds[i].textureLoaded &&
-        system->clouds[i].cloudTexture.id != 0
-    ) {
-
-        UnloadTexture(
-            system->clouds[i].cloudTexture
-        );
-    }
-
-    for (int j = 0; j < MAX_RAINDROPS_PER_CLOUD; j++) {
-
-        if (
-            system->clouds[i].drops[j].textureLoaded &&
-            system->clouds[i].drops[j].dropTexture.id != 0
-        ) {
-
-            UnloadTexture(
-                system->clouds[i].drops[j].dropTexture
-            );
+        for (int j = 0; j < MAX_RAINDROPS_PER_CLOUD; j++) {
+            system->clouds[i].drops[j].active = 0;
+            system->clouds[i].drops[j].dropTexture = (Texture2D){0};
+            system->clouds[i].drops[j].textureLoaded = 0;
         }
     }
-}
+
+    if (gCloudTexture.id != 0) {
+        UnloadTexture(gCloudTexture);
+        gCloudTexture = (Texture2D){0};
+    }
+
+    if (gDropTexture.id != 0) {
+        UnloadTexture(gDropTexture);
+        gDropTexture = (Texture2D){0};
+    }
 }
 
 void setRainIntensity(

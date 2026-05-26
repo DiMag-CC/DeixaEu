@@ -9,7 +9,7 @@ Bike createBike(void) {
     bike.scale = 0.8f;
 
     bike.spriteLoaded = 0;
-    bike.bikeTexture = LoadTexture("assets/img/bike.png");
+    bike.bikeTexture = LoadTexture("assets/img/bikeStanding.png");
     if (bike.bikeTexture.id != 0) {
         bike.spriteLoaded = 1;
     }

@@ -1,8 +1,16 @@
 CC = gcc
 
-CFLAGS = -Wall -Wextra $(shell pkg-config --cflags raylib) -Isrc
+RAYLIB_CFLAGS := $(shell pkg-config --cflags raylib 2>/dev/null)
+RAYLIB_LIBS := $(shell pkg-config --libs raylib 2>/dev/null)
 
-LDFLAGS = $(shell pkg-config --libs raylib) -lm
+ifeq ($(strip $(RAYLIB_LIBS)),)
+RAYLIB_CFLAGS := -I/usr/local/include
+RAYLIB_LIBS := -L/usr/local/lib -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+endif
+
+CFLAGS = -Wall -Wextra $(RAYLIB_CFLAGS) -Isrc
+
+LDFLAGS = $(RAYLIB_LIBS)
 
 BUILD_DIR = build
 

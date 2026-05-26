@@ -15,8 +15,10 @@ typedef struct {
     Texture2D texture;
     int spriteLoaded;
 
-    Rectangle topHitbox;   
-    int playerOnTop;       
+    Rectangle topHitbox;
+    Rectangle standPlatformHitbox; // Plataforma fina invisivel para estabilizar o player
+    float prevX;
+    int playerOnTop;
     float playerStandingTime;
 } Bus;
 
