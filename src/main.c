@@ -149,8 +149,8 @@ void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenW
     }
 }
 
-void drawStage3HUD(Player *player, float totalGameTime, int screenWidth) {
-    float panelWidth = screenWidth < 620 ? screenWidth - 24.0f : 430.0f;
+void drawStage3HUD(Stage3 *stage, Player *player, float totalGameTime, int screenWidth) {
+    float panelWidth = screenWidth < 620 ? screenWidth - 24.0f : 500.0f;
     float panelX = 12.0f;
     float panelY = 12.0f;
     Rectangle panel = { panelX, panelY, panelWidth, 86.0f };
@@ -163,6 +163,12 @@ void drawStage3HUD(Player *player, float totalGameTime, int screenWidth) {
     for (int i = 0; i < 3; i++) {
         Color heartColor = (i < player->lives) ? (Color){ 226, 48, 70, 255 } : (Color){ 81, 88, 101, 230 };
         drawHeartIcon(panelX + 90.0f + i * 30.0f, panelY + 12.0f, 24.0f, heartColor);
+    }
+
+    if (stage->state == STAGE3_CLIMBING) {
+        char errorText[32];
+        sprintf(errorText, "Erros %d/%d", getStage3ClimbMissCount(), getStage3ClimbMaxMisses());
+        DrawText(errorText, (int)(panelX + 190.0f), (int)(panelY + 16.0f), 16, (Color){ 255, 214, 92, 255 });
     }
 
     char scoreText[64];
@@ -628,7 +634,7 @@ int main(void) {
                 drawGameHUD(&stage1, &player, totalGameTime, screenWidth, screenHeight);
             } else if (activeStage == GAME_STAGE_3) {
                 drawStage3(&stage3, &player);
-                drawStage3HUD(&player, totalGameTime, screenWidth);
+                drawStage3HUD(&stage3, &player, totalGameTime, screenWidth);
             }
 
             if (bikeDropOverlayTimer > 0.0f) {

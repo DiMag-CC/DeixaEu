@@ -63,9 +63,20 @@ typedef struct Stage3 {
     float puddleLockTimer;
     float puddlePushVelocity;
     bool ambientSpawningEnabled;
+    bool checkpointActivated;
+    bool checkpointRespawnUsed;
+    float checkpointScrollX;
     
     Rectangle towerHitbox;
     Vector2 towerPosition;
+    Rectangle checkpointHitbox;
+    Vector2 checkpointPosition;
+    Rectangle crabHitbox;
+    Vector2 crabPosition;
+    bool crabDialogOpen;
+    bool crabAIWaiting;
+    float crabAIWaitTimer;
+    char crabDialogText[160];
 
     Stage3Cloud clouds[STAGE3_MAX_CLOUDS];
     Bird birds[STAGE3_MAX_BIRDS];
@@ -77,6 +88,8 @@ typedef struct Stage3 {
 void initStage3(Stage3 *stage, Player *player);
 void updateStage3(Stage3 *stage, Player *player, float deltaTime);
 void drawStage3(Stage3 *stage, Player *player);
+int getStage3ClimbMissCount(void);
+int getStage3ClimbMaxMisses(void);
 void unloadStage3(Stage3 *stage);
 
 #endif
