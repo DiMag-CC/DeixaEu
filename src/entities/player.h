@@ -43,7 +43,8 @@ typedef struct {
 
     int isGrounded;             
     int isJumping;   
-    int isPerformingStunt;            
+    int isPerformingStunt;  
+    int canDoubleJump;          
     float jumpPower;            
     float fallSpeed;            
 

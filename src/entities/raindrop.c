@@ -1,8 +1,8 @@
 #include "raindrop.h"
 #include <stdlib.h>
 
-#define RAIN_SPEED 300.0f
-#define RAIN_SPAWN_INTERVAL 0.05f
+#define RAIN_SPEED 210.0f
+#define RAIN_SPAWN_INTERVAL 1.5f
 
 // ========== CRIAR SISTEMA DE CHUVA ==========
 RainSystem createRainSystem(void) {
