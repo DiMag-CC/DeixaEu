@@ -318,7 +318,7 @@ void initStage1(Stage1 *stage) {
 
     // Carregar background com parallax
     stage->bgLoaded = 0;
-    stage->backgroundTexture = LoadTexture("assets/img/landscapeLevel1New1.png");
+    stage->backgroundTexture = LoadTexture("assets/img/landscapeFase1New2.png");
     if (stage->backgroundTexture.id != 0) {
         stage->bgLoaded = 1;
     }
@@ -410,33 +410,33 @@ void drawStage1(Stage1 *stage, Player *player) {
     float bgScroll = fmod(stage->parallaxOffset * 0.2f,
              screenWidth);
 
-    // =========================================
-    // CAMADA 1 — CÉU
-    // =========================================
-    DrawRectangle(
-        -10000,
-        -10000,
-        20000,
-        20000,
-        (Color){135, 206, 235, 255}
-    );
+    // // =========================================
+    // // CAMADA 1 — CÉU
+    // // =========================================
+    // DrawRectangle(
+    //     -10000,
+    //     -10000,
+    //     20000,
+    //     20000,
+    //     (Color){135, 206, 235, 255}
+    // );
 
-    // =========================================
-    // NUVENS
-    // =========================================
-    for (int i = 0; i < 8; i++) {
+    // // =========================================
+    // // NUVENS
+    // // =========================================
+    // for (int i = 0; i < 8; i++) {
 
-        float cloudX =
-            i * 400 - bgScroll;
+    //     float cloudX =
+    //         i * 400 - bgScroll;
 
-        float cloudY =
-            screenHeight * 0.12f +
-            (i % 3) * 35;
+    //     float cloudY =
+    //         screenHeight * 0.12f +
+    //         (i % 3) * 35;
 
-        DrawCircle(cloudX - 30, cloudY, 20, WHITE);
-        DrawCircle(cloudX,      cloudY, 28, WHITE);
-        DrawCircle(cloudX + 30, cloudY, 20, WHITE);
-    }
+    //     DrawCircle(cloudX - 30, cloudY, 20, WHITE);
+    //     DrawCircle(cloudX,      cloudY, 28, WHITE);
+    //     DrawCircle(cloudX + 30, cloudY, 20, WHITE);
+    // }
 
     // =========================================
     // CAMADA 2 — BACKGROUND
@@ -463,7 +463,7 @@ void drawStage1(Stage1 *stage, Player *player) {
 
             float bgHeight =
                 stage->backgroundTexture.height *
-                bgScale + 360.0f;
+                bgScale + 180.0f;
 
             Rectangle dest = {
                 i * bgWidth - bgScroll,
