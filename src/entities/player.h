@@ -16,8 +16,8 @@ typedef enum {
     PLAYER_STATE_RUNNING          = 1,
     PLAYER_STATE_JUMPING          = 2,
     PLAYER_STATE_FALLING          = 3,
-    PLAYER_STATE_HIT              = 4,  // Knockback visual
-    PLAYER_STATE_UMBRELLA_BUFF    = 5,  // Com proteção de guarda-chuva
+    PLAYER_STATE_HIT              = 4,  
+    PLAYER_STATE_UMBRELLA_BUFF    = 5,  
     PLAYER_STATE_DEAD             = 6
 } PlayerState;
 
@@ -33,14 +33,19 @@ typedef struct {
     float width;                // Largura
     float height;               // Altura
     float scale;                // Escala do sprite (multiplicador)
+    float coyoteTimer;
+    float jumpBufferTimer;
+    float jumpHoldTime;
+    float airAccelerationMult;
 
-    int lives;                  // Número de vidas (0-3)
-    float score;                // Pontuação
+    int lives;                  
+    float score;                
 
-    int isGrounded;             // 1 = no chão, 0 = no ar
-    int isJumping;              // 1 = saltando, 0 = não
-    float jumpPower;            // Força do pulo
-    float fallSpeed;            // Velocidade de queda
+    int isGrounded;             
+    int isJumping;   
+    int isPerformingStunt;            
+    float jumpPower;            
+    float fallSpeed;            
 
     PlayerState state;          // Estado atual
     float animationTimer;       // Timer de animação
@@ -69,6 +74,7 @@ typedef struct {
     Texture2D spriteMovingR, spriteMovingL;
     Texture2D spriteBikeStandingR, spriteBikeStandingL;
     Texture2D spriteBikeMovingR, spriteBikeMovingL;
+    Texture2D spriteBikeStuntL, spriteBikeStuntR;
     int spritesLoaded;          // 1 = texturas carregaram
 
     // Animações direcionais (fallback, podem estar vazias)
@@ -82,7 +88,6 @@ typedef struct {
 
 } Player;
 
-// ========== FUNÇÕES DO JOGADOR ==========
 Player createPlayer(Vector2 startPos, float startSpeed, int lives);
 void updatePlayer(Player *player, float deltaTime);
 void drawPlayer(Player player);
