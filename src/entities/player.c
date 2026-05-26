@@ -33,12 +33,7 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     player.lives = lives;
     player.score = 0.0f;
 
-    player.isGrounded = 1;
-    player.isJumping = 0;
-    player.isPerformingStunt = 0;
-    player.jumpPower = JUMP_FORCE;
-    player.fallSpeed = 0.0f;
-
+    player.canDoubleJump = 1;
     player.isGrounded = 1;
     player.isJumping = 0;
     player.isPerformingStunt = 0;
@@ -172,7 +167,7 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
         TEXTURE_FILTER_POINT
     );
 
-        if (
+    if (
     TEXTURE_VALID(player.spriteStandingR) &&
     TEXTURE_VALID(player.spriteStandingL) &&
     TEXTURE_VALID(player.spriteMovingR) &&
@@ -210,6 +205,11 @@ void updatePlayer(Player *player, float deltaTime) {
     if (player->lives <= 0) {
         player->state = PLAYER_STATE_DEAD;
         return;
+    }
+
+    // ===== RESET: Se está groundado, pode fazer double jump =====
+    if (player->isGrounded) {
+        player->canDoubleJump = 1;
     }
  
     float moveInput = 0.0f;
@@ -285,30 +285,44 @@ void updatePlayer(Player *player, float deltaTime) {
         player->jumpHoldTime = 0.0f;  
     }
  
-    if (
+    // ===== SISTEMA DE PULO =====
+    int canJumpNormally = 
         (player->isGrounded || player->coyoteTimer > 0.0f || player->jumpBufferTimer > 0.0f) &&
-        IsKeyPressed(KEY_SPACE)
-    ) {
+        IsKeyPressed(KEY_SPACE);
+
+    int canDoubleJump = 
+        (!player->isGrounded && player->canDoubleJump) &&
+        IsKeyPressed(KEY_SPACE);
+
+    // ===== EXECUTAR PULO =====
+    if (canJumpNormally || canDoubleJump) {
 
         float jumpMultiplier = player->jumpHoldTime / MAX_JUMP_HOLD_TIME;
-        if (jumpMultiplier < 0.3f) jumpMultiplier = 0.8f; 
+        if (jumpMultiplier < 0.8f) jumpMultiplier = 0.8f; 
  
         player->velocity.y = -player->jumpPower * jumpMultiplier;
  
         player->isJumping = 1;
         player->isGrounded = 0;
-        player->coyoteTimer = 0.0f;      // Consome coyote time
-        player->jumpBufferTimer = 0.0f;  // Consome jump buffer
-        player->jumpHoldTime = 0.0f;     // Reset
+
+        if (canDoubleJump) {
+            player->canDoubleJump = 0;
+        }
+
+        if (canJumpNormally) {
+            player->coyoteTimer = 0.0f;
+            player->jumpBufferTimer = 0.0f;
+            player->canDoubleJump = 1;
+        }
+
+        player->jumpHoldTime = 0.0f;
  
         player->state = PLAYER_STATE_JUMPING;
     }
  
     if (player->velocity.y > 0.0f) {
-        // Está caindo: aplica gravidade aumentada
         player->acceleration.y = GRAVITY * GRAVITY_FALLING_MULT;
     } else {
-        // Está subindo: gravidade normal
         player->acceleration.y = GRAVITY;
     }
  
@@ -351,6 +365,7 @@ void updatePlayer(Player *player, float deltaTime) {
         player->velocity.x = 0.0f;
     }
  
+    // ===== ATUALIZAR HITBOX A CADA FRAME =====
     player->hitbox.x =
         player->position.x - player->width * 0.35f;
  
@@ -442,7 +457,6 @@ void drawPlayer(Player player) {
     Texture2D currentSprite = {0};
 
     if (player.on_bike) {
-
 
         // Se está fazendo stunt (W pressionado)
         if (player.isPerformingStunt) {
@@ -581,28 +595,22 @@ void healPlayer(Player *player) {
     }
 }
 
-// ========== ADICIONAR ESCUDO DE GUARDA-CHUVA ==========
 void addUmbrellaShield(Player *player, float duration) {
     player->hasUmbrella = 1;
     player->umbrellaTimer = duration;
 }
 
-// ========== APLICAR DESACELERAÇÃO (DEBUFF TEMPORAL) ==========
 void applySlowDown(Player *player, float amount, float duration) {
-    // amount = redução de velocidade (ex: 50.0 = 50%)
-    // duration = quanto tempo dura o efeito
     player->slowEffectTimer = duration;
     player->slowEffectDuration = duration;
 
-    // Calcular multiplicador (ex: 50 = 0.5, aplicar 50% de redução)
     float multiplier = (100.0f - amount) / 100.0f;
-    if (multiplier < 0.1f) multiplier = 0.1f;  // Mínimo 10% de velocidade
+    if (multiplier < 0.1f) multiplier = 0.1f;
 
     player->speedMultiplier = multiplier;
 }
 
 void unloadPlayerResources(Player *player) {
-    // Descarregar sprites únicos
     if (player->spritesLoaded) {
         if (player->spriteStandingR.id != 0) UnloadTexture(player->spriteStandingR);
         if (player->spriteStandingL.id != 0) UnloadTexture(player->spriteStandingL);
@@ -617,7 +625,6 @@ void unloadPlayerResources(Player *player) {
         player->spritesLoaded = 0;
     }
 
-    // Descarregar animações
     directional_animation_unload(&player->anim_standing);
     directional_animation_unload(&player->anim_moving);
     directional_animation_unload(&player->anim_bike_standing);

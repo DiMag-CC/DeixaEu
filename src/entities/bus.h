@@ -14,6 +14,10 @@ typedef struct {
     float scale;
     Texture2D texture;
     int spriteLoaded;
+
+    Rectangle topHitbox;   
+    int playerOnTop;       
+    float playerStandingTime;
 } Bus;
 
 Bus createBus(Vector2 position);

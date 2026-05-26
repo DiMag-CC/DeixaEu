@@ -2,6 +2,9 @@
 #include "../utils/gameConstants.h"
 
 #define BUS_SPEED_MULTIPLIER 1.5f
+#define BUS_TARGET_WIDTH 320.0f
+#define BUS_TARGET_HEIGHT 140.0f
+#define BUS_TOP_SURFACE_HEIGHT 30.0f  
 
 Bus createBus(Vector2 position) {
 
@@ -25,19 +28,26 @@ Bus createBus(Vector2 position) {
         bus.spriteLoaded = 1;
     }
 
-    const float BUS_TARGET_WIDTH = 320.0f;
-    const float BUS_TARGET_HEIGHT = 140.0f;
-
+    // ===== HITBOX PRINCIPAL =====
     bus.hitbox = (Rectangle){
-
         bus.position.x - BUS_TARGET_WIDTH / 2,
-
         bus.position.y - BUS_TARGET_HEIGHT,
-
         BUS_TARGET_WIDTH,
-
         BUS_TARGET_HEIGHT
     };
+
+    // ===== HITBOX DO TOPO (Onde player pode ficar em pé) =====
+    // Apenas os 30px de cima do ônibus
+    bus.topHitbox = (Rectangle){
+        bus.position.x - BUS_TARGET_WIDTH / 2,
+        bus.position.y - BUS_TARGET_HEIGHT,  // Topo do ônibus
+        BUS_TARGET_WIDTH,
+        BUS_TOP_SURFACE_HEIGHT  // 30px de altura
+    };
+
+    // ===== NOVOS CAMPOS =====
+    bus.playerOnTop = 0;
+    bus.playerStandingTime = 0.0f;
 
     return bus;
 }
@@ -51,15 +61,10 @@ void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
     bus->position.x -=
         (scrollSpeed + bus->speed) * deltaTime;
 
-    // Escala visual usada também na hitbox
-    const float BUS_TARGET_WIDTH = 320.0f;
-    const float BUS_TARGET_HEIGHT = 140.0f;
-
     // Ground global
-    float groundY =
-        GLOBAL_GROUND_LEVEL;
+    float groundY = GLOBAL_GROUND_LEVEL;
 
-    // Atualizar hitbox
+    // ===== ATUALIZAR HITBOX PRINCIPAL =====
     bus->hitbox.x =
         bus->position.x - BUS_TARGET_WIDTH / 2;
 
@@ -72,6 +77,26 @@ void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
     bus->hitbox.height =
         BUS_TARGET_HEIGHT;
 
+    // ===== ATUALIZAR HITBOX DO TOPO =====
+    bus->topHitbox.x =
+        bus->position.x - BUS_TARGET_WIDTH / 2;
+
+    bus->topHitbox.y =
+        groundY - BUS_TARGET_HEIGHT;  // Topo do ônibus
+
+    bus->topHitbox.width =
+        BUS_TARGET_WIDTH;
+
+    bus->topHitbox.height =
+        BUS_TOP_SURFACE_HEIGHT;
+
+    // ===== ATUALIZAR TEMPO EM PÉ =====
+    if (bus->playerOnTop) {
+        bus->playerStandingTime += deltaTime;
+    } else {
+        bus->playerStandingTime = 0.0f;
+    }
+
     // Desativar fora da tela
     if (bus->position.x < -BUS_TARGET_WIDTH) {
         bus->active = 0;
@@ -81,20 +106,17 @@ void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
 void drawBus(Bus bus) {
     if (!bus.active) return;
 
-    const float BUS_TARGET_WIDTH = 420.0f;
-    const float BUS_TARGET_HEIGHT = 320.0f;
-
-    float scaledWidth = BUS_TARGET_WIDTH;
-    float scaledHeight = BUS_TARGET_HEIGHT;
+    const float BUS_DRAW_WIDTH = 420.0f;
+    const float BUS_DRAW_HEIGHT = 320.0f;
 
     // Posicionar alinhado ao chão
     float groundY = GLOBAL_GROUND_LEVEL + 140.0f;
 
     Rectangle dest = {
-        bus.position.x - scaledWidth / 2,
-        groundY - scaledHeight,
-        scaledWidth,
-        scaledHeight
+        bus.position.x - BUS_DRAW_WIDTH / 2,
+        groundY - BUS_DRAW_HEIGHT,
+        BUS_DRAW_WIDTH,
+        BUS_DRAW_HEIGHT
     };
 
     if (bus.spriteLoaded && bus.texture.id != 0) {
@@ -160,6 +182,9 @@ void drawBus(Bus bus) {
             SKYBLUE
         );
     }
+
+    // DEBUG: Mostrar hitbox do topo (descomente para debug)
+    // DrawRectangleLinesEx(bus.topHitbox, 1, LIME);
 }
 
 void unloadBusResources(Bus *bus) {
