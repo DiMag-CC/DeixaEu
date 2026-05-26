@@ -12,7 +12,7 @@
 #define TOWER_VISIBLE_HEIGHT 973.0f
 #define TOWER_BASE_Y (GLOBAL_GROUND_LEVEL + PLAYER_HEIGHT)
 #define FLOOR_VISUAL_TOP (GLOBAL_GROUND_LEVEL - 12.0f)
-#define TOWER_START_X 2500.0f
+#define TOWER_START_X 5000.0f
 #define PUDDLE_WIDTH 96.0f
 #define PUDDLE_HEIGHT 34.0f
 #define BOTTLE_WIDTH 52.0f
@@ -32,10 +32,29 @@
 #define STAGE3_JUMP_FORCE 470.0f
 #define FINAL_CLIMB_BACKGROUND_COUNT 5
 #define TOWER_STAGE3_VERTICAL_OFFSET 55.0f
+#define CLIMB_STEP_UP 38.0f
+#define CLIMB_STEP_SIDE 72.0f
+#define CLIMB_AUTO_SPEED 210.0f
+#define CLIMB_CHALLENGE_LIMIT 2.0f
+#define CLIMB_MAX_MISSES 3
+#define FINAL_CLIMB_PLAYER_WIDTH 220.0f
+#define FINAL_CLIMB_PLAYER_HEIGHT 286.0f
+#define STAGE3_BIRD_SCALE 0.13f
+#define CLIMB_BIRD_SCALE 0.19f
+#define STAGE3_POOP_SIZE 45.0f
+#define CLIMB_POOP_SIZE 72.0f
+
+typedef enum {
+    CLIMB_MOVE_NONE = 0,
+    CLIMB_MOVE_UP,
+    CLIMB_MOVE_LEFT,
+    CLIMB_MOVE_RIGHT
+} ClimbMove;
 
 static void movePuddle(Puddle *puddle, float deltaX);
 static void syncTowerHitbox(Stage3 *stage);
 static Vector2 ambientToWorld(Stage3 *stage, Player *player, Vector2 localPosition);
+static void resetStage3ClimbBirds(Stage3 *stage);
 
 static Texture2D finalClimbBackgrounds[FINAL_CLIMB_BACKGROUND_COUNT] = {0};
 static Texture2D finalClimbTowerFrames[2] = {0};
@@ -43,11 +62,98 @@ static Texture2D finalClimbCharacterFrames[2] = {0};
 static Texture2D stage3FloorTexture = {0};
 static Texture2D stage3PuddleTexture = {0};
 static Texture2D stage3BottleTexture = {0};
+static Texture2D stage3SkyTexture = {0};
+static int climbChallengeActive = 0;
+static ClimbMove climbChallengeMove = CLIMB_MOVE_NONE;
+static float climbPointerAngle = 0.0f;
+static float climbPointerSpeed = 0.0f;
+static float climbGreenStart = 0.0f;
+static float climbGreenSize = 0.0f;
+static float climbChallengeTimer = 0.0f;
+static int climbMissCount = 0;
+static ClimbMove climbAutoMove = CLIMB_MOVE_NONE;
+static float climbAutoDistance = 0.0f;
 
 static float clampFloat(float value, float min, float max) {
     if (value < min) return min;
     if (value > max) return max;
     return value;
+}
+
+static float normalizeDegrees(float angle) {
+    angle = fmodf(angle, 360.0f);
+    if (angle < 0.0f) {
+        angle += 360.0f;
+    }
+    return angle;
+}
+
+static bool angleInArc(float angle, float start, float size) {
+    angle = normalizeDegrees(angle);
+    start = normalizeDegrees(start);
+    float end = normalizeDegrees(start + size);
+
+    if (size >= 360.0f) {
+        return true;
+    }
+
+    if (start <= end) {
+        return angle >= start && angle <= end;
+    }
+
+    return angle >= start || angle <= end;
+}
+
+static void resetClimbChallenge(void) {
+    climbChallengeActive = 0;
+    climbChallengeMove = CLIMB_MOVE_NONE;
+    climbChallengeTimer = 0.0f;
+    climbMissCount = 0;
+    climbAutoMove = CLIMB_MOVE_NONE;
+    climbAutoDistance = 0.0f;
+}
+
+static void startClimbChallenge(ClimbMove move) {
+    if (climbChallengeActive || climbAutoMove != CLIMB_MOVE_NONE) {
+        return;
+    }
+
+    climbChallengeActive = 1;
+    climbChallengeMove = move;
+    climbPointerAngle = (float)(rand() % 360);
+    climbPointerSpeed = 170.0f + (float)(rand() % 260);
+    climbGreenSize = 34.0f + (float)(rand() % 35);
+    climbGreenStart = (float)(rand() % 360);
+    climbChallengeTimer = 0.0f;
+}
+
+static void failClimbChallenge(Player *player) {
+    climbChallengeActive = 0;
+    climbChallengeMove = CLIMB_MOVE_NONE;
+    climbChallengeTimer = 0.0f;
+    climbMissCount++;
+
+    if (climbMissCount >= CLIMB_MAX_MISSES) {
+        player->lives = 0;
+        player->state = PLAYER_STATE_DEAD;
+        resetClimbChallenge();
+    }
+}
+
+static void resolveClimbChallenge(Player *player) {
+    if (!climbChallengeActive) {
+        return;
+    }
+
+    if (angleInArc(climbPointerAngle, climbGreenStart, climbGreenSize)) {
+        climbAutoMove = climbChallengeMove;
+        climbAutoDistance = (climbAutoMove == CLIMB_MOVE_UP) ? CLIMB_STEP_UP : CLIMB_STEP_SIDE;
+        climbChallengeActive = 0;
+        climbChallengeMove = CLIMB_MOVE_NONE;
+        climbChallengeTimer = 0.0f;
+    } else {
+        failClimbChallenge(player);
+    }
 }
 
 static float visibleWorldWidth(void) {
@@ -109,9 +215,45 @@ static Vector2 ambientToWorld(Stage3 *stage, Player *player, Vector2 localPositi
     };
 }
 
-static float stage3SkyBirdY(Stage3 *stage, Player *player) {
-    Rectangle view = cameraWorldRect(stage, player, 0.0f);
-    return view.y + 20.0f + (float)(rand() % 40);
+static float stage3SkyBirdY(void) {
+    return 34.0f + (float)(rand() % 76);
+}
+
+static float stage3BirdInterval(void) {
+    return 1.0f + (rand() % 250) / 100.0f;
+}
+
+static void randomizeStage3BirdFlow(Bird *bird, float baseY, float amplitudeMin, float amplitudeRange) {
+    bird->baseY = baseY;
+    bird->position.y = baseY;
+    bird->wavePhase = (float)(rand() % 628) / 100.0f;
+    bird->waveSpeed = 0.9f + (float)(rand() % 170) / 100.0f;
+    bird->waveAmplitude = amplitudeMin + (float)(rand() % 100) / 100.0f * amplitudeRange;
+}
+
+static void resetStage3ApproachBird(Bird *bird, int index) {
+    bird->position.x = GetScreenWidth() + (index * 300) + (rand() % 200);
+    randomizeStage3BirdFlow(bird, stage3SkyBirdY(), 8.0f, 18.0f);
+    bird->speed = 55.0f + (rand() % 65);
+    bird->poopTimer = 0.0f;
+    bird->poopInterval = stage3BirdInterval();
+}
+
+static void resetStage3ClimbBird(Bird *bird, int index) {
+    bool fromRight = (index % 2) == 0;
+    float offset = 80.0f + (float)((index * 95) + (rand() % 160));
+
+    bird->position.x = fromRight ? GetScreenWidth() + offset : -180.0f - offset;
+    randomizeStage3BirdFlow(bird, 42.0f + (float)(rand() % 145), 12.0f, 26.0f);
+    bird->speed = (fromRight ? 1.0f : -1.0f) * (125.0f + (rand() % 115));
+    bird->poopTimer = 0.0f;
+    bird->poopInterval = stage3BirdInterval();
+}
+
+static void resetStage3ClimbBirds(Stage3 *stage) {
+    for (int i = 0; i < STAGE3_MAX_BIRDS; i++) {
+        resetStage3ClimbBird(&stage->birds[i], i);
+    }
 }
 
 static float visibleWorldLeft(void) {
@@ -206,10 +348,6 @@ static Color lerpColor(Color from, Color to, float amount) {
         (unsigned char)(from.b + (to.b - from.b) * amount),
         (unsigned char)(from.a + (to.a - from.a) * amount)
     };
-}
-
-static void stopAmbientSpawning(Stage3 *stage) {
-    stage->ambientSpawningEnabled = false;
 }
 
 static void initPuddle(Puddle *puddle, float x) {
@@ -457,6 +595,13 @@ static void drawRain(float left, float top, float width, float height, float int
 }
 
 static void drawStage3Background(Stage3 *stage, Player *player) {
+    if (stage3SkyTexture.id > 0) {
+        Rectangle source = { 0.0f, 0.0f, (float)stage3SkyTexture.width, (float)stage3SkyTexture.height };
+        Rectangle dest = { 0.0f, 0.0f, (float)GetScreenWidth(), (float)GetScreenHeight() };
+        DrawTexturePro(stage3SkyTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+        return;
+    }
+
     float climbProgress = 0.0f;
     if (stage->state == STAGE3_CLIMBING) {
         climbProgress = clampFloat((TOWER_BASE_Y - player->position.y) / (towerDrawHeight(stage) * 0.82f), 0.0f, 1.0f);
@@ -521,27 +666,23 @@ static void drawStage3Floor(Stage3 *stage, Player *player, float floorY) {
     int visibleCols = (int)(width / tileSize) + 18;
 
     if (stage3FloorTexture.id > 0) {
-        float platformWidth = stage3FloorTexture.width + 50.0f;
-        float platformHeight = stage3FloorTexture.height + 12.0f;
-        float roadY = floorY - platformHeight * 0.30f;
         Rectangle source = {
             0.0f,
-            0.0f,
+            (float)stage3FloorTexture.height * 0.43f,
             (float)stage3FloorTexture.width,
-            (float)stage3FloorTexture.height
+            (float)stage3FloorTexture.height * 0.27f
+        };
+        float platformWidth = view.width * 1.18f;
+        float platformHeight = platformWidth * (source.height / source.width);
+        float roadY = floorY - 42.0f;
+        Rectangle dest = {
+            view.x + view.width * 0.5f - platformWidth * 0.5f,
+            roadY,
+            platformWidth,
+            platformHeight
         };
 
-        for (int i = -2; i < (int)(width / platformWidth) + 5; i++) {
-            float perspectiveOffset = 80.0f;
-            Rectangle dest = {
-                left + i * platformWidth - fmodf(floorScroll, platformWidth),
-                roadY + 2.0f,
-                platformWidth + perspectiveOffset,
-                platformHeight
-            };
-
-            DrawTexturePro(stage3FloorTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
-        }
+        DrawTexturePro(stage3FloorTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
         return;
     }
 
@@ -660,6 +801,145 @@ static void drawStage3Player(Player *player) {
     }
 }
 
+static void drawClimbTimingCircle(Vector2 playerScreenPosition, float playerWidth, float playerHeight) {
+    if (!climbChallengeActive) {
+        return;
+    }
+
+    float radius = 34.0f;
+    Vector2 center = {
+        playerScreenPosition.x + playerWidth + radius + 14.0f,
+        playerScreenPosition.y + playerHeight * 0.35f
+    };
+
+    if (center.x + radius + 10.0f > GetScreenWidth()) {
+        center.x = playerScreenPosition.x - radius - 14.0f;
+    }
+    if (center.y - radius < 10.0f) {
+        center.y = radius + 10.0f;
+    }
+    if (center.y + radius > GetScreenHeight() - 10.0f) {
+        center.y = GetScreenHeight() - radius - 10.0f;
+    }
+
+    DrawCircleV(center, radius + 7.0f, (Color){ 5, 12, 24, 185 });
+    DrawRing(center, radius - 4.0f, radius + 4.0f, 0.0f, 360.0f, 48, (Color){ 238, 242, 247, 130 });
+    DrawRing(center, radius - 5.0f, radius + 5.0f, climbGreenStart, climbGreenStart + climbGreenSize, 20,
+             (Color){ 75, 232, 118, 255 });
+
+    float pointerRad = normalizeDegrees(climbPointerAngle) * DEG2RAD;
+    Vector2 pointerEnd = {
+        center.x + cosf(pointerRad) * (radius + 1.0f),
+        center.y + sinf(pointerRad) * (radius + 1.0f)
+    };
+    DrawLineEx(center, pointerEnd, 3.0f, (Color){ 255, 246, 115, 255 });
+    DrawCircleV(center, 4.0f, RAYWHITE);
+}
+
+static float finalClimbLocalProgress(Stage3 *stage, Player *player, int *backgroundIndex) {
+    float climbBottom = TOWER_BASE_Y - player->height;
+    float climbTop = stage->towerPosition.y + 60.0f;
+    float climbProgress = clampFloat((climbBottom - player->position.y) / (climbBottom - climbTop), 0.0f, 1.0f);
+    float stageProgress = climbProgress * FINAL_CLIMB_BACKGROUND_COUNT;
+    int index = (int)stageProgress;
+    float localClimbProgress = stageProgress - index;
+
+    if (index >= FINAL_CLIMB_BACKGROUND_COUNT) {
+        index = FINAL_CLIMB_BACKGROUND_COUNT - 1;
+        localClimbProgress = 1.0f;
+    }
+
+    if (backgroundIndex != NULL) {
+        *backgroundIndex = index;
+    }
+
+    return localClimbProgress;
+}
+
+static Rectangle finalClimbTowerDest(float screenWidth, float screenHeight) {
+    float towerWidth = clampFloat(screenWidth * 0.58f, 560.0f, 1100.0f);
+    return (Rectangle){
+        (screenWidth - towerWidth) * 0.5f,
+        0.0f,
+        towerWidth,
+        screenHeight
+    };
+}
+
+static Rectangle finalClimbPlayerDest(Stage3 *stage, Player *player, float screenWidth, float screenHeight) {
+    int unusedIndex = 0;
+    float localClimbProgress = finalClimbLocalProgress(stage, player, &unusedIndex);
+    Rectangle towerDest = finalClimbTowerDest(screenWidth, screenHeight);
+    float playerY = screenHeight * (0.80f - localClimbProgress * 0.62f);
+    float climbRange = stage->towerHitbox.width - PLAYER_WIDTH;
+    float horizontalProgress = 0.5f;
+
+    if (climbRange > 1.0f) {
+        horizontalProgress = clampFloat((player->position.x - stage->towerHitbox.x) / climbRange, 0.0f, 1.0f);
+    }
+
+    float climbLeft = towerDest.x + towerDest.width * 0.22f;
+    float climbRight = towerDest.x + towerDest.width * 0.78f - FINAL_CLIMB_PLAYER_WIDTH;
+
+    return (Rectangle){
+        climbLeft + (climbRight - climbLeft) * horizontalProgress,
+        playerY,
+        FINAL_CLIMB_PLAYER_WIDTH,
+        FINAL_CLIMB_PLAYER_HEIGHT
+    };
+}
+
+static void drawStage3ScreenHazards(Stage3 *stage) {
+    float birdScale = stage->state == STAGE3_CLIMBING ? CLIMB_BIRD_SCALE : STAGE3_BIRD_SCALE;
+
+    for (int i = 0; i < STAGE3_MAX_BIRDS; i++) {
+        if (stage->birds[i].position.x < -220.0f || stage->birds[i].position.x > GetScreenWidth() + 520.0f) {
+            continue;
+        }
+
+        Texture2D birdSprite = ((int)(GetTime() * 8.0f + i) % 2 == 0)
+            ? stage->birdTexture
+            : stage->birdTextureAlt;
+
+        if (birdSprite.id > 0) {
+            Rectangle source = { 0.0f, 0.0f, (float)birdSprite.width, (float)birdSprite.height };
+            Rectangle dest = {
+                stage->birds[i].position.x,
+                stage->birds[i].position.y,
+                (float)birdSprite.width * birdScale,
+                (float)birdSprite.height * birdScale
+            };
+
+            if (stage->birds[i].speed < 0.0f) {
+                source.width = -source.width;
+            }
+
+            DrawTexturePro(birdSprite, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+        } else {
+            float direction = stage->birds[i].speed < 0.0f ? 1.0f : -1.0f;
+            DrawTriangle(
+                (Vector2){stage->birds[i].position.x + direction * 16.0f, stage->birds[i].position.y},
+                (Vector2){stage->birds[i].position.x - direction * 8.0f, stage->birds[i].position.y - 7.0f},
+                (Vector2){stage->birds[i].position.x - direction * 8.0f, stage->birds[i].position.y + 7.0f},
+                BLACK
+            );
+        }
+    }
+
+    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
+        if (stage->poops[i].active) {
+            if (stage->poops[i].landed) {
+                drawLandedPoop(stage->poopTexture, stage->poops[i].position);
+            } else {
+                float poopSize = stage->state == STAGE3_CLIMBING ? CLIMB_POOP_SIZE : STAGE3_POOP_SIZE;
+                if (!drawPoopTexture(stage->poopTexture, stage->poops[i].position, poopSize, stage->poops[i].rotationZ)) {
+                    drawFallingPoop(stage->poopTexture, stage->poops[i].position, stage->poops[i].rotationZ);
+                }
+            }
+        }
+    }
+}
+
 static void loadFinalClimbTextures(void) {
     const char *backgroundPaths[FINAL_CLIMB_BACKGROUND_COUNT] = {
         "assets/img/paisagemFinal1.png",
@@ -729,6 +1009,9 @@ static void loadStage3MapTextures(void) {
     if (stage3BottleTexture.id == 0) {
         stage3BottleTexture = LoadTexture("assets/img/garrafa.png");
     }
+    if (stage3SkyTexture.id == 0) {
+        stage3SkyTexture = LoadTexture("assets/img/ceu.png");
+    }
 }
 
 static void unloadStage3MapTextures(void) {
@@ -744,22 +1027,17 @@ static void unloadStage3MapTextures(void) {
         UnloadTexture(stage3BottleTexture);
         stage3BottleTexture = (Texture2D){0};
     }
+    if (stage3SkyTexture.id > 0) {
+        UnloadTexture(stage3SkyTexture);
+        stage3SkyTexture = (Texture2D){0};
+    }
 }
 
 static void drawFinalClimbScene(Stage3 *stage, Player *player) {
     float screenWidth = (float)GetScreenWidth();
     float screenHeight = (float)GetScreenHeight();
-    float climbBottom = TOWER_BASE_Y - player->height;
-    float climbTop = stage->towerPosition.y + 60.0f;
-    float climbProgress = clampFloat((climbBottom - player->position.y) / (climbBottom - climbTop), 0.0f, 1.0f);
-    float stageProgress = climbProgress * FINAL_CLIMB_BACKGROUND_COUNT;
-    int backgroundIndex = (int)stageProgress;
-    float localClimbProgress = stageProgress - backgroundIndex;
-
-    if (backgroundIndex >= FINAL_CLIMB_BACKGROUND_COUNT) {
-        backgroundIndex = FINAL_CLIMB_BACKGROUND_COUNT - 1;
-        localClimbProgress = 1.0f;
-    }
+    int backgroundIndex = 0;
+    finalClimbLocalProgress(stage, player, &backgroundIndex);
 
     Texture2D background = finalClimbBackgrounds[backgroundIndex];
     if (background.id > 0) {
@@ -773,14 +1051,7 @@ static void drawFinalClimbScene(Stage3 *stage, Player *player) {
     }
 
     Texture2D towerFrame = finalClimbTowerFrames[backgroundIndex % 2];
-    float towerWidth = clampFloat(screenWidth * 0.58f, 560.0f, 1100.0f);
-    float towerX = (screenWidth - towerWidth) * 0.5f;
-    Rectangle towerDest = {
-        towerX,
-        0.0f,
-        towerWidth,
-        screenHeight
-    };
+    Rectangle towerDest = finalClimbTowerDest(screenWidth, screenHeight);
 
     if (towerFrame.id > 0) {
         Rectangle source = { 0.0f, 0.0f, (float)towerFrame.width, (float)towerFrame.height };
@@ -790,8 +1061,15 @@ static void drawFinalClimbScene(Stage3 *stage, Player *player) {
         DrawRectangleLinesEx(towerDest, 2.0f, (Color){ 104, 78, 55, 255 });
     }
 
+    if (backgroundIndex == 0) {
+        drawRain(0.0f, 0.0f, screenWidth, screenHeight, 1.0f);
+    }
+
     int climbFrame = (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP) ||
-                      IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) ? 1 : 0;
+                      IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT) ||
+                      IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT) ||
+                      climbChallengeActive ||
+                      climbAutoMove != CLIMB_MOVE_NONE) ? 1 : 0;
     Texture2D currentSprite = finalClimbCharacterFrames[climbFrame];
     if (currentSprite.id == 0) {
         currentSprite = player->direction == 'R' ? player->spriteJumpingR : player->spriteJumpingL;
@@ -800,15 +1078,7 @@ static void drawFinalClimbScene(Stage3 *stage, Player *player) {
         currentSprite = player->direction == 'R' ? player->spriteStandingR : player->spriteStandingL;
     }
 
-    float playerWidth = 220.0f;
-    float playerHeight = 286.0f;
-    float playerY = screenHeight * (0.80f - localClimbProgress * 0.62f);
-    Rectangle playerDest = {
-        screenWidth * 0.5f - playerWidth * 0.5f,
-        playerY,
-        playerWidth,
-        playerHeight
-    };
+    Rectangle playerDest = finalClimbPlayerDest(stage, player, screenWidth, screenHeight);
 
     if (currentSprite.id > 0) {
         Rectangle source = { 0.0f, 0.0f, (float)currentSprite.width, (float)currentSprite.height };
@@ -816,6 +1086,9 @@ static void drawFinalClimbScene(Stage3 *stage, Player *player) {
     } else {
         DrawRectangleRec(playerDest, RED);
     }
+
+    drawStage3ScreenHazards(stage);
+    drawClimbTimingCircle((Vector2){ playerDest.x, playerDest.y }, playerDest.width, playerDest.height);
 }
 
 void initStage3(Stage3 *stage, Player *player) {
@@ -825,6 +1098,7 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->puddleLockTimer = 0.0f;
     stage->puddlePushVelocity = 0.0f;
     stage->ambientSpawningEnabled = true;
+    resetClimbChallenge();
     
     stage->towerTexture = LoadTexture("assets/img/brenadFinal.png");
     stage->cloudTexture = LoadTexture("assets/img/nuvem.png");
@@ -849,18 +1123,21 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->clouds[1].scale = 0.15f + (rand() % 10) / 100.0f;
     
     // Inicializa 3 pássaros com distâncias e timers de cocô individuais
-    stage->birds[0].position = (Vector2){ rand() % 250, stage3SkyBirdY(stage, player) };
+    stage->birds[0].position = (Vector2){ GetScreenWidth() * 0.25f, stage3SkyBirdY() };
     stage->birds[0].speed = 50.0f + (rand() % 30);
+    randomizeStage3BirdFlow(&stage->birds[0], stage->birds[0].position.y, 8.0f, 18.0f);
     stage->birds[0].poopTimer = 0.0f;
     stage->birds[0].poopInterval = 1.0f + (rand() % 200) / 100.0f;
     
-    stage->birds[1].position = (Vector2){ 350 + (rand() % 300), stage3SkyBirdY(stage, player) };
+    stage->birds[1].position = (Vector2){ GetScreenWidth() * 0.65f, stage3SkyBirdY() };
     stage->birds[1].speed = 45.0f + (rand() % 40);
+    randomizeStage3BirdFlow(&stage->birds[1], stage->birds[1].position.y, 8.0f, 18.0f);
     stage->birds[1].poopTimer = 0.0f;
     stage->birds[1].poopInterval = 1.0f + (rand() % 200) / 100.0f;
     
-    stage->birds[2].position = (Vector2){ 800 + (rand() % 400), stage3SkyBirdY(stage, player) };
+    stage->birds[2].position = (Vector2){ GetScreenWidth() + 180.0f + (rand() % 220), stage3SkyBirdY() };
     stage->birds[2].speed = 60.0f + (rand() % 30);
+    randomizeStage3BirdFlow(&stage->birds[2], stage->birds[2].position.y, 8.0f, 18.0f);
     stage->birds[2].poopTimer = 0.0f;
     stage->birds[2].poopInterval = 1.0f + (rand() % 200) / 100.0f;
     
@@ -886,7 +1163,7 @@ void initStage3(Stage3 *stage, Player *player) {
         stage->poops[i].rotationZ = 0.0f;
     }
 
-    float puddleX = 420.0f + (float)(rand() % 180);
+    float puddleX = 760.0f + (float)(rand() % 220);
     for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
         if (canPlacePuddle(stage, puddleX)) {
             initPuddle(&stage->puddles[i], puddleX);
@@ -922,12 +1199,19 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     
     for (int i = 0; i < STAGE3_MAX_BIRDS; i++) {
         stage->birds[i].position.x -= stage->birds[i].speed * deltaTime;
-        if (stage->ambientSpawningEnabled && stage->birds[i].position.x < -150) {
-            // Reinicia mantendo-os distantes uns dos outros
-            stage->birds[i].position.x = WORLD_WIDTH + (i * 300) + (rand() % 200);
-            stage->birds[i].position.y = stage3SkyBirdY(stage, player);
-            stage->birds[i].poopTimer = 0.0f;
-            stage->birds[i].poopInterval = 1.0f + (rand() % 250) / 100.0f;
+        stage->birds[i].position.y = stage->birds[i].baseY +
+            sinf((float)GetTime() * stage->birds[i].waveSpeed + stage->birds[i].wavePhase) *
+            stage->birds[i].waveAmplitude;
+
+        if (stage->state == STAGE3_APPROACH && stage->birds[i].position.x < -150) {
+            resetStage3ApproachBird(&stage->birds[i], i);
+        } else if (stage->state == STAGE3_CLIMBING) {
+            bool leftMovingBirdExited = stage->birds[i].speed >= 0.0f && stage->birds[i].position.x < -180.0f;
+            bool rightMovingBirdExited = stage->birds[i].speed < 0.0f && stage->birds[i].position.x > GetScreenWidth() + 180.0f;
+
+            if (leftMovingBirdExited || rightMovingBirdExited) {
+                resetStage3ClimbBird(&stage->birds[i], i);
+            }
         }
     }
 
@@ -981,16 +1265,26 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
                 player->velocity.x = moveSpeed;
             }
 
-            float lateralSpeed = moveSpeed * 0.9f;
+            float lateralSpeed = moveSpeed * 1.15f;
             float lateralDelta = lateralSpeed * deltaTime;
             if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
                 player->position.x -= lateralDelta;
                 player->velocity.x = -lateralSpeed;
+                if (!towerVisible) {
+                    scrollDelta *= 0.82f;
+                }
             }
             if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
                 player->position.x += lateralDelta;
                 player->velocity.x = lateralSpeed;
+                if (!towerVisible) {
+                    scrollDelta *= 1.08f;
+                }
             }
+        }
+
+        if (stage->scrollX + scrollDelta > autoStopScroll) {
+            scrollDelta = autoStopScroll - stage->scrollX;
         }
 
         if (scrollDelta != 0.0f) {
@@ -1039,9 +1333,7 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         bool isNearTower = (player->position.x + PLAYER_WIDTH >= stage->towerHitbox.x - 80.0f) &&
                            (player->position.x <= stage->towerHitbox.x + stage->towerHitbox.width + 80.0f);
 
-        if (isNearTower && stage->ambientSpawningEnabled) {
-            stopAmbientSpawning(stage);
-        } else if (!isNearTower && !stage->ambientSpawningEnabled) {
+        if (isNearTower || !stage->ambientSpawningEnabled) {
             stage->ambientSpawningEnabled = true;
         }
         
@@ -1049,9 +1341,17 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         if (isOverlappingTowerX) {
             if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) {
                 stage->state = STAGE3_CLIMBING;
+                resetClimbChallenge();
                 player->isClimbing = true;
                 player->velocity.y = 0;
                 player->position.x = stage->towerHitbox.x + stage->towerHitbox.width / 2.0f - PLAYER_WIDTH / 2.0f;
+                resetStage3ClimbBirds(stage);
+                for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
+                    stage->poops[i].active = false;
+                    stage->poops[i].landed = false;
+                    stage->poops[i].speedY = 0.0f;
+                    stage->poops[i].rotationZ = 0.0f;
+                }
             }
         }
 
@@ -1097,14 +1397,54 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
 
         clearPuddlesFromTowerArea(stage);
 
-        float climbSpeed = 45.0f;
-        if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) {
-            player->position.y -= climbSpeed * deltaTime;
-            player->state = PLAYER_STATE_JUMPING;
+        float climbAutoSpeed = CLIMB_AUTO_SPEED;
+        player->velocity.x = 0.0f;
+
+        if (climbAutoMove == CLIMB_MOVE_NONE) {
+            if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
+                startClimbChallenge(CLIMB_MOVE_UP);
+            } else if (IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT)) {
+                startClimbChallenge(CLIMB_MOVE_LEFT);
+            } else if (IsKeyPressed(KEY_D) || IsKeyPressed(KEY_RIGHT)) {
+                startClimbChallenge(CLIMB_MOVE_RIGHT);
+            }
         }
-        if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) {
-            player->position.y += climbSpeed * deltaTime;
-            player->state = PLAYER_STATE_FALLING;
+
+        if (climbChallengeActive) {
+            climbChallengeTimer += deltaTime;
+            climbPointerAngle = normalizeDegrees(climbPointerAngle + climbPointerSpeed * deltaTime);
+            if (climbChallengeTimer >= CLIMB_CHALLENGE_LIMIT) {
+                failClimbChallenge(player);
+            }
+            if (IsKeyPressed(KEY_SPACE)) {
+                resolveClimbChallenge(player);
+            }
+        }
+
+        if (climbAutoMove != CLIMB_MOVE_NONE) {
+            float step = climbAutoSpeed * deltaTime;
+            if (step > climbAutoDistance) {
+                step = climbAutoDistance;
+            }
+
+            if (climbAutoMove == CLIMB_MOVE_UP) {
+                player->position.y -= step;
+                player->state = PLAYER_STATE_JUMPING;
+            } else if (climbAutoMove == CLIMB_MOVE_LEFT) {
+                player->position.x -= step;
+                player->velocity.x = -climbAutoSpeed;
+                player->direction = 'L';
+            } else if (climbAutoMove == CLIMB_MOVE_RIGHT) {
+                player->position.x += step;
+                player->velocity.x = climbAutoSpeed;
+                player->direction = 'R';
+            }
+
+            climbAutoDistance -= step;
+            if (climbAutoDistance <= 0.0f) {
+                climbAutoMove = CLIMB_MOVE_NONE;
+                climbAutoDistance = 0.0f;
+            }
         }
 
         float climbBottom = TOWER_BASE_Y - player->height;
@@ -1122,7 +1462,8 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     }
     
     // ===== GERENCIAMENTO DE COCO DOS PASSAROS =====
-    if (stage->ambientSpawningEnabled) {
+    bool birdPoopEnabled = stage->ambientSpawningEnabled || stage->state == STAGE3_CLIMBING;
+    if (birdPoopEnabled) {
         for (int b = 0; b < STAGE3_MAX_BIRDS; b++) {
             stage->birds[b].poopTimer += deltaTime;
             if (stage->birds[b].poopTimer >= stage->birds[b].poopInterval) {
@@ -1131,10 +1472,13 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
                 stage->birds[b].poopInterval = 1.0f + (rand() % 350) / 100.0f;
                 
                 // Spawna apenas se o pássaro estiver na tela
-                if (stage->birds[b].position.x > 0.0f && stage->birds[b].position.x < WORLD_WIDTH) {
+                if (stage->birds[b].position.x > -20.0f && stage->birds[b].position.x < GetScreenWidth() + 20.0f) {
                     for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
                         if (!stage->poops[i].active) {
-                            stage->poops[i].position = (Vector2){ stage->birds[b].position.x + 8.0f, stage->birds[b].position.y + 10.0f };
+                            float poopOffsetX = stage->state == STAGE3_CLIMBING
+                                ? (stage->birds[b].speed < 0.0f ? 52.0f : 22.0f)
+                                : (stage->birds[b].speed < 0.0f ? 30.0f : 8.0f);
+                            stage->poops[i].position = (Vector2){ stage->birds[b].position.x + poopOffsetX, stage->birds[b].position.y + 10.0f };
                             stage->poops[i].active = true;
                             stage->poops[i].landed = false;
                             stage->poops[i].groundTimer = 0.0f;
@@ -1151,6 +1495,30 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     syncStage3PlayerHitbox(player);
 
     // Atualiza poops
+    Rectangle playerScreenHitbox = {0};
+    if (stage->state == STAGE3_CLIMBING) {
+        Rectangle climbPlayerDest = finalClimbPlayerDest(stage, player, (float)GetScreenWidth(), (float)GetScreenHeight());
+        playerScreenHitbox = (Rectangle){
+            climbPlayerDest.x + climbPlayerDest.width * 0.24f,
+            climbPlayerDest.y + climbPlayerDest.height * 0.12f,
+            climbPlayerDest.width * 0.52f,
+            climbPlayerDest.height * 0.78f
+        };
+    } else {
+        Camera2D collisionCamera = {0};
+        collisionCamera.target = cameraTargetForStage(stage, player);
+        collisionCamera.offset = (Vector2){ GetScreenWidth() * 0.5f, GetScreenHeight() * 0.5f };
+        collisionCamera.rotation = 0.0f;
+        collisionCamera.zoom = stage3CameraZoom();
+        Vector2 playerScreenPosition = GetWorldToScreen2D((Vector2){ player->hitbox.x, player->hitbox.y }, collisionCamera);
+        playerScreenHitbox = (Rectangle){
+            playerScreenPosition.x,
+            playerScreenPosition.y,
+            player->hitbox.width * collisionCamera.zoom,
+            player->hitbox.height * collisionCamera.zoom
+        };
+    }
+
     for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
         if (stage->poops[i].active) {
             stage->poops[i].speedY += 400.0f * deltaTime;
@@ -1161,19 +1529,24 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
                 stage->poops[i].rotationZ = fmodf(stage->poops[i].rotationZ, 360.0f);
             }
 
-            if (stage->poops[i].position.y >= POOP_GROUND_Y) {
+            if (stage->poops[i].position.y >= GetScreenHeight() - 64.0f) {
                 stage->poops[i].active = false;
                 continue;
             }
             
+            float poopSize = stage->state == STAGE3_CLIMBING ? CLIMB_POOP_SIZE : STAGE3_POOP_SIZE;
             Rectangle poopHitbox = {
-                stage->poops[i].position.x - 22.5f,
-                stage->poops[i].position.y - 22.5f,
-                45.0f,
-                45.0f
+                stage->poops[i].position.x - poopSize * 0.5f,
+                stage->poops[i].position.y - poopSize * 0.5f,
+                poopSize,
+                poopSize
             };
-            if (CheckCollisionRecs(player->hitbox, poopHitbox)) {
-                if (player->hasUmbrella <= 0) {
+            if (CheckCollisionRecs(playerScreenHitbox, poopHitbox)) {
+                if (stage->state == STAGE3_CLIMBING) {
+                    player->lives = 0;
+                    player->state = PLAYER_STATE_DEAD;
+                    resetClimbChallenge();
+                } else if (player->hasUmbrella <= 0) {
                     applySlowDown(player, 50.0f, 2.0f);
                 }
                 stage->poops[i].active = false;
@@ -1242,41 +1615,12 @@ void drawStage3(Stage3 *stage, Player *player) {
     } else {
         DrawRectangleRec(stage->towerHitbox, GRAY);
     }
-    for (int i = 0; i < STAGE3_MAX_BIRDS; i++) {
-        if (stage->birds[i].position.x < -170.0f || stage->birds[i].position.x > WORLD_WIDTH + 500.0f) {
-            continue;
-        }
-
-        Texture2D birdSprite = ((int)(GetTime() * 8.0f + i) % 2 == 0)
-            ? stage->birdTexture
-            : stage->birdTextureAlt;
-
-        if (birdSprite.id > 0) {
-            DrawTextureEx(birdSprite, stage->birds[i].position, 0.0f, 0.11f, WHITE);
-        } else {
-            DrawTriangle(
-                (Vector2){stage->birds[i].position.x, stage->birds[i].position.y},
-                (Vector2){stage->birds[i].position.x + 10, stage->birds[i].position.y - 5},
-                (Vector2){stage->birds[i].position.x + 10, stage->birds[i].position.y + 5},
-                BLACK
-            );
-        }
-    }
-    
-    // Desenha os dejetos dos passaros com sprite diferente ao tocar o chao.
-    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
-        if (stage->poops[i].active) {
-            if (stage->poops[i].landed) {
-                drawLandedPoop(stage->poopTexture, stage->poops[i].position);
-            } else {
-                drawFallingPoop(stage->poopTexture, stage->poops[i].position, stage->poops[i].rotationZ);
-            }
-        }
-    }
 
     drawStage3Player(player);
 
     EndMode2D();
+
+    drawStage3ScreenHazards(stage);
 }
 
 void unloadStage3(Stage3 *stage) {

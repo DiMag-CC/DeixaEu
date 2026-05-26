@@ -24,6 +24,10 @@ typedef struct {
 typedef struct {
     Vector2 position;
     float speed;
+    float baseY;
+    float wavePhase;
+    float waveSpeed;
+    float waveAmplitude;
     float poopTimer;
     float poopInterval;
 } Bird;
