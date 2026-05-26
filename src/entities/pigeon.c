@@ -136,7 +136,7 @@ void updatePigeon(Pigeon *pigeon, float scrollSpeed, float deltaTime) {
 void drawPigeon(Pigeon pigeon) {
     if (!pigeon.active) return;
 
-    const float PIGEON_TARGET_WIDTH = 5.0f;
+    const float PIGEON_TARGET_WIDTH = 3.0f;
     float scaleRatio = PIGEON_TARGET_WIDTH / PIGEON_WIDTH;
 
     float scaledWidth = PIGEON_TARGET_WIDTH;

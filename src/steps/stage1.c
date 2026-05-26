@@ -32,11 +32,14 @@ static void spawnRandomObstacle(Stage1 *stage) {
 
         qobs.type = QUEUE_OBS_HOLE;
 
+        float holeYOffset =
+            (float)((rand() % 16) - 8);
+
         qobs.data.hole =
             createObstacle(
                 (Vector2){
                     spawnX,
-                    groundY + 120.0f
+                    groundY + 20.0f + holeYOffset
                 },
                 OBS_HOLE
             );
@@ -50,11 +53,14 @@ static void spawnRandomObstacle(Stage1 *stage) {
 
         qobs.type = QUEUE_OBS_BUS;
 
+        float busYOffset =
+            (float)((rand() % 10) - 4);
+
         qobs.data.bus =
             createBus(
                 (Vector2){
                     spawnX,
-                    groundY + 120.0f
+                    groundY + 120.0f + busYOffset
                 }
             );
 
@@ -302,7 +308,7 @@ void initStage1(Stage1 *stage) {
 
     // Carregar background com parallax
     stage->bgLoaded = 0;
-    stage->backgroundTexture = LoadTexture("assets/img/landscapeLevel1.png");
+    stage->backgroundTexture = LoadTexture("assets/img/landscapeLevel1New1.png");
     if (stage->backgroundTexture.id != 0) {
         stage->bgLoaded = 1;
     }
@@ -328,19 +334,15 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
 
     stage->elapsedTime += deltaTime;
 
-    // ===== AUMENTAR DIFICULDADE =====
     float progress = stage->distanceTraveled / STAGE1_TARGET_DISTANCE;
     if (progress > 1.0f) progress = 1.0f;
     stage->difficultyMultiplier = 1.0f + (progress * 1.0f);
 
-    // ===== SCROLL SPEED DINÂMICO =====
     stage->scrollSpeed = STAGE1_BASE_SCROLL_SPEED +
                          (STAGE1_MAX_SCROLL_SPEED - STAGE1_BASE_SCROLL_SPEED) * progress;
 
-    // ===== INTERVALO DE SPAWN DINÂMICO =====
     stage->spawnInterval = 1.5f - (progress * 0.8f);  // De 1.5s para 0.7s
 
-    // ===== SPAWN DE OBSTÁCULOS =====
     stage->obstacleSpawnTimer += deltaTime;
     if (stage->obstacleSpawnTimer >= stage->spawnInterval) {
         stage->obstacleSpawnTimer = 0.0f;

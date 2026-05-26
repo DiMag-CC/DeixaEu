@@ -1,7 +1,7 @@
 #include "bus.h"
 #include "../utils/gameConstants.h"
 
-#define BUS_SPEED_MULTIPLIER 1.2f
+#define BUS_SPEED_MULTIPLIER 1.5f
 
 Bus createBus(Vector2 position) {
 
