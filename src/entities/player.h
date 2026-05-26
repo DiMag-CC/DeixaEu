@@ -70,13 +70,19 @@ typedef struct {
     int movementControlledExternally;  // 1 = stage controla, 0 = player controla
     int grounded;               // Alias para isGrounded (compatibilidade stage3)
 
-    // Sprites e texturas — sprites únicos diretos (não multi-frame)
+    // ===== SPRITES NORMAIS =====
     Texture2D spriteStandingR, spriteStandingL;
     Texture2D spriteMovingR, spriteMovingL;
     Texture2D spriteBikeStandingR, spriteBikeStandingL;
     Texture2D spriteBikeMovingR, spriteBikeMovingL;
     Texture2D spriteBikeStuntL, spriteBikeStuntR;
-    int spritesLoaded;          // 1 = texturas carregaram
+    
+    Texture2D spriteBikeMovingUmbrelaR;
+    Texture2D spriteBikeMovingUmbrelaL;
+    Texture2D spriteBikeStuntUmbrelaR;
+    Texture2D spriteBikeStuntUmbrelaL;
+    
+    int spritesLoaded;       
 
     // Animações direcionais (fallback, podem estar vazias)
     DirectionalAnimationSet anim_standing;
