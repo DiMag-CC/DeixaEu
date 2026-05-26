@@ -1,16 +1,17 @@
 #include "stage2.h"
 #include "../utils/gameConstants.h"
-#include "../entities/crab.h" // Garanta que o cabeçalho do caranguejo esteja incluído aqui
+#include "../entities/crab.h" 
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
 // Protótipos antecipados para o GCC aceitar a ordem de chamada das funções
-static void drawStage2Obstacle(Stage2Obstacle obs);
+static void drawStage2Obstacle(Stage2Obstacle obs, Stage2 *stage);
 static void drawTransition(Stage2 *stage);
 static void updateSand(Stage2 *stage, Player *player, float deltaTime);
 static void updateTransition(Stage2 *stage, Player *player, float deltaTime);
 static void updateSea(Stage2 *stage, Player *player, float deltaTime);
+static void handleBreathRecovery(Stage2 *stage, Player *player, float deltaTime);
 
 // =========================================================================
 // GESTÃO DE COMPATIBILIDADE DE ENUMS DO MAR
@@ -28,6 +29,7 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime);
 // Array de texturas do caranguejo (Frames separados)
 static Texture2D crabTextures[2];
 static Texture2D texturaBuraco;
+static Texture2D texturaSacola; 
 
 // Texturas dos obstáculos (Modo Mar)
 static Texture2D txSharkR1;
@@ -43,6 +45,8 @@ static Texture2D txMoverDireita;
 static Texture2D txMoverEsquerda;
 static Texture2D txPuloDireita;
 static Texture2D txPuloEsquerda;
+static Texture2D txParadoDireita; 
+static Texture2D txParadoEsquerda; 
 
 // Texturas de animação do personagem (Modo Mar - Mergulho)
 static Texture2D txNadarDireitaAtivo;   
@@ -50,10 +54,23 @@ static Texture2D txNadarDireitaParado;
 static Texture2D txNadarEsquerdaAtivo;  
 static Texture2D txNadarEsquerdaParado; 
 
+// Texturas de personagem cansado (Fôlego Crítico)
+static Texture2D txCansado1;
+static Texture2D txCansado2;
+
+// Texturas do personagem preso na rede (Tangled)
+static Texture2D txPresoDireitaParado;
+static Texture2D txPresoDireitaMovendo;
+static Texture2D txPresoEsquerdaParado;
+static Texture2D txPresoEsquerdaMovendo;
+
 // NOVAS TEXTURAS PARA O CENÁRIO SEPARADO
 static Texture2D bgOceano; 
 static int bgLoaded = 0;
 static int bgOceanLoaded = 0;
+
+// Variável estática para controlar a barra de vida localmente na Fase 2
+static int playerHealth = 100;
 
 // Variável estática para lembrar a orientação do jogador (1 = Direita, 0 = Esquerda)
 static int olhandoParaDireita = 1;
@@ -131,14 +148,14 @@ static void spawnSandObstacle(Stage2 *stage) {
     enqueueStage2(&stage->obstacleQueue, obs); 
 }
 
-// Geração de Inimigos no Mar (Tubarão, Água-viva e Rede de Pesca)
 static void spawnSeaObstacle(Stage2 *stage) {
     int roll = rand() % 100;
     int type;
     
-    if (roll < 35) type = S2_OBS_SHARK;
-    else if (roll < 70) type = S2_OBS_JELLYFISH;
-    else type = S2_OBS_NET;
+    if (roll < 25) type = S2_OBS_SHARK;
+    else if (roll < 50) type = S2_OBS_JELLYFISH;
+    else if (roll < 75) type = S2_OBS_NET;
+    else type = S2_OBS_TRASH; 
     
     Vector2 pos = { 0 };
     int screenH = GetScreenHeight() > 0 ? GetScreenHeight() : 600;
@@ -153,9 +170,6 @@ static void spawnSeaObstacle(Stage2 *stage) {
         }
         float rawY = (float)(rand() % (screenH - 300) + 100);
         pos.y = veioDaEsquerda ? rawY : -rawY; 
-    } else if (type == S2_OBS_JELLYFISH) {
-        pos.x = (float)GetRenderWidth() + 150.0f;
-        pos.y = (float)(rand() % (screenH - 250) + 100);
     } else {
         pos.x = (float)GetRenderWidth() + 150.0f;
         pos.y = (float)(rand() % (screenH - 250) + 100);
@@ -168,29 +182,29 @@ static void spawnSeaObstacle(Stage2 *stage) {
     if (type == S2_OBS_SHARK) {
         obs.hitbox.width = 200.0f;   
         obs.hitbox.height = 70.0f;   
-    } else if (type == S2_OBS_JELLYFISH) {
-        obs.hitbox.width = 70.0f;    
-        obs.hitbox.height = 130.0f;  
-    } else if (type == S2_OBS_NET) {
-        obs.hitbox.width = 110.0f;   
-        obs.hitbox.height = 110.0f;  
-    }
-
-    if (type == S2_OBS_SHARK) {
         obs.hitbox.x = obs.position.x + 60.0f;
         obs.hitbox.y = fabsf(obs.position.y) + 40.0f;
     } else if (type == S2_OBS_JELLYFISH) {
+        obs.hitbox.width = 70.0f;    
+        obs.hitbox.height = 130.0f;  
         obs.hitbox.x = obs.position.x + 35.0f;
         obs.hitbox.y = obs.position.y + 20.0f;
-    } else {
+    } else if (type == S2_OBS_NET) {
+        obs.hitbox.width = 110.0f;   
+        obs.hitbox.height = 110.0f;  
         obs.hitbox.x = obs.position.x + 20.0f;
         obs.hitbox.y = obs.position.y + 20.0f;
+    } else if (type == S2_OBS_TRASH) {
+        obs.hitbox.width = 60.0f;
+        obs.hitbox.height = 60.0f;
+        obs.hitbox.x = obs.position.x + 10.0f;
+        obs.hitbox.y = obs.position.y + 10.0f;
     }
 
     enqueueStage2(&stage->obstacleQueue, obs);
 }
 
-// Colisões e penalidades de vida
+// CORE CORRIGIDO: O buraco na praia agora tira VIDA, e a sacola no mar tira FÔLEGO!
 static void handleCollisionsStage2(Stage2 *stage, Player *player) {
     Stage2Node *cur = stage->obstacleQueue.front;
     while (cur != NULL) {
@@ -199,26 +213,39 @@ static void handleCollisionsStage2(Stage2 *stage, Player *player) {
         if (o->active && CheckCollisionRecs(player->hitbox, o->hitbox)) {
             if (o->type == S2_OBS_CRAB) {
                 stage->breath = 0.0f;
+                playerHealth = 0; 
                 player->lives = 0; 
                 o->active = 0;
             }
             else if (o->type == S2_OBS_TRASH) {
-                stage->breath -= 30.0f; 
-                if (stage->breath <= 0.0f) {
-                    stage->breath = 0.0f;
-                    player->lives = 0;
+                if (stage->mode == STAGE2_MODE_SEA) {
+                    // No MAR (Sacola Plástica), retira 30 de FÔLEGO
+                    stage->breath -= 30.0f; 
+                    if (stage->breath <= 0.0f) {
+                        stage->breath = 0.0f;
+                        playerHealth = 0;
+                        player->lives = 0;
+                    }
+                } else {
+                    // Na PRAIA (Buraco), retira 30 de VIDA
+                    playerHealth -= 30; 
+                    if (playerHealth <= 0) {
+                        playerHealth = 0;
+                        player->lives = 0;
+                    }
                 }
                 o->active = 0;
             }
             else if (o->type == S2_OBS_SHARK) {
                 player->lives = 0; 
+                playerHealth = 0;
                 stage->breath = 0.0f;
                 o->active = 0;
             }
             else if (o->type == S2_OBS_JELLYFISH) {
-                stage->breath -= 30.0f; 
-                if (stage->breath <= 0.0f) {
-                    stage->breath = 0.0f;
+                playerHealth -= 30; 
+                if (playerHealth <= 0) {
+                    playerHealth = 0;
                     player->lives = 0;
                 }
                 o->active = 0;
@@ -226,7 +253,6 @@ static void handleCollisionsStage2(Stage2 *stage, Player *player) {
             else if (o->type == S2_OBS_NET) {
                 netDebuffTimer = 5.0f; 
                 o->active = 0; 
-                printf("[DEBUFF] Preso na rede! 5 segundos de lentidão.\n");
             }
         }
         cur = cur->next;
@@ -250,6 +276,8 @@ static void scrollAndCleanObstacles(Stage2 *stage, Player *player, float deltaTi
                 o->position.x -= 380.0f * deltaTime;
             } else if (o->type == S2_OBS_NET) {
                 o->position.x -= 240.0f * deltaTime; 
+            } else if (o->type == S2_OBS_TRASH) {
+                o->position.x -= 300.0f * deltaTime; 
             }
         } else {
             o->position.x -= stage->scrollSpeed * deltaTime;
@@ -265,6 +293,9 @@ static void scrollAndCleanObstacles(Stage2 *stage, Player *player, float deltaTi
             } else if (o->type == S2_OBS_NET) {
                 o->hitbox.x = o->position.x + 20.0f;
                 o->hitbox.y = o->position.y + 20.0f;
+            } else if (o->type == S2_OBS_TRASH) {
+                o->hitbox.x = o->position.x + 10.0f;
+                o->hitbox.y = o->position.y + 10.0f;
             }
         } else {
             o->hitbox.x = o->position.x + 10.0f;
@@ -310,6 +341,7 @@ void initStage2(Stage2 *stage) {
     stage->currentPushY = 0.0f;
 
     netDebuffTimer = 0.0f; 
+    playerHealth = 100;
 
     bgLoaded = 0;
     stage->bgSand = LoadTexture("assets/img/landscapeLevel2.png");
@@ -321,10 +353,10 @@ void initStage2(Stage2 *stage) {
 
     stage->bgSea  = (Texture2D){0};
 
-    // CORREÇÃO: Alimenta o array estático com os dois frames separados
     crabTextures[0] = LoadTexture("assets/img/crab1.png");
     crabTextures[1] = LoadTexture("assets/img/crab2.png");
-    texturaBuraco     = LoadTexture("assets/img/hole.png");
+    texturaBuraco   = LoadTexture("assets/img/hole.png");
+    texturaSacola   = LoadTexture("assets/img/PlasticBag.png"); 
     
     txSharkR1 = LoadTexture("assets/img/sharkR1.png");
     txSharkR2 = LoadTexture("assets/img/sharkR2.png");
@@ -339,10 +371,21 @@ void initStage2(Stage2 *stage) {
     txPuloDireita   = LoadTexture("assets/img/CharacterJumpingR.png");
     txPuloEsquerda  = LoadTexture("assets/img/CharacterJumpingL.png");
 
+    txParadoDireita  = LoadTexture("assets/img/CharacterStandingR.png");
+    txParadoEsquerda = LoadTexture("assets/img/CharacterStandingL.png");
+
     txNadarDireitaAtivo   = LoadTexture("assets/img/CharacterSwimmingR2.png");
     txNadarDireitaParado  = LoadTexture("assets/img/CharacterSwimmingR1.png");
     txNadarEsquerdaAtivo  = LoadTexture("assets/img/CharacterSwimmingL1.png");
     txNadarEsquerdaParado = LoadTexture("assets/img/CharacterSwimmingL2.png");
+
+    txCansado1 = LoadTexture("assets/img/CharacterTired1.png");
+    txCansado2 = LoadTexture("assets/img/CharacterTired2.png");
+
+    txPresoEsquerdaParado  = LoadTexture("assets/img/CharacterTangledL1.png");
+    txPresoEsquerdaMovendo = LoadTexture("assets/img/CharacterTangledL2.png");
+    txPresoDireitaParado   = LoadTexture("assets/img/CharacterTangledR1.png");
+    txPresoDireitaMovendo  = LoadTexture("assets/img/CharacterTangledR2.png");
 
     olhandoParaDireita = 1; 
 }
@@ -361,10 +404,13 @@ void unloadStage2(Stage2 *stage) {
     UnloadTexture(crabTextures[0]);
     UnloadTexture(crabTextures[1]);
     UnloadTexture(texturaBuraco);
+    UnloadTexture(texturaSacola);
     UnloadTexture(txMoverDireita);
     UnloadTexture(txMoverEsquerda);
     UnloadTexture(txPuloDireita);
     UnloadTexture(txPuloEsquerda);
+    UnloadTexture(txParadoDireita);
+    UnloadTexture(txParadoEsquerda);
 
     UnloadTexture(txNadarDireitaAtivo);
     UnloadTexture(txNadarDireitaParado);
@@ -377,7 +423,14 @@ void unloadStage2(Stage2 *stage) {
     UnloadTexture(txJelly1);
     UnloadTexture(txJelly2);
     UnloadTexture(txFishingNet); 
-    
+    UnloadTexture(txCansado1);
+    UnloadTexture(txCansado2);
+
+    UnloadTexture(txPresoEsquerdaParado);
+    UnloadTexture(txPresoEsquerdaMovendo);
+    UnloadTexture(txPresoDireitaParado);
+    UnloadTexture(txPresoDireitaMovendo);
+
     freeStage2Queue(&stage->obstacleQueue);
 }
 
@@ -391,10 +444,11 @@ void updateStage2(Stage2 *stage, Player *player, float deltaTime) {
 }
 
 static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
-    if (player->lives <= 0) {
+    if (player->lives <= 0 || playerHealth <= 0) {
         if (IsKeyPressed(KEY_ENTER)) {
             player->lives = 3;
             player->score = 0.0f;
+            playerHealth = 100;
             stage->breath = 100.0f;
             stage->distanceTraveled = 0.0f;
             stage->obstacleSpawnTimer = 0.0f;
@@ -413,8 +467,8 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) olhandoParaDireita = 1;
     else if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) olhandoParaDireita = 0;
 
-    float fatorDificuldade = 1.0f + (stage->distanceTraveled / 300.0f) * 0.15f;
-    if (fatorDificuldade > 2.0f) fatorDificuldade = 2.0f;
+    float fDificuldade = 1.0f + (stage->distanceTraveled / 300.0f) * 0.15f;
+    if (fDificuldade > 2.0f) fDificuldade = 2.0f;
 
     stage->distanceTraveled += 25.0f * deltaTime;
 
@@ -431,9 +485,9 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
         return;
     }
 
-    float velocidadAtual = 450.0f * fatorDificuldade; 
-    stage->spawnInterval = 1.3f / fatorDificuldade;
-    stage->backgroundScroll += velocidadAtual * deltaTime;
+    float vAtual = 450.0f * fDificuldade; 
+    stage->spawnInterval = 1.3f / fDificuldade;
+    stage->backgroundScroll += vAtual * deltaTime;
 
     player->width = 140.0f;
     player->height = 175.0f;
@@ -462,10 +516,10 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
 
     sortStage2Obstacles(&stage->obstacleQueue);
 
-    float velocidadeAntiga = stage->scrollSpeed;
-    stage->scrollSpeed = velocidadAtual;
+    float vAntiga = stage->scrollSpeed;
+    stage->scrollSpeed = vAtual;
     scrollAndCleanObstacles(stage, player, deltaTime);
-    stage->scrollSpeed = velocidadeAntiga;
+    stage->scrollSpeed = vAntiga;
 
     player->hitbox.width = player->width - 40.0f; 
     player->hitbox.height = player->height - 10.0f;
@@ -486,10 +540,20 @@ static void updateTransition(Stage2 *stage, Player *player, float deltaTime) {
     }
 }
 
+static void handleBreathRecovery(Stage2 *stage, Player *player, float deltaTime) {
+    if (player->position.y <= 5.0f) {
+        stage->breath += STAGE2_BREATH_MAX * deltaTime; 
+        if (stage->breath > STAGE2_BREATH_MAX) {
+            stage->breath = STAGE2_BREATH_MAX;
+        }
+    }
+}
+
 static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
-    if (player->lives <= 0) {
+    if (player->lives <= 0 || playerHealth <= 0) {
         if (IsKeyPressed(KEY_ENTER)) {
             player->lives = 3;
+            playerHealth = 100;
             stage->breath = 100.0f;
             player->position.x = 200.0f;
             player->position.y = (float)GetScreenHeight() * 0.5f;
@@ -500,27 +564,27 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
         return;
     }
 
-    float modificadorVelocidade = 1.0f;
+    float mVelocidade = 1.0f;
     if (netDebuffTimer > 0.0f) {
         netDebuffTimer -= deltaTime;
-        modificadorVelocidade = 0.5f; 
+        mVelocidade = 0.5f; 
     }
 
-    float velocidadeAtualNado = S2_VELOCIDADE_NADO * modificadorVelocidade;
+    float velocidadAtualNado = S2_VELOCIDADE_NADO * mVelocidade;
 
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
-        player->position.x += velocidadeAtualNado * deltaTime;
+        player->position.x += velocidadAtualNado * deltaTime;
         olhandoParaDireita = 1;
     }
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
-        player->position.x -= velocidadeAtualNado * deltaTime;
+        player->position.x -= velocidadAtualNado * deltaTime;
         olhandoParaDireita = 0;
     }
     if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)) {
-        player->position.y -= velocidadeAtualNado * deltaTime;
+        player->position.y -= velocidadAtualNado * deltaTime;
     }
     if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S)) {
-        player->position.y += velocidadeAtualNado * deltaTime;
+        player->position.y += velocidadAtualNado * deltaTime;
     }
 
     int screenW = GetRenderWidth() > 0 ? GetRenderWidth() : 800;
@@ -536,6 +600,8 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
     player->hitbox.x = player->position.x + 20.0f; 
     player->hitbox.y = player->position.y + 20.0f;
 
+    handleBreathRecovery(stage, player, deltaTime);
+
     stage->obstacleSpawnTimer += deltaTime;
     if (stage->obstacleSpawnTimer >= stage->spawnInterval) {
         spawnSeaObstacle(stage);
@@ -546,7 +612,10 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
     scrollAndCleanObstacles(stage, player, deltaTime);
     handleCollisionsStage2(stage, player);
 
-    stage->breath -= 4.0f * deltaTime; 
+    if (player->position.y > 5.0f) {
+        stage->breath -= 4.0f * deltaTime; 
+    }
+    
     if (stage->breath <= 0) {
         stage->breath = 0;
         player->lives = 0;
@@ -558,18 +627,11 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
 // =========================================================================
 // RENDERS INDIVIDUAIS E EXCLUSIVOS
 // =========================================================================
-
-// CORREÇÃO: Utiliza o novo método drawCrab do seu crab.c para animar
 static void drawCrabObstacle(Stage2Obstacle obs) {
     if (crabTextures[0].id > 0 && crabTextures[1].id > 0) {
-        // Criamos uma entidade temporária de controle baseada na posição do nó na fila
         Crab tempCrab = createCrab(obs.position, 6);
-        
-        // Sincroniza o frame baseado no tempo de execução global
         int frameCalculado = ((int)(GetTime() * 5)) % 2; 
         tempCrab.currentFrame = frameCalculado;
-        
-        // Desenha usando o seu próprio escopo do crab.c
         drawCrab(tempCrab, crabTextures);
     } else {
         DrawRectangleRec(obs.hitbox, RED);
@@ -577,18 +639,36 @@ static void drawCrabObstacle(Stage2Obstacle obs) {
 }
 
 static void drawHoleObstacle(Stage2Obstacle obs) {
+    if (texturaBuraco.id == 0) {
+        texturaBuraco = LoadTexture("assets/img/hole.png");
+    }
+
     if (texturaBuraco.id > 0) {
         Rectangle source = { 0.0f, 0.0f, (float)texturaBuraco.width, (float)texturaBuraco.height };
-        Rectangle dest = { obs.position.x, obs.position.y, 145.0f, 40.0f }; 
+        Rectangle dest = { obs.position.x - 15.0f, obs.position.y - 20.0f, 130.0f, 55.0f }; 
         Vector2 origin = { 0.0f, 0.0f };
         DrawTexturePro(texturaBuraco, source, dest, origin, 0.0f, WHITE);
     } else {
-        DrawEllipse(obs.position.x + (obs.hitbox.width / 2.0f), obs.position.y + (obs.hitbox.height / 2.0f),
-                    obs.hitbox.width / 2.0f, obs.hitbox.height / 2.0f, BLACK);
+        DrawRectangleRec(obs.hitbox, BLACK);
     }
 }
 
-static void drawStage2Obstacle(Stage2Obstacle obs) {
+static void drawPlasticBagObstacle(Stage2Obstacle obs) {
+    if (texturaSacola.id == 0) {
+        texturaSacola = LoadTexture("assets/img/PlasticBag.png");
+    }
+
+    if (texturaSacola.id > 0) {
+        Rectangle source = { 0.0f, 0.0f, (float)texturaSacola.width, (float)texturaSacola.height };
+        Rectangle dest = { obs.position.x, obs.position.y, 80.0f, 80.0f }; 
+        Vector2 origin = { 0.0f, 0.0f };
+        DrawTexturePro(texturaSacola, source, dest, origin, 0.0f, WHITE);
+    } else {
+        DrawRectangleRec(obs.hitbox, WHITE);
+    }
+}
+
+static void drawStage2Obstacle(Stage2Obstacle obs, Stage2 *stage) {
     if (!obs.active) return;
 
     int frame = ((int)(GetTime() * 4)) % 2; 
@@ -596,10 +676,14 @@ static void drawStage2Obstacle(Stage2Obstacle obs) {
     if (obs.type == S2_OBS_CRAB) {
         drawCrabObstacle(obs);
     } else if (obs.type == S2_OBS_TRASH) {
-        drawHoleObstacle(obs);
+        if (stage->mode == STAGE2_MODE_SEA) {
+            drawPlasticBagObstacle(obs); 
+        } else {
+            drawHoleObstacle(obs);       
+        }
     } 
     else if (obs.type == S2_OBS_SHARK) {
-        if (txSharkR1.id > 0 && txSharkL1.id > 0) {
+        if (txSharkR1.id > 0 && txSharkR2.id > 0) {
             Texture2D txShark = txSharkR1;
             if (obs.position.y >= 0) {
                 txShark = (frame == 0) ? txSharkR1 : txSharkR2; 
@@ -637,6 +721,30 @@ static void drawStage2Obstacle(Stage2Obstacle obs) {
     }
 }
 
+// =========================================================================
+// RENDERIZAÇÃO DA HUD E BARRAS DE STATUS LOCAL
+// =========================================================================
+static void drawHUD(Stage2 *stage, int isSeaMode) {
+    DrawText("VIDA:", 15, 120, 20, isSeaMode ? WHITE : DARKGRAY);
+    DrawRectangle(85, 120, 200, 20, (Color){60, 60, 60, 200});
+    
+    float pctVida = playerHealth / 100.0f;
+    if (pctVida < 0.0f) pctVida = 0.0f;
+    Color corVida = (pctVida > 0.4f) ? GREEN : RED;
+    DrawRectangle(85, 120, (int)(200 * pctVida), 20, corVida);
+    DrawRectangleLines(85, 120, 200, 20, isSeaMode ? WHITE : BLACK);
+
+    if (isSeaMode) {
+        DrawText("FOLEGO:", 15, 155, 20, WHITE);
+        DrawRectangle(115, 155, 200, 20, (Color){60, 60, 60, 200});
+        
+        float pctFolego = stage->breath / 100.0f;
+        if (pctFolego < 0.0f) pctFolego = 0.0f;
+        DrawRectangle(115, 155, (int)(200 * pctFolego), 20, SKYBLUE);
+        DrawRectangleLines(115, 155, 200, 20, WHITE);
+    }
+}
+
 static void drawSand(Stage2 *stage) {
     int screenWidth = GetRenderWidth();
     int screenHeight = GetRenderHeight();
@@ -654,25 +762,11 @@ static void drawSand(Stage2 *stage) {
 
     Stage2Node *cur = stage->obstacleQueue.front;
     while (cur != NULL) {
-        drawStage2Obstacle(cur->obstacle);
+        drawStage2Obstacle(cur->obstacle, stage); 
         cur = cur->next;
     }
 
-    DrawText("VIDA:", 15, 120, 20, DARKGRAY);
-    DrawRectangle(85, 120, 200, 20, (Color){60, 60, 60, 200});
-    float pct = stage->breath / 100.0f;
-    if (pct < 0.0f) pct = 0.0f;
-    Color corBarra = (pct > 0.4f) ? GREEN : RED;
-    DrawRectangle(85, 120, (int)(200 * pct), 20, corBarra);
-    DrawRectangleLines(85, 120, 200, 20, BLACK);
-}
-
-static void drawTransition(Stage2 *stage) {
-    (void)stage;
-    DrawRectangle(0, 0, (float)GetRenderWidth(), (float)GetRenderHeight(), DARKBLUE);
-    const char *msg = "Mergulhando no mar...";
-    int w = MeasureText(msg, 50);
-    DrawText(msg, ((float)GetRenderWidth() - w) / 2, (float)GetRenderHeight() / 2, 50, WHITE);
+    drawHUD(stage, 0);
 }
 
 static void drawSea(Stage2 *stage, Player *player) {
@@ -695,16 +789,11 @@ static void drawSea(Stage2 *stage, Player *player) {
 
     Stage2Node *cur = stage->obstacleQueue.front;
     while (cur != NULL) {
-        drawStage2Obstacle(cur->obstacle);
+        drawStage2Obstacle(cur->obstacle, stage); 
         cur = cur->next;
     }
 
-    DrawText("FOLEGO:", 15, 120, 20, WHITE);
-    DrawRectangle(115, 120, 200, 20, (Color){60, 60, 60, 200});
-    float pct = stage->breath / 100.0f;
-    if (pct < 0.0f) pct = 0.0f;
-    DrawRectangle(115, 120, (int)(200 * pct), 20, SKYBLUE);
-    DrawRectangleLines(115, 120, 200, 20, WHITE);
+    drawHUD(stage, 1);
 
     if (netDebuffTimer > 0.0f) {
         DrawText("PRESO NA REDE!", screenWidth / 2 - 80, 20, 20, RED);
@@ -719,7 +808,8 @@ void drawStage2(Stage2 *stage, Player *player) {
         case STAGE2_MODE_FINISHED:   break;
     }
 
-    Texture2D texturaAtual = txMoverDireita;
+    Texture2D texturaAtual = txParadoDireita; 
+    int frameGlobal = ((int)(GetTime() * 5)) % 2; 
 
     if (stage->mode == STAGE2_MODE_SAND) {
         float limiteChao = S2_AREIA_Y - player->height;
@@ -728,21 +818,53 @@ void drawStage2(Stage2 *stage, Player *player) {
         if (noAr) {
             texturaAtual = olhandoParaDireita ? txPuloDireita : txPuloEsquerda;
         } else {
-            texturaAtual = olhandoParaDireita ? txMoverDireita : txMoverEsquerda;
+            if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
+                texturaAtual = (frameGlobal == 0) ? txParadoDireita : txMoverDireita;
+            } 
+            else if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
+                texturaAtual = (frameGlobal == 0) ? txParadoEsquerda : txMoverEsquerda;
+            } 
+            else {
+                if (olhandoParaDireita) {
+                    texturaAtual = (frameGlobal == 0) ? txParadoDireita : txMoverDireita;
+                } else {
+                    texturaAtual = (frameGlobal == 0) ? txParadoEsquerda : txMoverEsquerda;
+                }
+            }
         }
     } 
     else if (stage->mode == STAGE2_MODE_SEA) {
-        if (olhandoParaDireita) {
-            if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
-                texturaAtual = txNadarDireitaAtivo;
+        if (netDebuffTimer > 0.0f) {
+            if (olhandoParaDireita) {
+                if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D) || IsKeyDown(KEY_UP) || IsKeyDown(KEY_W) || IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S)) {
+                    texturaAtual = txPresoDireitaMovendo; 
+                } else {
+                    texturaAtual = txPresoDireitaParado;  
+                }
             } else {
-                texturaAtual = txNadarDireitaParado;
+                if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A) || IsKeyDown(KEY_UP) || IsKeyDown(KEY_W) || IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S)) {
+                    texturaAtual = txPresoEsquerdaMovendo; 
+                } else {
+                    texturaAtual = txPresoEsquerdaParado;  
+                }
             }
-        } else {
-            if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
-                texturaAtual = txNadarEsquerdaAtivo;
+        }
+        else if (stage->breath <= 20.0f) {
+            texturaAtual = (frameGlobal == 0) ? txCansado1 : txCansado2;
+        } 
+        else {
+            if (olhandoParaDireita) {
+                if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
+                    texturaAtual = txNadarDireitaAtivo;
+                } else {
+                    texturaAtual = txNadarDireitaParado;
+                }
             } else {
-                texturaAtual = txNadarEsquerdaParado;
+                if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
+                    texturaAtual = txNadarEsquerdaAtivo;
+                } else {
+                    texturaAtual = txNadarEsquerdaParado;
+                }
             }
         }
     }
@@ -760,4 +882,18 @@ void drawStage2(Stage2 *stage, Player *player) {
     } else {
         DrawRectangleRec(player->hitbox, BLUE);
     }
+}
+
+static void drawTransition(Stage2 *stage) {
+    (void)stage;
+    int screenWidth = GetRenderWidth();
+    int screenHeight = GetRenderHeight();
+    
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){5, 30, 90, 255});
+    
+    const char *msg = "Mergulhando no mar...";
+    int fontSize = 40;
+    int textWidth = MeasureText(msg, fontSize);
+    
+    DrawText(msg, (screenWidth - textWidth) / 2, screenHeight / 2 - 20, fontSize, WHITE);
 }
