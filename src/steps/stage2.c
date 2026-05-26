@@ -12,6 +12,7 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime);
 static void updateTransition(Stage2 *stage, Player *player, float deltaTime);
 static void updateSea(Stage2 *stage, Player *player, float deltaTime);
 static void handleBreathRecovery(Stage2 *stage, Player *player, float deltaTime);
+static void updateAndDrawBubbles(float deltaTime);
 
 // =========================================================================
 // GESTÃO DE COMPATIBILIDADE DE ENUMS DO MAR
@@ -26,10 +27,25 @@ static void handleBreathRecovery(Stage2 *stage, Player *player, float deltaTime)
   #define S2_OBS_NET 4
 #endif
 
+// Struct interna para gerenciar as partículas de bolhas
+typedef struct {
+    Vector2 position;
+    float speed;
+    float scale;
+    float wobbleSpeed;
+    float wobbleRange;
+    float alpha;
+    int active;
+} BubbleParticle;
+
+#define MAX_BUBBLES 30
+static BubbleParticle bubbles[MAX_BUBBLES];
+
 // Array de texturas do caranguejo (Frames separados)
 static Texture2D crabTextures[2];
 static Texture2D texturaBuraco;
 static Texture2D texturaSacola; 
+static Texture2D texturaBolhas; 
 
 // Texturas dos obstáculos (Modo Mar)
 static Texture2D txSharkR1;
@@ -64,13 +80,20 @@ static Texture2D txPresoDireitaMovendo;
 static Texture2D txPresoEsquerdaParado;
 static Texture2D txPresoEsquerdaMovendo;
 
+// Texturas estáticas para a transição cinematográfica
+static Texture2D txWaveBig;
+static Texture2D txWaveSmall;
+static Texture2D txSharkSign;
+static Texture2D bgSuperficieMar; 
+
 // NOVAS TEXTURAS PARA O CENÁRIO SEPARADO
 static Texture2D bgOceano; 
 static int bgLoaded = 0;
 static int bgOceanLoaded = 0;
+static int bgSurfaceLoaded = 0; 
 
 // Variável estática para controlar a barra de vida localmente na Fase 2
-static int playerHealth = 100;
+int playerHealth = 100;
 
 // Variável estática para lembrar a orientação do jogador (1 = Direita, 0 = Esquerda)
 static int olhandoParaDireita = 1;
@@ -204,7 +227,7 @@ static void spawnSeaObstacle(Stage2 *stage) {
     enqueueStage2(&stage->obstacleQueue, obs);
 }
 
-// CORE CORRIGIDO: O buraco na praia agora tira VIDA, e a sacola no mar tira FÔLEGO!
+// Colisões e penalidades de vida/fôlego
 static void handleCollisionsStage2(Stage2 *stage, Player *player) {
     Stage2Node *cur = stage->obstacleQueue.front;
     while (cur != NULL) {
@@ -219,7 +242,6 @@ static void handleCollisionsStage2(Stage2 *stage, Player *player) {
             }
             else if (o->type == S2_OBS_TRASH) {
                 if (stage->mode == STAGE2_MODE_SEA) {
-                    // No MAR (Sacola Plástica), retira 30 de FÔLEGO
                     stage->breath -= 30.0f; 
                     if (stage->breath <= 0.0f) {
                         stage->breath = 0.0f;
@@ -227,7 +249,6 @@ static void handleCollisionsStage2(Stage2 *stage, Player *player) {
                         player->lives = 0;
                     }
                 } else {
-                    // Na PRAIA (Buraco), retira 30 de VIDA
                     playerHealth -= 30; 
                     if (playerHealth <= 0) {
                         playerHealth = 0;
@@ -343,6 +364,10 @@ void initStage2(Stage2 *stage) {
     netDebuffTimer = 0.0f; 
     playerHealth = 100;
 
+    for (int i = 0; i < MAX_BUBBLES; i++) {
+        bubbles[i].active = 0;
+    }
+
     bgLoaded = 0;
     stage->bgSand = LoadTexture("assets/img/landscapeLevel2.png");
     if (stage->bgSand.id != 0) bgLoaded = 1;
@@ -357,6 +382,7 @@ void initStage2(Stage2 *stage) {
     crabTextures[1] = LoadTexture("assets/img/crab2.png");
     texturaBuraco   = LoadTexture("assets/img/hole.png");
     texturaSacola   = LoadTexture("assets/img/PlasticBag.png"); 
+    texturaBolhas   = LoadTexture("assets/img/Bubbles.png"); 
     
     txSharkR1 = LoadTexture("assets/img/sharkR1.png");
     txSharkR2 = LoadTexture("assets/img/sharkR2.png");
@@ -387,6 +413,15 @@ void initStage2(Stage2 *stage) {
     txPresoDireitaParado   = LoadTexture("assets/img/CharacterTangledR1.png");
     txPresoDireitaMovendo  = LoadTexture("assets/img/CharacterTangledR2.png");
 
+    // Carregamento dos assets da Transição
+    txWaveBig   = LoadTexture("assets/img/waveBig.png");
+    txWaveSmall = LoadTexture("assets/img/waveSmall.png");
+    txSharkSign = LoadTexture("assets/img/SharkSign.png");
+    
+    bgSurfaceLoaded = 0;
+    bgSuperficieMar = LoadTexture("assets/img/landscapeOceanlevel2Surface (1).png");
+    if (bgSuperficieMar.id != 0) bgSurfaceLoaded = 1;
+
     olhandoParaDireita = 1; 
 }
 
@@ -400,11 +435,16 @@ void unloadStage2(Stage2 *stage) {
         bgOceanLoaded = 0;
     }
     if (stage->bgSea.id > 0) UnloadTexture(stage->bgSea);
+    if (bgSurfaceLoaded) {
+        UnloadTexture(bgSuperficieMar);
+        bgSurfaceLoaded = 0;
+    }
     
     UnloadTexture(crabTextures[0]);
     UnloadTexture(crabTextures[1]);
     UnloadTexture(texturaBuraco);
     UnloadTexture(texturaSacola);
+    UnloadTexture(texturaBolhas);
     UnloadTexture(txMoverDireita);
     UnloadTexture(txMoverEsquerda);
     UnloadTexture(txPuloDireita);
@@ -430,6 +470,10 @@ void unloadStage2(Stage2 *stage) {
     UnloadTexture(txPresoEsquerdaMovendo);
     UnloadTexture(txPresoDireitaParado);
     UnloadTexture(txPresoDireitaMovendo);
+
+    UnloadTexture(txWaveBig);
+    UnloadTexture(txWaveSmall);
+    UnloadTexture(txSharkSign);
 
     freeStage2Queue(&stage->obstacleQueue);
 }
@@ -473,7 +517,7 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
     stage->distanceTraveled += 25.0f * deltaTime;
 
     if (stage->distanceTraveled >= 1500.0f) {
-        stage->distanceTraveled = 1500.0f;
+        stage->distanceTraveled = 0.0f; 
         stage->mode = STAGE2_MODE_TRANSITION;
         stage->modeTimer = 0.0f;
         stage->breath = 100.0f;
@@ -529,14 +573,30 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
     handleCollisionsStage2(stage, player);
 }
 
+// BONECO NADA MAIS EM BAIXO (82% DA ALTURA)
 static void updateTransition(Stage2 *stage, Player *player, float deltaTime) {
-    (void)player;
     stage->modeTimer += deltaTime;
-    if (stage->modeTimer >= STAGE2_TRANSITION_TIME) {
+
+    player->width = 140.0f;
+    player->height = 175.0f;
+
+    float velocidadeNadoTransicao = 450.0f; 
+    player->position.x += velocidadeNadoTransicao * deltaTime;
+
+    // Alinha o boneco no terço inferior da tela, garantindo a sensação de submersão real
+    float destinoY = (float)GetScreenHeight() * 0.82f - (player->height / 2.0f);
+    player->position.y += (destinoY - player->position.y) * 5.0f * deltaTime;
+
+    stage->backgroundScroll += 300.0f * deltaTime;
+
+    if (player->position.x >= (float)GetScreenWidth()) {
         stage->mode = STAGE2_MODE_SEA;
         stage->modeTimer = 0.0f;
         stage->obstacleSpawnTimer = 0.0f;
         stage->spawnInterval = 1.2f; 
+        
+        player->position.x = 80.0f;
+        player->position.y = (float)GetScreenHeight() * 0.5f;
     }
 }
 
@@ -555,6 +615,7 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
             player->lives = 3;
             playerHealth = 100;
             stage->breath = 100.0f;
+            stage->distanceTraveled = 0.0f;
             player->position.x = 200.0f;
             player->position.y = (float)GetScreenHeight() * 0.5f;
             freeStage2Queue(&stage->obstacleQueue);
@@ -585,6 +646,14 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
     }
     if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S)) {
         player->position.y += velocidadAtualNado * deltaTime;
+    }
+
+    stage->distanceTraveled += 15.0f * deltaTime; 
+    if (stage->distanceTraveled >= 600.0f) {
+        stage->distanceTraveled = 600.0f;
+        stage->mode = STAGE2_MODE_FINISHED; 
+        stage->stage2Complete = 1;
+        return;
     }
 
     int screenW = GetRenderWidth() > 0 ? GetRenderWidth() : 800;
@@ -622,6 +691,53 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
     }
 
     stage->backgroundScroll += 150.0f * deltaTime;
+}
+
+static void updateAndDrawBubbles(float deltaTime) {
+    int screenW = GetRenderWidth();
+    int screenH = GetScreenHeight();
+
+    if (texturaBolhas.id == 0) return;
+
+    for (int i = 0; i < MAX_BUBBLES; i++) {
+        if (!bubbles[i].active && (rand() % 100 < 2)) {
+            bubbles[i].position.x = (float)(rand() % screenW);
+            bubbles[i].position.y = (float)(screenH + 50);
+            bubbles[i].speed = (float)(rand() % 100 + 80);
+            bubbles[i].scale = (float)(rand() % 4 + 1) / 10.0f; 
+            bubbles[i].wobbleSpeed = (float)(rand() % 4 + 2);
+            bubbles[i].wobbleRange = (float)(rand() % 15 + 5);
+            bubbles[i].alpha = (float)(rand() % 5 + 4) / 10.0f; 
+            bubbles[i].active = 1;
+        }
+
+        if (bubbles[i].active) {
+            bubbles[i].position.y -= bubbles[i].speed * deltaTime;
+            
+            float wobble = sinf(GetTime() * bubbles[i].wobbleSpeed) * bubbles[i].wobbleRange * deltaTime;
+            bubbles[i].position.x += wobble;
+
+            if (bubbles[i].position.y < 150.0f) {
+                bubbles[i].alpha -= 1.5f * deltaTime;
+            }
+
+            if (bubbles[i].position.y < -50.0f || bubbles[i].alpha <= 0.0f) {
+                bubbles[i].active = 0;
+                continue;
+            }
+
+            Rectangle source = { 0.0f, 0.0f, (float)texturaBolhas.width, (float)texturaBolhas.height };
+            Rectangle dest = { 
+                bubbles[i].position.x, 
+                bubbles[i].position.y, 
+                texturaBolhas.width * bubbles[i].scale, 
+                texturaBolhas.height * bubbles[i].scale 
+            };
+            
+            unsigned char a = (unsigned char)(bubbles[i].alpha * 255);
+            DrawTexturePro(texturaBolhas, source, dest, (Vector2){0, 0}, 0.0f, (Color){255, 255, 255, a});
+        }
+    }
 }
 
 // =========================================================================
@@ -691,7 +807,7 @@ static void drawStage2Obstacle(Stage2Obstacle obs, Stage2 *stage) {
                 txShark = (frame == 0) ? txSharkL1 : txSharkL2; 
             }
             Rectangle source = { 0.0f, 0.0f, (float)txShark.width, (float)txShark.height };
-            Rectangle dest = { obs.position.x, fabsf(obs.position.y), 320.0f, 150.0f }; 
+            Rectangle dest = { obs.position.x, fabsf(obs.position.y), 420.0f, 200.0f }; 
             Vector2 origin = { 0.0f, 0.0f };
             DrawTexturePro(txShark, source, dest, origin, 0.0f, WHITE);
         } else {
@@ -721,9 +837,6 @@ static void drawStage2Obstacle(Stage2Obstacle obs, Stage2 *stage) {
     }
 }
 
-// =========================================================================
-// RENDERIZAÇÃO DA HUD E BARRAS DE STATUS LOCAL
-// =========================================================================
 static void drawHUD(Stage2 *stage, int isSeaMode) {
     DrawText("VIDA:", 15, 120, 20, isSeaMode ? WHITE : DARKGRAY);
     DrawRectangle(85, 120, 200, 20, (Color){60, 60, 60, 200});
@@ -793,6 +906,8 @@ static void drawSea(Stage2 *stage, Player *player) {
         cur = cur->next;
     }
 
+    updateAndDrawBubbles(GetFrameTime());
+
     drawHUD(stage, 1);
 
     if (netDebuffTimer > 0.0f) {
@@ -800,7 +915,62 @@ static void drawSea(Stage2 *stage, Player *player) {
     }
 }
 
+// REMOVIDO AS ONDAS E AJUSTADO PARA O FUNDO RENDERIZAR SEMPRE PRIMEIRO
+static void drawTransition(Stage2 *stage) {
+    int screenWidth = GetRenderWidth();
+    int screenHeight = GetRenderHeight();
+    
+    // 1. Renderiza o fundo animado (Scroll horizontal da superfície do oceano)
+    if (bgSurfaceLoaded && bgSuperficieMar.id > 0) {
+        float scrollSurf = fmod(stage->backgroundScroll * 0.25f, screenWidth);
+        Rectangle source = { 0.0f, 0.0f, (float)bgSuperficieMar.width, (float)bgSuperficieMar.height };
+
+        for (int i = 0; i < 2; i++) {
+            Rectangle dest = { (i * screenWidth) - scrollSurf, 0.0f, (float)screenWidth, (float)screenHeight };
+            Vector2 origin = { 0.0f, 0.0f };
+            DrawTexturePro(bgSuperficieMar, source, dest, origin, 0.0f, WHITE);
+        }
+    } else {
+        DrawRectangle(0, 0, screenWidth, screenHeight, (Color){15, 60, 140, 255});
+    }
+
+    // 2. Sinal de alerta piscando dinamicamente via canal Alpha
+    float frequenciaPisca = 8.0f; 
+    float alphaPisca = (sinf(stage->modeTimer * frequenciaPisca) + 1.0f) / 2.0f; 
+    unsigned char alphaByte = (unsigned char)(alphaPisca * 255);
+
+    if (txSharkSign.id > 0) {
+        float signWidth = 200.0f;
+        float signHeight = 200.0f;
+        float signX = ((float)screenWidth / 2.0f) - (signWidth / 2.0f);
+        float signY = ((float)screenHeight * 0.30f) - (signHeight / 2.0f);
+
+        Rectangle source = { 0.0f, 0.0f, (float)txSharkSign.width, (float)txSharkSign.height };
+        Rectangle dest = { signX, signY, signWidth, signHeight };
+        DrawTexturePro(txSharkSign, source, dest, (Vector2){0,0}, 0.0f, (Color){255, 255, 255, alphaByte});
+    }
+
+    const char *warningMsg = "CUIDADO: TERRITÓRIO DE TUBARÕES!";
+    int fontSize = 35;
+    int textWidth = MeasureText(warningMsg, fontSize);
+    int posX = (screenWidth - textWidth) / 2;
+    int posY = (int)(screenHeight * 0.48f);
+
+    // Efeito de "Negrito" (Bold manual): Desenha o texto 4 vezes deslocado em 1 pixel
+    // Isso engrossa os traços da fonte original mantendo o estilo padrão.
+    DrawText(warningMsg, posX + 1, posY, fontSize, (Color){255, 60, 60, alphaByte});
+    DrawText(warningMsg, posX - 1, posY, fontSize, (Color){255, 60, 60, alphaByte});
+    DrawText(warningMsg, posX, posY + 1, fontSize, (Color){255, 60, 60, alphaByte});
+    DrawText(warningMsg, posX, posY - 1, fontSize, (Color){255, 60, 60, alphaByte});
+
+    // Desenha o texto principal por cima
+    DrawText(warningMsg, posX, posY, fontSize, (Color){255, 60, 60, alphaByte});
+}
+
 void drawStage2(Stage2 *stage, Player *player) {
+    if (stage->mode == STAGE2_MODE_FINISHED) return;
+
+    // RENDERIZAÇÃO ORDENADA POR CAMADAS: O Fundo renderiza PRIMEIRO.
     switch (stage->mode) {
         case STAGE2_MODE_SAND:       drawSand(stage); break;
         case STAGE2_MODE_TRANSITION: drawTransition(stage); break;
@@ -833,6 +1003,9 @@ void drawStage2(Stage2 *stage, Player *player) {
             }
         }
     } 
+    else if (stage->mode == STAGE2_MODE_TRANSITION) {
+        texturaAtual = (frameGlobal == 0) ? txNadarDireitaParado : txNadarDireitaAtivo;
+    }
     else if (stage->mode == STAGE2_MODE_SEA) {
         if (netDebuffTimer > 0.0f) {
             if (olhandoParaDireita) {
@@ -882,18 +1055,4 @@ void drawStage2(Stage2 *stage, Player *player) {
     } else {
         DrawRectangleRec(player->hitbox, BLUE);
     }
-}
-
-static void drawTransition(Stage2 *stage) {
-    (void)stage;
-    int screenWidth = GetRenderWidth();
-    int screenHeight = GetRenderHeight();
-    
-    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){5, 30, 90, 255});
-    
-    const char *msg = "Mergulhando no mar...";
-    int fontSize = 40;
-    int textWidth = MeasureText(msg, fontSize);
-    
-    DrawText(msg, (screenWidth - textWidth) / 2, screenHeight / 2 - 20, fontSize, WHITE);
 }
