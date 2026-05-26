@@ -5,57 +5,110 @@
 
 #define MAX_CLOUDS 8
 #define MAX_RAINDROPS_PER_CLOUD 50
+
 #define CLOUD_WIDTH 80.0f
 #define CLOUD_HEIGHT 40.0f
+
 #define SCREEN_WIDTH 1920.0f
 #define SCREEN_HEIGHT 1080.0f
+
 #define GROUND_LEVEL 360.0f
 
-// ========== ESTRUTURA DE GOTA DE CHUVA ==========
+// ==========================================
+// GOTA DE CHUVA
+// ==========================================
 typedef struct {
+
     Vector2 position;
+
     float speed;
-    float depth;        // 0.0 = fundo, 1.0 = frente (parallax)
+
+    float depth;
+
     int active;
+
+    Texture2D dropTexture;
+
+    int textureLoaded;
+
 } RainDrop;
 
-// ========== ESTRUTURA DA NUVEM ==========
+// ==========================================
+// NUVEM
+// ==========================================
 typedef struct {
-    Vector2 position;
-    float speed;        // Velocidade horizontal
-    float depth;        // Parallax: quanto mais baixo, mais rápido move
-    Rectangle hitbox;
-    int active;
-    float rainTimer;    // Timer para gerar chuva
-    float rainInterval; // Intervalo entre gotas
-    float intensity;    // Intensidade da chuva (1.0 = normal, 2.0 = forte)
 
-    // Gotas de chuva gerenciadas por essa nuvem
+    Vector2 position;
+
+    float speed;
+
+    float depth;
+
+    Rectangle hitbox;
+
+    int active;
+
+    float rainTimer;
+
+    float rainInterval;
+
+    float intensity;
+
+    Texture2D cloudTexture;
+
+    int textureLoaded;
+
     RainDrop drops[MAX_RAINDROPS_PER_CLOUD];
+
     int dropCount;
 
-    // Escala e aparência
     float scale;
+
     Color color;
 
 } CloudEntity;
 
-typedef CloudEntity Cloud;  // Compatibility alias for stage3.h
+typedef CloudEntity Cloud;
 
-// ========== SISTEMA DE NUVENS ==========
+// ==========================================
+// SISTEMA DE NUVENS
+// ==========================================
 typedef struct {
+
     CloudEntity clouds[MAX_CLOUDS];
+
     int cloudCount;
+
     float spawnTimer;
+
     float spawnInterval;
-    float rainIntensity;  // Intensidade geral da chuva (0.5 a 2.0)
+
+    float rainIntensity;
+
 } CloudSystem;
 
-// ========== FUNÇÕES ==========
+// ==========================================
+// FUNÇÕES
+// ==========================================
 CloudSystem createCloudSystem(void);
-void updateCloudSystem(CloudSystem *system, float scrollSpeed, float deltaTime);
-void drawCloudSystem(CloudSystem system);
-void resetCloudSystem(CloudSystem *system);
-void setRainIntensity(CloudSystem *system, float intensity);
+
+void updateCloudSystem(
+    CloudSystem *system,
+    float scrollSpeed,
+    float deltaTime
+);
+
+void drawCloudSystem(
+    CloudSystem system
+);
+
+void resetCloudSystem(
+    CloudSystem *system
+);
+
+void setRainIntensity(
+    CloudSystem *system,
+    float intensity
+);
 
 #endif
