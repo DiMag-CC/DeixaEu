@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 
-// ========== CARREGAR SEQUÊNCIA DE ANIMAÇÃO ==========
 AnimationSequence animation_load_sequence(const char* base_name, char direction, float fps, int loop) {
     AnimationSequence seq = {0};
     seq.fps = fps;
@@ -38,7 +37,6 @@ AnimationSequence animation_load_sequence(const char* base_name, char direction,
     return seq;
 }
 
-// ========== CARREGAR SET DIRECIONAL ==========
 DirectionalAnimationSet animation_load_directional(const char* base_name, float fps, int loop) {
     DirectionalAnimationSet set = {0};
     set.left = animation_load_sequence(base_name, 'L', fps, loop);
@@ -47,7 +45,6 @@ DirectionalAnimationSet animation_load_directional(const char* base_name, float 
     return set;
 }
 
-// ========== ATUALIZAR SEQUÊNCIA COM DELTATIME ==========
 void animation_sequence_update(AnimationSequence* seq, float delta_time) {
     if (seq->frame_count == 0) return;
 
@@ -67,13 +64,11 @@ void animation_sequence_update(AnimationSequence* seq, float delta_time) {
     seq->current_frame_index = frame_index;
 }
 
-// ========== ATUALIZAR SET DIRECIONAL ==========
 void directional_animation_update(DirectionalAnimationSet* set, float delta_time) {
     animation_sequence_update(&set->left, delta_time);
     animation_sequence_update(&set->right, delta_time);
 }
 
-// ========== RENDERIZAR SEQUÊNCIA ==========
 void animation_sequence_render(AnimationSequence* seq, float x, float y, float scale, Color tint) {
     if (seq->frame_count == 0) return;
 
@@ -91,13 +86,11 @@ void animation_sequence_render(AnimationSequence* seq, float x, float y, float s
     DrawTexturePro(frame->texture, source, dest, (Vector2){0, 0}, 0, tint);
 }
 
-// ========== RENDERIZAR DIRECIONAL AUTOMÁTICO ==========
 void directional_animation_render(DirectionalAnimationSet* set, float x, float y, float scale, Color tint) {
     AnimationSequence* seq = (set->direction == 'L') ? &set->left : &set->right;
     animation_sequence_render(seq, x, y, scale, tint);
 }
 
-// ========== DESCARREGAR SEQUÊNCIA ==========
 void animation_sequence_unload(AnimationSequence* seq) {
     for (int i = 0; i < seq->frame_count; i++) {
         if (seq->frames[i].texture.id != 0) {
@@ -107,7 +100,6 @@ void animation_sequence_unload(AnimationSequence* seq) {
     seq->frame_count = 0;
 }
 
-// ========== DESCARREGAR SET DIRECIONAL ==========
 void directional_animation_unload(DirectionalAnimationSet* set) {
     animation_sequence_unload(&set->left);
     animation_sequence_unload(&set->right);

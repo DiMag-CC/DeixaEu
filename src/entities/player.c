@@ -11,6 +11,11 @@
 #define KNOCKBACK_DURATION 1.2f
 #define DAMAGE_INVINCIBILITY_DURATION 2.0f
 #define TEXTURE_VALID(tex) ((tex).id > 0)
+#define GRAVITY_FALLING_MULT 1.8f
+#define AIR_ACCEL_MULT 0.6f
+#define COYOTE_TIME 0.1f
+#define JUMP_BUFFER_TIME 0.05f
+#define MAX_JUMP_HOLD_TIME 0.15f
 
 Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     Player player = {0};
@@ -30,8 +35,20 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
 
     player.isGrounded = 1;
     player.isJumping = 0;
+    player.isPerformingStunt = 0;
     player.jumpPower = JUMP_FORCE;
     player.fallSpeed = 0.0f;
+
+    player.isGrounded = 1;
+    player.isJumping = 0;
+    player.isPerformingStunt = 0;
+    player.jumpPower = JUMP_FORCE;
+    player.fallSpeed = 0.0f;
+
+    player.coyoteTimer = 0.0f;
+    player.jumpBufferTimer = 0.0f;
+    player.jumpHoldTime = 0.0f;
+    player.airAccelerationMult = 1.0f;
 
     player.state = PLAYER_STATE_IDLE;
 
@@ -89,6 +106,12 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     player.spriteBikeMovingL =
         LoadTexture("assets/img/CharacterBikeMovingL.png");
 
+    player.spriteBikeStuntR = 
+        LoadTexture("assets/img/CharacterBikeStuntR.png");
+        
+    player.spriteBikeStuntL = 
+        LoadTexture("assets/img/CharacterBikeStuntL.png");
+
     SetTextureFilter(
         player.spriteStandingR,
         TEXTURE_FILTER_POINT
@@ -139,7 +162,17 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
         TEXTURE_FILTER_POINT
     );
 
-    if (
+    SetTextureFilter(
+        player.spriteBikeStuntR, 
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeStuntL, 
+        TEXTURE_FILTER_POINT
+    );
+
+        if (
     TEXTURE_VALID(player.spriteStandingR) &&
     TEXTURE_VALID(player.spriteStandingL) &&
     TEXTURE_VALID(player.spriteMovingR) &&
@@ -149,7 +182,9 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
     TEXTURE_VALID(player.spriteBikeStandingR) &&
     TEXTURE_VALID(player.spriteBikeStandingL) &&
     TEXTURE_VALID(player.spriteBikeMovingR) &&
-    TEXTURE_VALID(player.spriteBikeMovingL)
+    TEXTURE_VALID(player.spriteBikeMovingL) &&
+    TEXTURE_VALID(player.spriteBikeStuntR) &&    
+    TEXTURE_VALID(player.spriteBikeStuntL)     
     ) {
         player.spritesLoaded = 1;
     }
@@ -171,90 +206,132 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
 }
 
 void updatePlayer(Player *player, float deltaTime) {
-
+ 
     if (player->lives <= 0) {
         player->state = PLAYER_STATE_DEAD;
         return;
     }
-
+ 
     float moveInput = 0.0f;
-
+ 
     if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
         moveInput = -1.0f;
     }
-
+ 
     if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
         moveInput = 1.0f;
     }
-
-    float accelAmount = 800.0f;
-
+ 
+    float baseAccel = 800.0f;
+    float accelAmount = player->isGrounded ? baseAccel : (baseAccel * AIR_ACCEL_MULT);
+ 
     player->acceleration.x = moveInput * accelAmount;
     player->velocity.x += player->acceleration.x * deltaTime;
-
+ 
     if (moveInput == 0.0f) {
         player->velocity.x *= FRICTION;
     }
-
+ 
     if (player->slowEffectTimer > 0.0f) {
-
+ 
         player->slowEffectTimer -= deltaTime;
-
+ 
         if (player->slowEffectTimer <= 0.0f) {
-
+ 
             player->slowEffectTimer = 0.0f;
             player->speedMultiplier = 1.0f;
         }
     }
-
+ 
     player->velocity.x *= player->speedMultiplier;
-
+ 
     if (player->velocity.x > player->maxSpeed) {
         player->velocity.x = player->maxSpeed;
     }
-
+ 
     if (player->velocity.x < -player->maxSpeed) {
         player->velocity.x = -player->maxSpeed;
     }
-
+ 
+    if (IsKeyDown(KEY_W)) {
+        player->isPerformingStunt = 1;
+    } else {
+        player->isPerformingStunt = 0;
+    }
+ 
+    if (IsKeyPressed(KEY_SPACE)) {
+        player->jumpBufferTimer = JUMP_BUFFER_TIME;
+        player->jumpHoldTime = 0.0f;  
+    }
+ 
+    if (player->jumpBufferTimer > 0.0f) {
+        player->jumpBufferTimer -= deltaTime;
+    } else {
+        player->jumpBufferTimer = 0.0f;
+    }
+ 
+    if (player->isGrounded) {
+        player->coyoteTimer = COYOTE_TIME;
+    } else {
+        player->coyoteTimer -= deltaTime;
+    }
+ 
+    if (IsKeyDown(KEY_SPACE)) {
+        player->jumpHoldTime += deltaTime;
+        if (player->jumpHoldTime > MAX_JUMP_HOLD_TIME) {
+            player->jumpHoldTime = MAX_JUMP_HOLD_TIME;
+        } 
+    } else {
+        player->jumpHoldTime = 0.0f;  
+    }
+ 
     if (
-        player->isGrounded &&
-        (
-            IsKeyPressed(KEY_SPACE) ||
-            IsKeyPressed(KEY_W) ||
-            IsKeyPressed(KEY_UP)
-        )
+        (player->isGrounded || player->coyoteTimer > 0.0f || player->jumpBufferTimer > 0.0f) &&
+        IsKeyPressed(KEY_SPACE)
     ) {
 
-        player->velocity.y = -player->jumpPower;
-
+        float jumpMultiplier = player->jumpHoldTime / MAX_JUMP_HOLD_TIME;
+        if (jumpMultiplier < 0.3f) jumpMultiplier = 0.8f; 
+ 
+        player->velocity.y = -player->jumpPower * jumpMultiplier;
+ 
         player->isJumping = 1;
         player->isGrounded = 0;
-
+        player->coyoteTimer = 0.0f;      // Consome coyote time
+        player->jumpBufferTimer = 0.0f;  // Consome jump buffer
+        player->jumpHoldTime = 0.0f;     // Reset
+ 
         player->state = PLAYER_STATE_JUMPING;
     }
-
-    player->acceleration.y = GRAVITY;
+ 
+    if (player->velocity.y > 0.0f) {
+        // Está caindo: aplica gravidade aumentada
+        player->acceleration.y = GRAVITY * GRAVITY_FALLING_MULT;
+    } else {
+        // Está subindo: gravidade normal
+        player->acceleration.y = GRAVITY;
+    }
+ 
     player->velocity.y += player->acceleration.y * deltaTime;
-
+ 
     player->position.x += player->velocity.x * deltaTime;
     player->position.y += player->velocity.y * deltaTime;
-
+ 
     float groundY =
         GLOBAL_GROUND_LEVEL - player->height + 300.0f;
-
+ 
     if (player->position.y >= groundY) {
-
+ 
         player->position.y = groundY + 160.0f;
-
+ 
         player->velocity.y = 0.0f;
-
+ 
         player->isGrounded = 1;
         player->grounded = 1;
         player->isJumping = 0;
-
+ 
     } else {
-
+ 
         player->isGrounded = 0;
         player->grounded = 0;
     }
@@ -268,30 +345,30 @@ void updatePlayer(Player *player, float deltaTime) {
         player->position.x = minX;
         player->velocity.x = 0.0f;
     }
-
+ 
     if (player->position.x > maxX) {
         player->position.x = maxX;
         player->velocity.x = 0.0f;
     }
-
+ 
     player->hitbox.x =
         player->position.x - player->width * 0.35f;
-
+ 
     player->hitbox.y =
         player->position.y - player->height + 20.0f;
-
+ 
     player->hitbox.width =
         player->width * 0.7f;
-
+ 
     player->hitbox.height =
         player->height - 20.0f;
-
+ 
     if (player->knockbackTimer > 0.0f) {
-
+ 
         player->knockbackTimer -= deltaTime;
-
+ 
         if (player->knockbackTimer <= 0.0f) {
-
+ 
             player->knockbackTimer = 0.0f;
             player->knockbackSpeed = 0.0f;
         }
@@ -305,45 +382,45 @@ void updatePlayer(Player *player, float deltaTime) {
     }
 
     if (player->hasUmbrella) {
-
+ 
         player->umbrellaTimer -= deltaTime;
-
+ 
         if (player->umbrellaTimer <= 0.0f) {
-
+ 
             player->umbrellaTimer = 0.0f;
             player->hasUmbrella = 0;
         }
     }
-
+ 
     if (player->knockbackTimer > 0.0f) {
-
+ 
         player->state = PLAYER_STATE_HIT;
-
+ 
     } else if (!player->isGrounded) {
-
+ 
         if (player->velocity.y < 0.0f) {
             player->state = PLAYER_STATE_JUMPING;
         } else {
             player->state = PLAYER_STATE_FALLING;
         }
-
+ 
     } else {
-
+ 
         if (fabs(player->velocity.x) > 10.0f) {
             player->state = PLAYER_STATE_RUNNING;
         } else {
             player->state = PLAYER_STATE_IDLE;
         }
     }
-
+ 
     if (player->velocity.x > 0.1f) {
         player->direction = 'R';
     }
-
+ 
     if (player->velocity.x < -0.1f) {
         player->direction = 'L';
     }
-
+ 
     player->score += fabs(player->velocity.x) * deltaTime;
 }
 
@@ -366,17 +443,22 @@ void drawPlayer(Player player) {
 
     if (player.on_bike) {
 
-        if (fabs(player.velocity.x) > 10.0f) {
 
-            currentSprite =
-                (player.direction == 'R')
+        // Se está fazendo stunt (W pressionado)
+        if (player.isPerformingStunt) {
+            currentSprite = (player.direction == 'R') 
+                ? player.spriteBikeStuntR 
+                : player.spriteBikeStuntL;
+        }
+        // Se está em movimento
+        else if (fabs(player.velocity.x) > 10.0f) {
+            currentSprite = (player.direction == 'R')
                 ? player.spriteBikeMovingR
                 : player.spriteBikeMovingL;
-
-        } else {
-
-            currentSprite =
-                (player.direction == 'R')
+        }
+        //Em repouso
+        else {
+            currentSprite = (player.direction == 'R')
                 ? player.spriteBikeStandingR
                 : player.spriteBikeStandingL;
         }
