@@ -10,14 +10,14 @@ O objetivo do jogo é completar todas as fases, superar os obstáculos e chegar 
 
 ---
 
-# 🕹️ Gameplay
+## 🕹️ Gameplay
 
-* Pressione ENTER para iniciar e Q para sair a qualquer momento.
-* O jogador controla o personagem usando as teclas **W, A, S, D** ou setas do teclado.
-* O jogo possui movimentação lateral, obstáculos dinâmicos e progressão por fases.
-* Cada fase possui desafios únicos inspirados na cultura e no cotidiano recifense.
-* O tempo total da partida será registrado em um sistema de ranking.
+* Pressione ENTER para **iniciar** e Q para **sair** a qualquer momento.
+* O jogador controla o personagem utilizando as teclas **W, A, S, D** ou setas do teclado.
+* O jogo possui movimentação lateral, obstáculos dinâmicos e progressão contínua por fases.
+* Cada fase apresenta desafios únicos inspirados no cotidiano recifense.
 * Obstáculos aparecem dinamicamente utilizando estruturas de dados integradas à gameplay.
+* O tempo total da partida será registrado em um sistema de ranking.
 
 ---
 
@@ -29,22 +29,23 @@ O objetivo do jogo é completar todas as fases, superar os obstáculos e chegar 
 
 O personagem foge pelas ruas chuvosas do Recife utilizando uma bicicleta Itaú laranja.
 
-### Obstáculos
+### 🚧 Obstáculos
 
 * Buracos;
 * Fezes de pombo;
 * Ônibus;
 * Chuva intensa.
 
-### **Power Up**
+### ⚡ Power-up
 
-Guarda-chuva:
+🌂 Guarda-chuva:
 
-* evita damage da chuva;
+* reduz os efeitos da chuva;
+* protege temporariamente contra lentidão.
 
-### **Objetivo**
+### 🏁 Objetivo
 
-Chegar até a Orla de Boa Viagem sem colidir.
+Chegar até a Orla de Boa Viagem sem perder todas as vidas.
 
 ---
 
@@ -52,21 +53,23 @@ Chegar até a Orla de Boa Viagem sem colidir.
 
 O jogador atravessa a praia de Boa Viagem correndo pela areia e posteriormente entrando no mar.
 
-### Obstáculos
+### 🚧 Obstáculos
 
 * Caranguejos;
 * Ondas;
 * Água-viva;
-* Tubarão.
+* Tubarão;
+* Correntes marítimas;
+* Redes.
 
-### Power-up
+### ⚡ Power-up
 
-Água de coco:
+🥥 Água de coco:
 
 * aumenta velocidade;
 * melhora desempenho temporariamente.
 
-### Objetivo
+### 🏁 Objetivo
 
 Escapar do tubarão e alcançar o Recife Antigo.
 
@@ -76,13 +79,14 @@ Escapar do tubarão e alcançar o Recife Antigo.
 
 O jogador chega ao Parque das Esculturas Francisco Brennand e inicia a escalada final.
 
-### Obstáculos
+### 🚧 Obstáculos
 
 * Ventania;
-* Chuva;
-* Partes escorregadias;
+* Chuva pesada;
+* Plataformas quebradiças;
+* Partes escorregadias.
 
-### Objetivo
+### 🏁 Objetivo
 
 Alcançar o topo da escultura e finalizar a aventura.
 
@@ -120,12 +124,12 @@ Utilizadas para gerenciamento dos obstáculos.
 ### Aplicações
 
 * Spawn de obstáculos;
-* Controle de objetos na tela;
+* Controle de entidades na tela;
 * Atualização dinâmica.
 
 ### Funcionamento
 
-FIFO (First In First Out).
+FIFO (*First In First Out*).
 
 ---
 
@@ -143,33 +147,62 @@ Responsável pela ordenação do ranking de jogadores.
 
 # 📁 Estrutura do Projeto
 
+Abaixo está a estrutura principal utilizada no projeto:
+
 ```text
 DeixaEu/
 ├── assets/
-│   ├── sprites/
-│   ├── audio/
-│   ├── backgrounds/
+│   ├── img/
+│   ├── music/
+│   ├── sfx/
 │   └── fonts/
 │
 ├── src/
 │   ├── main.c
-│   ├── jogo.c
-│   ├── player.c
-│   ├── fases.c
-│   ├── lista_fases.c
-│   ├── fila_obstaculos.c
-│   ├── ranking.c
-│   ├── colisao.c
-│   └── interface.c
+│   │
+│   ├── entities/
+│   │   ├── player.c
+│   │   ├── bike.c
+│   │   ├── bus.c
+│   │   ├── pigeon.c
+│   │   ├── shark.c
+│   │   └── obstacle.c
+│   │
+│   ├── steps/
+│   │   ├── stage1.c
+│   │   ├── stage2.c
+│   │   └── stage3.c
+│   │
+│   ├── structure/
+│   │   ├── obstacleQueue.c
+│   │   └── stepList.c
+│   │
+│   ├── gfx/
+│   │   ├── animation.c
+│   │   └── sprite.c
+│   │
+│   └── utils/
+│       ├── constants.h
+│       └── utils.c
 │
 ├── docs/
-│   ├── especificacao.md
 │   ├── estruturas_de_dados.md
+│   ├── especificacao.md
 │   └── apresentacao/
 │
 ├── README.md
 └── Makefile
 ```
+
+---
+
+## 👥 Time de Desenvolvimento
+
+* **Arthur Moury**
+* **Diego Magnata**
+* **Luiza Barbosa**
+* **Helio de Moraes**
+* **Maria Augusta**
 
 ---
 
@@ -187,23 +220,24 @@ DeixaEu/
 
 # ▶️ Executando o Jogo
 
-## ⚠️ Pré-requisitos
+## ⚠️ Pré-requisito importante
 
-* GCC instalado;
-* Raylib instalada e configurada no sistema.
+* Para compilar o jogo, você precisa ter o **Raylib** instalado no sistema.
 
-Mais informações:
+Mais informações sobre instalação:
 https://www.raylib.com/
 
 ---
 
-# 🚀 Clonando o Repositório
+## 🚀 Clonando o Repositório
+
+No terminal:
 
 ```bash
 git clone https://github.com/DiMag-CC/DeixaEu.git
 ```
 
-Entre na pasta do projeto:
+Entre no diretório do projeto:
 
 ```bash
 cd DeixaEu
@@ -211,37 +245,64 @@ cd DeixaEu
 
 ---
 
-# 🛠️ Compilação
+## 🛠️ Compilação
 
-## Entre na pasta src/
-
-```bash
-cd src
-```
-
-## Compile o projeto
+### Compilar utilizando Makefile
 
 ```bash
-gcc -o jogo *.c -lraylib -lm
+make
 ```
 
 ---
 
-# ▶️ Execução
-
-Volte para a pasta raiz:
+### Compilação manual
 
 ```bash
-cd ..
-```
-
-Execute o jogo:
-
-```bash
-./src/jogo
+gcc src/main.c \
+src/entities/*.c \
+src/steps/*.c \
+src/structure/*.c \
+src/utils/*.c \
+src/gfx/*.c \
+-I./src/entities \
+-I./src/steps \
+-I./src/structure \
+-I./src/utils \
+-I./src/gfx \
+-o deixaeu \
+$(pkg-config --cflags --libs raylib) \
+-lm
 ```
 
 ---
+
+## ▶️ Execução
+
+Execute:
+
+```bash
+./deixaeu
+```
+
+Ou:
+
+```bash
+make run
+```
+
+---
+
+# &#x20;🎮 Demonstração do Jogo
+
+---
+
+# 📝 Apresentação de Slides
+
+Acesse os slides completos da apresentação do projeto:
+
+---
+
+  
 
 # 🎨 Estilo Visual
 
@@ -249,7 +310,8 @@ Execute o jogo:
 * Atmosfera urbana recifense;
 * Humor regional;
 * Clima chuvoso;
-* Referências culturais locais.
+* Referências culturais locais;
+* Visual arcade cinematográfico.
 
 ---
 
@@ -265,27 +327,17 @@ Mistura de:
 
 ---
 
-# 👥 Time de Desenvolvimento
-
-* **Arthur Moury**
-* **Diego Magnata**
-* **Luiza Barbosa**
-* **Helio de Moraes**
-* **Maria Augusta**
-
----
-
 # 💡 Diferencial do Projeto
 
-O diferencial técnico do projeto é que as estruturas de dados não são utilizadas apenas para armazenamento, mas fazem parte diretamente da gameplay.
+O diferencial técnico do projeto é que as estruturas de dados não são utilizadas apenas para armazenamento interno, mas fazem parte diretamente da gameplay.
 
 As estruturas influenciam:
 
 * progressão;
-* obstáculos;
 * movimentação;
+* obstáculos;
 * ranking;
-* fluxo do jogo.
+* dinâmica do jogo.
 
 ---
 
@@ -297,33 +349,88 @@ As estruturas influenciam:
 * Sistema de skins;
 * Novos power-ups;
 * IA para obstáculos;
-* Sistema de missões.
+* Sistema de missões;
+* Boss fights urbanas.
 
 ---
 
 # 🤝 Como Contribuir
 
-1. Faça um fork do projeto;
-2. Crie uma branch:
+Obrigado pelo interesse em contribuir com o **Deixa Eu**.
+
+---
+
+## 🛠️ Pré-requisitos
+
+Antes de começar:
+
+1. Instale o GCC;
+2. Instale e configure o Raylib corretamente no sistema.
+
+---
+
+## 🚀 Guia de Desenvolvimento
+
+### 1. Faça um Fork
+
+Crie um fork do projeto no GitHub.
+
+---
+
+### 2. Clone seu fork
+
+```bash
+git clone https://github.com/SEU-USUARIO/DeixaEu.git
+```
+
+Entre no diretório:
+
+```bash
+cd DeixaEu
+```
+
+---
+
+### 3. Crie uma branch
 
 ```bash
 git checkout -b feature/minha-feature
 ```
 
-3. Faça suas alterações;
-4. Commit:
+---
+
+### 4. Compile o projeto
 
 ```bash
+make
+```
+
+---
+
+### 5. Commit das alterações
+
+```bash
+git add .
+
 git commit -m "Feat: adiciona nova funcionalidade"
 ```
 
-5. Push da branch:
+---
+
+### 6. Push para o GitHub
 
 ```bash
 git push origin feature/minha-feature
 ```
 
-6. Abra um Pull Request.
+---
+
+### 7. Abra um Pull Request
+
+1. Acesse seu fork no GitHub;
+2. Clique em **Compare & pull request**;
+3. Explique claramente suas alterações;
+4. Clique em **Create pull request**.
 
 ---
 
@@ -331,8 +438,8 @@ git push origin feature/minha-feature
 
 Muito obrigado por acompanhar e apoiar o projeto **Deixa Eu**.
 
-Esse jogo é uma homenagem divertida ao caos, à cultura e à identidade do Recife, misturando humor regional, gameplay arcade e estruturas de dados aplicadas na prática.
+Esse jogo é uma homenagem divertida ao caos, à cultura e à identidade do Recife, misturando gameplay arcade, humor regional e estruturas de dados aplicadas na prática.
 
 E no final de toda aventura:
 
->  ❤️  **“Valeu a pena, mãe.”**
+> ❤️ **“Valeu a pena, mãe.”**
