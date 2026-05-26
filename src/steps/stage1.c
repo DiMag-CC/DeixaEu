@@ -181,13 +181,87 @@ static void handleCollisions(Stage1 *stage, Player *player) {
                 break;
 
             case QUEUE_OBS_BUS:
-                obstacleHitbox = qobs->data.bus.hitbox;
-                if (qobs->data.bus.active && CheckCollisionRecs(player->hitbox, obstacleHitbox)) {
-                    damagePlayer(player, 300.0f);
+
+        obstacleHitbox =
+            qobs->data.bus.hitbox;
+
+        if (
+            qobs->data.bus.active &&
+            CheckCollisionRecs(
+                player->hitbox,
+                obstacleHitbox
+            )
+        ) {
+
+            float playerBottom =
+                player->hitbox.y +
+                player->hitbox.height;
+
+            float playerTop =
+                player->hitbox.y;
+
+            float playerLeft =
+                player->hitbox.x;
+
+            float playerRight =
+                player->hitbox.x +
+                player->hitbox.width;
+
+            float busTop =
+                obstacleHitbox.y;
+
+            float busLeft =
+                obstacleHitbox.x;
+
+            float busRight =
+                obstacleHitbox.x +
+                obstacleHitbox.width;
+
+            // =====================================
+            // PLAYER CAINDO EM CIMA DO ÔNIBUS
+            // =====================================
+
+            if (
+                player->velocity.y > 0 &&
+                playerBottom >= busTop &&
+                playerBottom <= busTop + 28.0f &&
+                playerRight > busLeft + 20.0f &&
+                playerLeft < busRight - 20.0f
+            ) {
+
+                player->position.y =
+                    busTop -
+                    player->height +
+                    20.0f;
+
+                player->velocity.y = 0.0f;
+
+                player->isGrounded = 1;
+                player->isJumping = 0;
+
+                // mover junto com ônibus
+                player->position.x -=
+                    stage->scrollSpeed *
+                    GetFrameTime();
+            }
+
+                // =====================================
+                // BATIDA LATERAL
+                // =====================================
+
+            else {
+
+                damagePlayer(
+                    player,
+                    300.0f
+                    );
+
                     qobs->data.bus.active = 0;
                     qobs->active = 0;
                 }
-                break;
+            }
+
+            break;
 
             case QUEUE_OBS_PIGEON:
                 // Colisão com pombo
@@ -359,19 +433,40 @@ void updateStage1(Stage1 *stage, Player *player, float deltaTime) {
         spawnRandomObstacle(stage);
     }
 
-    float playerGroundY =
-        stage->groundLevel - player->height + 112.0f;
+        float playerGroundY =
+        stage->groundLevel -
+        player->height +
+        112.0f;
 
-    // Se o player está muito acima do chão, trazer com gravidade
-    if (player->position.y < playerGroundY - 5.0f) {
-        player->velocity.y += 600.0f * deltaTime;
-    } else if (player->position.y > playerGroundY) {
-        // Player no chão
-        player->position.y = playerGroundY;
-        player->velocity.y = 0;
+    // =====================================
+    // GRAVIDADE
+    // =====================================
+
+    player->isGrounded = 0;
+
+    if (player->position.y < playerGroundY) {
+
+        player->velocity.y +=
+            900.0f * deltaTime;
+    }
+
+    // =====================================
+    // COLISÃO COM O CHÃO
+    // =====================================
+
+    if (
+        player->position.y >= playerGroundY &&
+        player->velocity.y >= 0
+    ) {
+
+        player->position.y =
+            playerGroundY;
+
+        player->velocity.y = 0.0f;
+
         player->isGrounded = 1;
-    } else {
-        player->isGrounded = 1;
+
+        player->isJumping = 0;
     }
 
 
