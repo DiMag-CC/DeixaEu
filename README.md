@@ -294,11 +294,26 @@ make run
 
 # &#x20;🎮 Demonstração do Jogo
 
+<p align="center">
+  <a href="linkvideo" target="_blank" rel="noopener">
+    <strong>▶️ Assistir vídeo completo (abre em nova aba)</strong>
+  </a>
+</p>
+
+<p align="center">
+  <a href="resources/DeixaEu.gif">
+    <img src="resources/DeixaEu.gif" alt="Preview da gameplay — DeixaEu" style="max-width:100%; height:auto; border:1px solid #ddd; border-radius:6px;">
+  </a>
+  <br>
+  <small>GIF de Gameplay — toque para melhor experiência</small>
+</p>
 ---
 
 # 📝 Apresentação de Slides
 
 Acesse os slides completos da apresentação do projeto:
+
+[DeixaEu](https://www.anygen.io/share/6Q8dTzsVSsZus6v4gLStE?share_id=7644327391606623963)
 
 ---
 
