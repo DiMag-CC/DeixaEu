@@ -5,12 +5,15 @@
 #define BUS_TARGET_WIDTH 320.0f
 #define BUS_TARGET_HEIGHT 140.0f
 #define BUS_TOP_SURFACE_HEIGHT 30.0f  
+#define BUS_STAND_PLATFORM_HEIGHT 8.0f
+#define BUS_STAND_PLATFORM_LIFT 2.0f
 
 Bus createBus(Vector2 position) {
 
     Bus bus;
 
     bus.position = position;
+    bus.prevX = position.x;
 
     bus.active = 1;
 
@@ -45,6 +48,13 @@ Bus createBus(Vector2 position) {
         BUS_TOP_SURFACE_HEIGHT  // 30px de altura
     };
 
+    bus.standPlatformHitbox = (Rectangle){
+        bus.position.x - BUS_TARGET_WIDTH / 2 + 10.0f,
+        bus.position.y - BUS_TARGET_HEIGHT - BUS_STAND_PLATFORM_LIFT,
+        BUS_TARGET_WIDTH - 20.0f,
+        BUS_STAND_PLATFORM_HEIGHT
+    };
+
     // ===== NOVOS CAMPOS =====
     bus.playerOnTop = 0;
     bus.playerStandingTime = 0.0f;
@@ -56,6 +66,8 @@ Bus createBus(Vector2 position) {
 void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
 
     if (!bus->active) return;
+
+    bus->prevX = bus->position.x;
 
     // Movimento lateral
     bus->position.x -=
@@ -90,6 +102,18 @@ void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
     bus->topHitbox.height =
         BUS_TOP_SURFACE_HEIGHT;
 
+    bus->standPlatformHitbox.x =
+        bus->position.x - BUS_TARGET_WIDTH / 2 + 10.0f;
+
+    bus->standPlatformHitbox.y =
+        bus->topHitbox.y - BUS_STAND_PLATFORM_LIFT;
+
+    bus->standPlatformHitbox.width =
+        BUS_TARGET_WIDTH - 20.0f;
+
+    bus->standPlatformHitbox.height =
+        BUS_STAND_PLATFORM_HEIGHT;
+
     // ===== ATUALIZAR TEMPO EM PÉ =====
     if (bus->playerOnTop) {
         bus->playerStandingTime += deltaTime;
@@ -97,8 +121,9 @@ void updateBus(Bus *bus, float scrollSpeed, float deltaTime) {
         bus->playerStandingTime = 0.0f;
     }
 
-    // Desativar fora da tela
-    if (bus->position.x < -BUS_TARGET_WIDTH) {
+    // Desativar assim que o ônibus cruza a borda esquerda para
+    // evitar colisão fantasma perto do limite da tela.
+    if (bus->position.x < -(BUS_TARGET_WIDTH * 0.5f)) {
         bus->active = 0;
     }
 }

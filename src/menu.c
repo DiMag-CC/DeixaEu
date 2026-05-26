@@ -41,7 +41,7 @@ static void drawMenuBackground(float scale) {
                            (Color){ 10, 29, 60, 255 },
                            (Color){ 113, 84, 104, 255 });
 
-    DrawCircleGradient((int)(screenWidth * 0.62f), (int)(screenHeight * 0.31f), (int)(78 * scale),
+    DrawCircleGradient((int)(screenWidth * 0.62f), (int)(screenHeight * 0.31f), 78.0f * scale,
                        (Color){ 229, 213, 139, 140 },
                        (Color){ 229, 213, 139, 0 });
     DrawCircle((int)(screenWidth * 0.62f), (int)(screenHeight * 0.31f), (int)(24 * scale),

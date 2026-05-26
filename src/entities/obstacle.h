@@ -3,8 +3,8 @@
 
 #include <raylib.h>
 
-#define HOLE_WIDTH 50.0f
-#define HOLE_HEIGHT 40.0f
+#define HOLE_WIDTH 70.0f
+#define HOLE_HEIGHT 50.0f
 
 // ========== TIPOS DE OBSTÁCULO ==========
 typedef enum {

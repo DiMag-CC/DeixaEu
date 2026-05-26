@@ -109,16 +109,16 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
         LoadTexture("assets/img/CharacterBikeStuntL.png");
 
     // ===== CARREGAR SPRITES COM GUARDA-CHUVA ← NOVO =====
-    player.spriteBikeMovingUmbrelaR =
+    player.spriteBikeMovingUmbrellaR =
         LoadTexture("assets/img/CharacterBikeMovingUmbrelaR.png");
 
-    player.spriteBikeMovingUmbrelaL =
+    player.spriteBikeMovingUmbrellaL =
         LoadTexture("assets/img/CharacterBikeMovingUmbrelaL.png");
 
-    player.spriteBikeStuntUmbrelaR =
+    player.spriteBikeStuntUmbrellaR =
         LoadTexture("assets/img/CharacterBikeStuntUmbrelaR.png");
 
-    player.spriteBikeStuntUmbrelaL =
+    player.spriteBikeStuntUmbrellaL =
         LoadTexture("assets/img/CharacterBikeStuntUmbrelaL.png");
     // =====================================================
 
@@ -185,22 +185,22 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
 
     // ===== APLICAR FILTRO POINT NOS SPRITES COM GUARDA-CHUVA ← NOVO =====
     SetTextureFilter(
-        player.spriteBikeMovingUmbrelaR,
+        player.spriteBikeMovingUmbrellaR,
         TEXTURE_FILTER_POINT
     );
 
     SetTextureFilter(
-        player.spriteBikeMovingUmbrelaL,
+        player.spriteBikeMovingUmbrellaL,
         TEXTURE_FILTER_POINT
     );
 
     SetTextureFilter(
-        player.spriteBikeStuntUmbrelaR,
+        player.spriteBikeStuntUmbrellaR,
         TEXTURE_FILTER_POINT
     );
 
     SetTextureFilter(
-        player.spriteBikeStuntUmbrelaL,
+        player.spriteBikeStuntUmbrellaL,
         TEXTURE_FILTER_POINT
     );
     // =======================================================================
@@ -218,10 +218,10 @@ Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
         TEXTURE_VALID(player.spriteBikeMovingL) &&
         TEXTURE_VALID(player.spriteBikeStuntR) &&    
         TEXTURE_VALID(player.spriteBikeStuntL) &&
-        TEXTURE_VALID(player.spriteBikeMovingUmbrelaR) &&
-        TEXTURE_VALID(player.spriteBikeMovingUmbrelaL) &&
-        TEXTURE_VALID(player.spriteBikeStuntUmbrelaR) &&
-        TEXTURE_VALID(player.spriteBikeStuntUmbrelaL)
+        TEXTURE_VALID(player.spriteBikeMovingUmbrellaR) &&
+        TEXTURE_VALID(player.spriteBikeMovingUmbrellaL) &&
+        TEXTURE_VALID(player.spriteBikeStuntUmbrellaR) &&
+        TEXTURE_VALID(player.spriteBikeStuntUmbrellaL)
     ) {
         player.spritesLoaded = 1;
     }
@@ -505,20 +505,20 @@ void drawPlayer(Player player) {
             // Se está fazendo stunt (W pressionado)
             if (player.isPerformingStunt) {
                 currentSprite = (player.direction == 'R') 
-                    ? player.spriteBikeStuntUmbrelaR 
-                    : player.spriteBikeStuntUmbrelaL;
+                    ? player.spriteBikeStuntUmbrellaR 
+                    : player.spriteBikeStuntUmbrellaL;
             }
             // Se está em movimento
             else if (fabs(player.velocity.x) > 10.0f) {
                 currentSprite = (player.direction == 'R')
-                    ? player.spriteBikeMovingUmbrelaR
-                    : player.spriteBikeMovingUmbrelaL;
+                    ? player.spriteBikeMovingUmbrellaR
+                    : player.spriteBikeMovingUmbrellaL;
             }
             // Em repouso (com guarda-chuva não muda de sprite)
             else {
                 currentSprite = (player.direction == 'R')
-                    ? player.spriteBikeMovingUmbrelaR
-                    : player.spriteBikeMovingUmbrelaL;
+                    ? player.spriteBikeMovingUmbrellaR
+                    : player.spriteBikeMovingUmbrellaL;
             }
         }
         // =====================================
@@ -670,10 +670,10 @@ void unloadPlayerResources(Player *player) {
         if (player->spriteBikeStuntR.id != 0) UnloadTexture(player->spriteBikeStuntR);
         if (player->spriteBikeStuntL.id != 0) UnloadTexture(player->spriteBikeStuntL);
         
-        if (player->spriteBikeMovingUmbrelaR.id != 0) UnloadTexture(player->spriteBikeMovingUmbrelaR);
-        if (player->spriteBikeMovingUmbrelaL.id != 0) UnloadTexture(player->spriteBikeMovingUmbrelaL);
-        if (player->spriteBikeStuntUmbrelaR.id != 0) UnloadTexture(player->spriteBikeStuntUmbrelaR);
-        if (player->spriteBikeStuntUmbrelaL.id != 0) UnloadTexture(player->spriteBikeStuntUmbrelaL);
+        if (player->spriteBikeMovingUmbrellaR.id != 0) UnloadTexture(player->spriteBikeMovingUmbrellaR);
+        if (player->spriteBikeMovingUmbrellaL.id != 0) UnloadTexture(player->spriteBikeMovingUmbrellaL);
+        if (player->spriteBikeStuntUmbrellaR.id != 0) UnloadTexture(player->spriteBikeStuntUmbrellaR);
+        if (player->spriteBikeStuntUmbrellaL.id != 0) UnloadTexture(player->spriteBikeStuntUmbrellaL);
         
         player->spritesLoaded = 0;
     }
