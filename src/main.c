@@ -465,7 +465,6 @@ int main(void) {
             }
 
             updateStage2(&stage2, &player, dt);
-            updatePlayer(&player, dt);
             if (!stage2.stage2Complete) totalGameTime += dt;
 
             if (player.lives <= 0) {

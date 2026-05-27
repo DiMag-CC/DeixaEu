@@ -101,12 +101,15 @@ static int olhandoParaDireita = 1;
 // Cronômetro estático interno para controlar a duração do efeito de lentidão da rede
 static float netDebuffTimer = 0.0f;
 
-#define S2_AREIA_Y      975.0f  
 #define S2_GRAVIDADE   3200.0f
 #define S2_FORCA_PULO -1220.0f  
 
 // Constante de velocidade de nado livre no mar
 #define S2_VELOCIDADE_NADO 400.0f
+
+static float stage2SandGroundY(void) {
+    return (float)GetScreenHeight() * 0.90f;
+}
 
 // =========================================================================
 // REQUISITO 4: ALGORITMO DE ORDENAÇÃO (INSERTION SORT)
@@ -151,18 +154,19 @@ static void spawnSandObstacle(Stage2 *stage) {
     int roll = rand() % 100;
     int type = (roll < 50) ? S2_OBS_CRAB : S2_OBS_TRASH;
 
-    Vector2 pos = { (float)GetScreenWidth() + 100.0f, S2_AREIA_Y };
+    float sandGroundY = stage2SandGroundY();
+    Vector2 pos = { (float)GetScreenWidth() + 100.0f, sandGroundY };
     Stage2Obstacle obs = createStage2Obstacle(pos, type);
     obs.type = type; 
 
     if (type == S2_OBS_CRAB) {
         obs.hitbox.width = 90.0f;          
         obs.hitbox.height = 40.0f;          
-        obs.position.y = S2_AREIA_Y - 75.0f; 
+        obs.position.y = sandGroundY - 75.0f;
     } else if (type == S2_OBS_TRASH) {
         obs.hitbox.width = 100.0f;          
         obs.hitbox.height = 20.0f;          
-        obs.position.y = S2_AREIA_Y - 40.0f; 
+        obs.position.y = sandGroundY - 40.0f;
     }
 
     obs.hitbox.x = obs.position.x + 10.0f; 
@@ -536,7 +540,7 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
     player->width = 140.0f;
     player->height = 175.0f;
 
-    float limiteChao = S2_AREIA_Y - player->height;
+    float limiteChao = stage2SandGroundY() - player->height;
 
     if ((IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) && player->position.y >= limiteChao - 5.0f) {
         player->velocity.y = S2_FORCA_PULO;
@@ -548,6 +552,11 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
     if (player->position.y >= limiteChao) {
         player->position.y = limiteChao;
         player->velocity.y = 0.0f;
+        player->isGrounded = 1;
+        player->grounded = 1;
+    } else {
+        player->isGrounded = 0;
+        player->grounded = 0;
     }
 
     player->position.x = 300.0f;
@@ -979,7 +988,7 @@ void drawStage2(Stage2 *stage, Player *player) {
     int frameGlobal = ((int)(GetTime() * 5)) % 2; 
 
     if (stage->mode == STAGE2_MODE_SAND) {
-        float limiteChao = S2_AREIA_Y - player->height;
+        float limiteChao = stage2SandGroundY() - player->height;
         int noAr = (player->position.y < limiteChao - 5.0f);
 
         if (noAr) {
