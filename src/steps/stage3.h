@@ -24,6 +24,10 @@ typedef struct {
 typedef struct {
     Vector2 position;
     float speed;
+    float baseY;
+    float wavePhase;
+    float waveSpeed;
+    float waveAmplitude;
     float poopTimer;
     float poopInterval;
 } Bird;
@@ -34,6 +38,7 @@ typedef struct {
     bool landed;
     float speedY;
     float groundTimer;
+    float rotationZ;
 } BirdPoop;
 
 typedef struct {
@@ -50,6 +55,8 @@ typedef struct Stage3 {
     Texture2D towerTexture;
     Texture2D cloudTexture;
     Texture2D birdTexture;
+    Texture2D birdTextureAlt;
+    Texture2D poopTexture;
     
     float scrollX;
     float scrollY;
@@ -59,6 +66,12 @@ typedef struct Stage3 {
     
     Rectangle towerHitbox;
     Vector2 towerPosition;
+    Rectangle crabHitbox;
+    Vector2 crabPosition;
+    bool crabDialogOpen;
+    bool crabAIWaiting;
+    float crabAIWaitTimer;
+    char crabDialogText[160];
 
     Stage3Cloud clouds[STAGE3_MAX_CLOUDS];
     Bird birds[STAGE3_MAX_BIRDS];
@@ -70,6 +83,8 @@ typedef struct Stage3 {
 void initStage3(Stage3 *stage, Player *player);
 void updateStage3(Stage3 *stage, Player *player, float deltaTime);
 void drawStage3(Stage3 *stage, Player *player);
+int getStage3ClimbMissCount(void);
+int getStage3ClimbMaxMisses(void);
 void unloadStage3(Stage3 *stage);
 
 #endif

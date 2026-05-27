@@ -59,6 +59,7 @@ typedef struct {
     // Knockback
     float knockbackSpeed;       // Velocidade de knockback
     float knockbackTimer;       // Timer de knockback
+    float invincibilityTimer;   // Timer de invencibilidade após dano
 
     // Debuffs
     float slowEffectTimer;      // Timer de efeito de lentidão
@@ -73,6 +74,7 @@ typedef struct {
     // Sprites e texturas — sprites únicos diretos (não multi-frame)
     Texture2D spriteStandingR, spriteStandingL;
     Texture2D spriteMovingR, spriteMovingL;
+    Texture2D spriteJumpingR, spriteJumpingL;
     Texture2D spriteBikeStandingR, spriteBikeStandingL;
     Texture2D spriteBikeMovingR, spriteBikeMovingL;
     Texture2D spriteBikeStuntL, spriteBikeStuntR;

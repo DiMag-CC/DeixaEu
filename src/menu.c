@@ -1,13 +1,15 @@
 #include "menu.h"
 #include <stdio.h>
 
+static Texture2D menuBackgroundTexture = {0};
+
 static float menuScale(void) {
     float scaleX = GetScreenWidth() / 800.0f;
     float scaleY = GetScreenHeight() / 450.0f;
     float scale = (scaleX < scaleY) ? scaleX : scaleY;
 
     if (scale < 0.45f) return 0.45f;
-    if (scale > 1.6f) return 1.6f;
+    if (scale > 2.4f) return 2.4f;
     return scale;
 }
 
@@ -25,7 +27,25 @@ static void drawMenuCloud(float x, float y, float scale, Color base, Color shado
     DrawRectangle((int)(x + 105 * scale), (int)(y + 24 * scale), (int)(38 * scale), (int)(10 * scale), light);
 }
 
-static void drawMenuBackground(float scale) {
+static void drawTextureCover(Texture2D texture, Rectangle dest, Color tint) {
+    float sourceWidth = (float)texture.width;
+    float sourceHeight = (float)texture.height;
+    float sourceRatio = sourceWidth / sourceHeight;
+    float destRatio = dest.width / dest.height;
+    Rectangle source = { 0.0f, 0.0f, sourceWidth, sourceHeight };
+
+    if (sourceRatio > destRatio) {
+        source.width = sourceHeight * destRatio;
+        source.x = (sourceWidth - source.width) * 0.5f;
+    } else {
+        source.height = sourceWidth / destRatio;
+        source.y = (sourceHeight - source.height) * 0.5f;
+    }
+
+    DrawTexturePro(texture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, tint);
+}
+
+static void drawProceduralMenuBackground(float scale) {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
     float floorY = screenHeight * 0.78f;
@@ -79,6 +99,37 @@ static void drawMenuBackground(float scale) {
     DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 5, 8, 24, 58 });
 }
 
+static void drawMenuBackground(float scale) {
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+
+    if (menuBackgroundTexture.id == 0) {
+        menuBackgroundTexture = LoadTexture("assets/img/favelinha.png");
+        if (menuBackgroundTexture.id > 0) {
+            SetTextureFilter(menuBackgroundTexture, TEXTURE_FILTER_POINT);
+        }
+    }
+
+    if (menuBackgroundTexture.id > 0) {
+        drawTextureCover(menuBackgroundTexture,
+                         (Rectangle){ 0.0f, 0.0f, (float)screenWidth, (float)screenHeight },
+                         WHITE);
+        DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 2, 7, 18, 116 });
+        DrawRectangleGradientV(0, 0, screenWidth, screenHeight,
+                               (Color){ 0, 0, 0, 72 },
+                               (Color){ 0, 0, 0, 160 });
+    } else {
+        drawProceduralMenuBackground(scale);
+    }
+}
+
+void unloadMenuResources(void) {
+    if (menuBackgroundTexture.id > 0) {
+        UnloadTexture(menuBackgroundTexture);
+        menuBackgroundTexture = (Texture2D){0};
+    }
+}
+
 Menu createMenu() {
     Menu menu;
     menu.screen = MENU_MAIN;
@@ -92,24 +143,32 @@ void updateMenu(Menu *menu) {
             menu->selectedOption--;
         }
 
-        if (menu->selectedOption < 0) menu->selectedOption = 2;
+        if (menu->selectedOption < 0) menu->selectedOption = 3;
 
         if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
             menu->selectedOption++;
         }
 
-        if (menu->selectedOption > 2) menu->selectedOption = 0;
+        if (menu->selectedOption > 3) menu->selectedOption = 0;
 
         if (IsKeyPressed(KEY_ENTER)) {
             if (menu->selectedOption == 1) {
+                menu->screen = MENU_RANKING;
+            } else if (menu->selectedOption == 2) {
                 menu->screen = MENU_CREDITS;
             }
+        }
+    }
+    else if (menu->screen == MENU_RANKING) {
+        if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER)) {
+            menu->screen = MENU_MAIN;
+            menu->selectedOption = 1;
         }
     }
     else if (menu->screen == MENU_CREDITS) {
         if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER)) {
             menu->screen = MENU_MAIN;
-            menu->selectedOption = 1; // Cursor retorna posicionado na opção "Creditos"
+            menu->selectedOption = 2; // Cursor retorna posicionado na opção "Creditos"
         }
     }
 }
@@ -135,13 +194,21 @@ void drawMenu(Menu menu) {
             optionsStartY = subtitleY + (int)(75 * scale);
             optionGap = (int)(50 * scale);
         }
+
+        DrawRectangleRounded((Rectangle){
+                                 screenWidth * 0.5f - 255.0f * scale,
+                                 titleY - 18.0f * scale,
+                                 510.0f * scale,
+                                 screenHeight - titleY - 56.0f * scale
+                             },
+                             0.08f, 8, (Color){ 3, 12, 27, 150 });
         
         drawTextCentered("DEIXA EU", titleY, titleSize, YELLOW);
         drawTextCentered("Fuja de casa pela cidade do Recife!", subtitleY, subtitleSize, LIGHTGRAY);
         
-        const char *options[] = { "Iniciar Jogo", "Creditos", "Sair" };
+        const char *options[] = { "Iniciar Jogo", "Ranking", "Creditos", "Sair" };
         
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             Color textColor = (menu.selectedOption == i) ? YELLOW : WHITE;
             int optionY = optionsStartY + (i * optionGap);
             int optionWidth = MeasureText(options[i], optionSize);
@@ -157,6 +224,21 @@ void drawMenu(Menu menu) {
         drawTextCentered("Use W/S ou Setas para navegar | ENTER para confirmar", 
                          screenHeight - (int)(36 * scale), hintSize, GRAY);
     }
+    else if (menu.screen == MENU_RANKING) {
+        int titleSize = (int)(60 * scale);
+        int hintSize = (int)(16 * scale);
+        int titleY = (int)(35 * scale);
+
+        DrawRectangleRounded((Rectangle){
+                                 screenWidth * 0.16f,
+                                 titleY - 16.0f * scale,
+                                 screenWidth * 0.68f,
+                                 screenHeight * 0.70f
+                             },
+                             0.08f, 8, (Color){ 3, 12, 27, 140 });
+        drawTextCentered("RANKING", titleY, titleSize, YELLOW);
+        drawTextCentered("Pressione ESC para voltar", screenHeight - (int)(34 * scale), hintSize, GRAY);
+    }
     else if (menu.screen == MENU_CREDITS) {
         int titleSize = (int)(60 * scale);
         int textSize = (int)(20 * scale);
@@ -166,6 +248,13 @@ void drawMenu(Menu menu) {
         int y = titleY + (int)(95 * scale);
         int lineGap = (int)(30 * scale);
         
+        DrawRectangleRounded((Rectangle){
+                                 screenWidth * 0.5f - 280.0f * scale,
+                                 titleY - 16.0f * scale,
+                                 560.0f * scale,
+                                 screenHeight - titleY - 58.0f * scale
+                             },
+                             0.08f, 8, (Color){ 3, 12, 27, 145 });
         drawTextCentered("CREDITOS", titleY, titleSize, YELLOW);
         drawTextCentered("Desenvolvido por:", y, textSize, WHITE);
         y += lineGap + (int)(10 * scale);

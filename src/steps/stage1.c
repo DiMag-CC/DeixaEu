@@ -649,22 +649,16 @@ void drawStage1(Stage1 *stage, Player *player) {
     if (stage->platformLoaded &&
         stage->platformTexture.id != 0) {
 
-        float platformWidth =
-            stage->platformTexture.width + 50.0f;
-
-        float platformHeight =
-            stage->platformTexture.height + 12.0f;
-
-        float roadY =
-            screenHeight -
-            platformHeight + 520.0f;
-
         Rectangle source = {
             0,
-            0,
+            stage->platformTexture.height * 0.29f,
             (float)stage->platformTexture.width,
-            (float)stage->platformTexture.height
+            stage->platformTexture.height * 0.36f
         };
+
+        float platformHeight = screenHeight * 0.34f;
+        float platformWidth = source.width * (platformHeight / source.height);
+        float roadY = groundY - screenHeight * 0.03f;
 
         for (int i = -1; i < 4; i++) {
 
@@ -728,4 +722,3 @@ void unloadStage1(Stage1 *stage) {
         stage->platformLoaded = 0;
     }
 }
-

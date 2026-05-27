@@ -101,12 +101,15 @@ static int olhandoParaDireita = 1;
 // Cronômetro estático interno para controlar a duração do efeito de lentidão da rede
 static float netDebuffTimer = 0.0f;
 
-#define S2_AREIA_Y      975.0f  
 #define S2_GRAVIDADE   3200.0f
 #define S2_FORCA_PULO -1220.0f  
 
 // Constante de velocidade de nado livre no mar
 #define S2_VELOCIDADE_NADO 400.0f
+
+static float stage2SandGroundY(void) {
+    return (float)GetScreenHeight() * 0.90f;
+}
 
 // =========================================================================
 // REQUISITO 4: ALGORITMO DE ORDENAÇÃO (INSERTION SORT)
@@ -151,18 +154,19 @@ static void spawnSandObstacle(Stage2 *stage) {
     int roll = rand() % 100;
     int type = (roll < 50) ? S2_OBS_CRAB : S2_OBS_TRASH;
 
-    Vector2 pos = { (float)GetRenderWidth() + 100.0f, S2_AREIA_Y };
+    float sandGroundY = stage2SandGroundY();
+    Vector2 pos = { (float)GetScreenWidth() + 100.0f, sandGroundY };
     Stage2Obstacle obs = createStage2Obstacle(pos, type);
     obs.type = type; 
 
     if (type == S2_OBS_CRAB) {
         obs.hitbox.width = 90.0f;          
         obs.hitbox.height = 40.0f;          
-        obs.position.y = S2_AREIA_Y - 75.0f; 
+        obs.position.y = sandGroundY - 75.0f;
     } else if (type == S2_OBS_TRASH) {
         obs.hitbox.width = 100.0f;          
         obs.hitbox.height = 20.0f;          
-        obs.position.y = S2_AREIA_Y - 40.0f; 
+        obs.position.y = sandGroundY - 40.0f;
     }
 
     obs.hitbox.x = obs.position.x + 10.0f; 
@@ -189,12 +193,12 @@ static void spawnSeaObstacle(Stage2 *stage) {
         if (veioDaEsquerda) {
             pos.x = -350.0f; 
         } else {
-            pos.x = (float)GetRenderWidth() + 350.0f; 
+            pos.x = (float)GetScreenWidth() + 350.0f;
         }
         float rawY = (float)(rand() % (screenH - 300) + 100);
         pos.y = veioDaEsquerda ? rawY : -rawY; 
     } else {
-        pos.x = (float)GetRenderWidth() + 150.0f;
+        pos.x = (float)GetScreenWidth() + 150.0f;
         pos.y = (float)(rand() % (screenH - 250) + 100);
     }
 
@@ -235,9 +239,11 @@ static void handleCollisionsStage2(Stage2 *stage, Player *player) {
 
         if (o->active && CheckCollisionRecs(player->hitbox, o->hitbox)) {
             if (o->type == S2_OBS_CRAB) {
-                stage->breath = 0.0f;
-                playerHealth = 0; 
-                player->lives = 0; 
+                playerHealth -= 30;
+                if (playerHealth <= 0) {
+                    playerHealth = 0;
+                    player->lives = 0;
+                }
                 o->active = 0;
             }
             else if (o->type == S2_OBS_TRASH) {
@@ -536,7 +542,7 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
     player->width = 140.0f;
     player->height = 175.0f;
 
-    float limiteChao = S2_AREIA_Y - player->height;
+    float limiteChao = stage2SandGroundY() - player->height;
 
     if ((IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) && player->position.y >= limiteChao - 5.0f) {
         player->velocity.y = S2_FORCA_PULO;
@@ -548,6 +554,11 @@ static void updateSand(Stage2 *stage, Player *player, float deltaTime) {
     if (player->position.y >= limiteChao) {
         player->position.y = limiteChao;
         player->velocity.y = 0.0f;
+        player->isGrounded = 1;
+        player->grounded = 1;
+    } else {
+        player->isGrounded = 0;
+        player->grounded = 0;
     }
 
     player->position.x = 300.0f;
@@ -660,7 +671,7 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
         return;
     }
 
-    int screenW = GetRenderWidth() > 0 ? GetRenderWidth() : 800;
+    int screenW = GetScreenWidth() > 0 ? GetScreenWidth() : 800;
     int screenH = GetScreenHeight() > 0 ? GetScreenHeight() : 600;
 
     if (player->position.x < 0) player->position.x = 0;
@@ -698,7 +709,7 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
 }
 
 static void updateAndDrawBubbles(float deltaTime) {
-    int screenW = GetRenderWidth();
+    int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
 
     if (texturaBolhas.id == 0) return;
@@ -863,8 +874,8 @@ static void drawHUD(Stage2 *stage, int isSeaMode) {
 }
 
 static void drawSand(Stage2 *stage) {
-    int screenWidth = GetRenderWidth();
-    int screenHeight = GetRenderHeight();
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
 
     if (bgLoaded && stage->bgSand.id > 0) {
         float bgScroll = fmod(stage->backgroundScroll * 0.25f, screenWidth);
@@ -888,8 +899,8 @@ static void drawSand(Stage2 *stage) {
 
 static void drawSea(Stage2 *stage, Player *player) {
     (void)player;
-    int screenWidth = GetRenderWidth();
-    int screenHeight = GetRenderHeight();
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
 
     if (bgOceanLoaded && bgOceano.id > 0) {
         float oceanScroll = fmod(stage->backgroundScroll * 0.25f, screenWidth);
@@ -921,8 +932,8 @@ static void drawSea(Stage2 *stage, Player *player) {
 
 // RESTAURADO COM SCROLL DE SUPERFÍCIE, SINAL DE ALERTA ALPHABYTE E REQUISITOS DE BOLD MANUAL
 static void drawTransition(Stage2 *stage) {
-    int screenWidth = GetRenderWidth();
-    int screenHeight = GetRenderHeight();
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
     
     if (bgSurfaceLoaded && bgSuperficieMar.id > 0) {
         float scrollSurf = fmod(stage->backgroundScroll * 0.25f, screenWidth);
@@ -979,7 +990,7 @@ void drawStage2(Stage2 *stage, Player *player) {
     int frameGlobal = ((int)(GetTime() * 5)) % 2; 
 
     if (stage->mode == STAGE2_MODE_SAND) {
-        float limiteChao = S2_AREIA_Y - player->height;
+        float limiteChao = stage2SandGroundY() - player->height;
         int noAr = (player->position.y < limiteChao - 5.0f);
 
         if (noAr) {

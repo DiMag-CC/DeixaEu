@@ -13,16 +13,17 @@
 #define GROUND_Y 380.0f      
 #define GROUND_Y_RATIO 0.82f
 
-
 #define STAGE1_TARGET_DISTANCE 8000.0f
 #define STAGE1_BASE_SCROLL_SPEED 320.0f
 #define STAGE1_MAX_SCROLL_SPEED 550.0f
 #define STAGE1_DIFFICULTY_RAMP 0.001f
+#define STAGE1_BUS_MIN_DISTANCE 1700.0f
 
 typedef struct {
 
     float scrollSpeed;              // Velocidade de scroll
     float distanceTraveled;         // Distância percorrida nesta fase
+    float lastBusSpawnDistance;     // Distância da última geração de ônibus
     float spawnInterval;            // Intervalo de spawn
     float obstacleSpawnTimer;       // Timer do spawn
 
@@ -46,6 +47,7 @@ typedef struct {
     int stage1Complete;             // 1 = fase completa, 0 = rodando
     int stage1Failed;               // 1 = jogador morreu, 0 = vivo
 
+    Music music;  
 } Stage1;
 
 void initStage1(Stage1 *stage);
