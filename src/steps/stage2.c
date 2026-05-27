@@ -151,7 +151,7 @@ static void spawnSandObstacle(Stage2 *stage) {
     int roll = rand() % 100;
     int type = (roll < 50) ? S2_OBS_CRAB : S2_OBS_TRASH;
 
-    Vector2 pos = { (float)GetRenderWidth() + 100.0f, S2_AREIA_Y };
+    Vector2 pos = { (float)GetScreenWidth() + 100.0f, S2_AREIA_Y };
     Stage2Obstacle obs = createStage2Obstacle(pos, type);
     obs.type = type; 
 
@@ -189,12 +189,12 @@ static void spawnSeaObstacle(Stage2 *stage) {
         if (veioDaEsquerda) {
             pos.x = -350.0f; 
         } else {
-            pos.x = (float)GetRenderWidth() + 350.0f; 
+            pos.x = (float)GetScreenWidth() + 350.0f;
         }
         float rawY = (float)(rand() % (screenH - 300) + 100);
         pos.y = veioDaEsquerda ? rawY : -rawY; 
     } else {
-        pos.x = (float)GetRenderWidth() + 150.0f;
+        pos.x = (float)GetScreenWidth() + 150.0f;
         pos.y = (float)(rand() % (screenH - 250) + 100);
     }
 
@@ -660,7 +660,7 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
         return;
     }
 
-    int screenW = GetRenderWidth() > 0 ? GetRenderWidth() : 800;
+    int screenW = GetScreenWidth() > 0 ? GetScreenWidth() : 800;
     int screenH = GetScreenHeight() > 0 ? GetScreenHeight() : 600;
 
     if (player->position.x < 0) player->position.x = 0;
@@ -698,7 +698,7 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
 }
 
 static void updateAndDrawBubbles(float deltaTime) {
-    int screenW = GetRenderWidth();
+    int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
 
     if (texturaBolhas.id == 0) return;
@@ -863,8 +863,8 @@ static void drawHUD(Stage2 *stage, int isSeaMode) {
 }
 
 static void drawSand(Stage2 *stage) {
-    int screenWidth = GetRenderWidth();
-    int screenHeight = GetRenderHeight();
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
 
     if (bgLoaded && stage->bgSand.id > 0) {
         float bgScroll = fmod(stage->backgroundScroll * 0.25f, screenWidth);
@@ -888,8 +888,8 @@ static void drawSand(Stage2 *stage) {
 
 static void drawSea(Stage2 *stage, Player *player) {
     (void)player;
-    int screenWidth = GetRenderWidth();
-    int screenHeight = GetRenderHeight();
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
 
     if (bgOceanLoaded && bgOceano.id > 0) {
         float oceanScroll = fmod(stage->backgroundScroll * 0.25f, screenWidth);
@@ -921,8 +921,8 @@ static void drawSea(Stage2 *stage, Player *player) {
 
 // RESTAURADO COM SCROLL DE SUPERFÍCIE, SINAL DE ALERTA ALPHABYTE E REQUISITOS DE BOLD MANUAL
 static void drawTransition(Stage2 *stage) {
-    int screenWidth = GetRenderWidth();
-    int screenHeight = GetRenderHeight();
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
     
     if (bgSurfaceLoaded && bgSuperficieMar.id > 0) {
         float scrollSurf = fmod(stage->backgroundScroll * 0.25f, screenWidth);

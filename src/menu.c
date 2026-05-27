@@ -7,7 +7,7 @@ static float menuScale(void) {
     float scale = (scaleX < scaleY) ? scaleX : scaleY;
 
     if (scale < 0.45f) return 0.45f;
-    if (scale > 1.6f) return 1.6f;
+    if (scale > 2.4f) return 2.4f;
     return scale;
 }
 

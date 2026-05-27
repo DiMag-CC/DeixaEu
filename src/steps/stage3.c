@@ -585,6 +585,24 @@ static void drawTextureInRect(Texture2D texture, Rectangle dest) {
     DrawTexturePro(texture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
 }
 
+static void drawTextureCover(Texture2D texture, Rectangle dest, Color tint) {
+    if (texture.id <= 0 || texture.width <= 0 || texture.height <= 0) return;
+
+    float sourceAspect = (float)texture.width / (float)texture.height;
+    float destAspect = dest.width / dest.height;
+    Rectangle source = { 0.0f, 0.0f, (float)texture.width, (float)texture.height };
+
+    if (sourceAspect > destAspect) {
+        source.width = texture.height * destAspect;
+        source.x = ((float)texture.width - source.width) * 0.5f;
+    } else {
+        source.height = texture.width / destAspect;
+        source.y = ((float)texture.height - source.height) * 0.5f;
+    }
+
+    DrawTexturePro(texture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, tint);
+}
+
 static void drawPuddle(Puddle puddle) {
     if (!puddle.active) {
         return;
@@ -1015,9 +1033,8 @@ static void drawRain(float left, float top, float width, float height, float int
 
 static void drawStage3Background(Stage3 *stage, Player *player) {
     if (stage3SkyTexture.id > 0) {
-        Rectangle source = { 0.0f, 0.0f, (float)stage3SkyTexture.width, (float)stage3SkyTexture.height };
         Rectangle dest = { 0.0f, 0.0f, (float)GetScreenWidth(), (float)GetScreenHeight() };
-        DrawTexturePro(stage3SkyTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+        drawTextureCover(stage3SkyTexture, dest, WHITE);
         return;
     }
 
@@ -1822,13 +1839,65 @@ static void unloadStage3MapTextures(void) {
 static void drawFinalClimbSeaSkyBackground(int backgroundIndex, float screenWidth, float screenHeight) {
     Texture2D background = finalClimbSeaSkyTextures[backgroundIndex];
     if (background.id > 0) {
-        Rectangle source = { 0.0f, 0.0f, (float)background.width, (float)background.height };
         Rectangle dest = { 0.0f, 0.0f, screenWidth, screenHeight };
-        DrawTexturePro(background, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+        drawTextureCover(background, dest, WHITE);
     } else {
         DrawRectangleGradientV(0, 0, GetScreenWidth(), GetScreenHeight(),
                                (Color){ 45, 126, 180, 255 },
                                (Color){ 7, 61, 110, 255 });
+    }
+}
+
+static void drawStage3Hud(Player *player, bool showClimbErrors) {
+    float scale = clampFloat(GetScreenHeight() / 1080.0f, 0.72f, 1.25f);
+    float heartSize = 38.0f * scale;
+    float margin = 18.0f * scale;
+    float gap = 8.0f * scale;
+
+    DrawRectangleRounded((Rectangle){ margin - 8.0f, margin - 7.0f, 170.0f * scale, 54.0f * scale },
+                         0.18f, 6, (Color){ 6, 18, 31, 150 });
+
+    int visibleLives = player->lives;
+    if (visibleLives < 0) visibleLives = 0;
+    if (visibleLives > 3) visibleLives = 3;
+
+    for (int i = 0; i < 3; i++) {
+        Rectangle dest = {
+            margin + i * (heartSize + gap),
+            margin,
+            heartSize,
+            heartSize
+        };
+        Color tint = i < visibleLives ? WHITE : (Color){ 255, 255, 255, 65 };
+
+        if (climbHeartTexture.id > 0) {
+            Rectangle source = { 0.0f, 0.0f, (float)climbHeartTexture.width, (float)climbHeartTexture.height };
+            DrawTexturePro(climbHeartTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, tint);
+        } else {
+            DrawCircle((int)(dest.x + dest.width * 0.30f), (int)(dest.y + dest.height * 0.34f), dest.width * 0.22f, RED);
+            DrawCircle((int)(dest.x + dest.width * 0.70f), (int)(dest.y + dest.height * 0.34f), dest.width * 0.22f, RED);
+            DrawTriangle(
+                (Vector2){ dest.x + dest.width * 0.10f, dest.y + dest.height * 0.42f },
+                (Vector2){ dest.x + dest.width * 0.90f, dest.y + dest.height * 0.42f },
+                (Vector2){ dest.x + dest.width * 0.50f, dest.y + dest.height * 0.96f },
+                RED
+            );
+        }
+    }
+
+    if (showClimbErrors) {
+        char text[48];
+        snprintf(text, sizeof(text), "Erros: %d / %d", climbMissCount, CLIMB_MAX_MISSES);
+        int fontSize = (int)(24.0f * scale);
+        int textWidth = MeasureText(text, fontSize);
+        Rectangle box = {
+            (float)GetScreenWidth() - textWidth - 34.0f * scale,
+            margin - 2.0f,
+            textWidth + 18.0f * scale,
+            38.0f * scale
+        };
+        DrawRectangleRounded(box, 0.18f, 6, (Color){ 6, 18, 31, 150 });
+        DrawText(text, (int)(box.x + 9.0f * scale), (int)(box.y + 7.0f * scale), fontSize, RAYWHITE);
     }
 }
 
@@ -1923,6 +1992,7 @@ static void drawFinalClimbScene(Stage3 *stage, Player *player) {
 
     drawStage3ScreenHazards(stage);
     drawClimbTimingCircle((Vector2){ playerDest.x, playerDest.y }, playerDest.width, playerDest.height);
+    drawStage3Hud(player, true);
 }
 
 void initStage3(Stage3 *stage, Player *player) {
@@ -2598,6 +2668,7 @@ void drawStage3(Stage3 *stage, Player *player) {
     EndMode2D();
 
     drawStage3ScreenHazards(stage);
+    drawStage3Hud(player, false);
 }
 
 int getStage3ClimbMissCount(void) {

@@ -35,6 +35,24 @@ static Texture2D txIntroBg;
 static Texture2D txIntroPlayer;
 static int introTexturesLoaded = 0;
 
+static void drawTextureCover(Texture2D texture, Rectangle dest, Color tint) {
+    if (texture.id <= 0 || texture.width <= 0 || texture.height <= 0) return;
+
+    float sourceAspect = (float)texture.width / (float)texture.height;
+    float destAspect = dest.width / dest.height;
+    Rectangle source = { 0.0f, 0.0f, (float)texture.width, (float)texture.height };
+
+    if (sourceAspect > destAspect) {
+        source.width = texture.height * destAspect;
+        source.x = ((float)texture.width - source.width) * 0.5f;
+    } else {
+        source.height = texture.width / destAspect;
+        source.y = ((float)texture.height - source.height) * 0.5f;
+    }
+
+    DrawTexturePro(texture, source, dest, (Vector2){0,0}, 0.0f, tint);
+}
+
 // ========== HUD FASE 1 ==========
 void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenWidth, int screenHeight) {
     const int HUD_Y_START  = 12;
@@ -98,13 +116,13 @@ void drawStoryIntroScreen(float storyTime, int screenWidth, int screenHeight) {
         introTexturesLoaded = 1;
     }
 
-    if (txIntroBg.id > 0)
-        DrawTexturePro(txIntroBg,
-                       (Rectangle){0,0,(float)txIntroBg.width,(float)txIntroBg.height},
-                       (Rectangle){0,0,(float)screenWidth,(float)screenHeight},
-                       (Vector2){0,0}, 0.0f, (Color){110,110,125,255});
-    else
+    if (txIntroBg.id > 0) {
+        drawTextureCover(txIntroBg,
+                         (Rectangle){0,0,(float)screenWidth,(float)screenHeight},
+                         (Color){110,110,125,255});
+    } else {
         DrawRectangle(0, 0, screenWidth, screenHeight, (Color){15,20,35,255});
+    }
 
     if (txIntroPlayer.id > 0) {
         float stretch = sinf(storyTime * 3.5f) * 4.0f;
@@ -203,10 +221,9 @@ static void drawTransitionScreen(int screenWidth, int screenHeight) {
     unsigned char a = (unsigned char)(alpha * 255.0f);
     ClearBackground(BLACK);
     if (transition.image.id > 0)
-        DrawTexturePro(transition.image,
-                       (Rectangle){0,0,(float)transition.image.width,(float)transition.image.height},
-                       (Rectangle){0,0,(float)screenWidth,(float)screenHeight},
-                       (Vector2){0,0}, 0.0f, (Color){255,255,255,a});
+        drawTextureCover(transition.image,
+                         (Rectangle){0,0,(float)screenWidth,(float)screenHeight},
+                         (Color){255,255,255,a});
 }
 
 // ========== CUTSCENE ANIMADA: TRANSIÇÃO FASE 1 → FASE 2 ==========
@@ -276,14 +293,14 @@ static void drawCutscene12(int screenWidth, int screenHeight) {
     ClearBackground(BLACK);
 
     // fundo da praia
-    if (cs12.txBg.id > 0)
-        DrawTexturePro(cs12.txBg,
-                       (Rectangle){0, 0, (float)cs12.txBg.width, (float)cs12.txBg.height},
-                       (Rectangle){0, 0, (float)screenWidth, (float)screenHeight},
-                       (Vector2){0, 0}, 0.0f, (Color){255, 255, 255, ba});
-    else
+    if (cs12.txBg.id > 0) {
+        drawTextureCover(cs12.txBg,
+                         (Rectangle){0, 0, (float)screenWidth, (float)screenHeight},
+                         (Color){255, 255, 255, ba});
+    } else {
         DrawRectangleGradientV(0, 0, screenWidth, screenHeight,
                                (Color){80, 160, 220, ba}, (Color){220, 200, 140, ba});
+    }
 
     float charX = 0.0f, charY = 0.0f;
     Texture2D *tx = NULL;
@@ -330,6 +347,8 @@ int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Deixa Eu");
     InitAudioDevice();
+    int monitor = GetCurrentMonitor();
+    SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
     ToggleFullscreen();
     SetTargetFPS(FPS);
 
@@ -362,10 +381,16 @@ int main(void) {
     // ========== LOOP PRINCIPAL ==========
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+        int skipPhaseRequested = IsKeyPressed(KEY_P);
 
-        if (IsKeyPressed(KEY_F11) || (IsKeyPressed(KEY_F) && IsKeyDown(KEY_LEFT_ALT)))
+        if (IsKeyPressed(KEY_F11) || (IsKeyPressed(KEY_F) && IsKeyDown(KEY_LEFT_ALT))) {
+            if (!IsWindowFullscreen()) {
+                int currentMonitor = GetCurrentMonitor();
+                SetWindowSize(GetMonitorWidth(currentMonitor), GetMonitorHeight(currentMonitor));
+            }
             ToggleFullscreen();
-        if (IsKeyPressed(KEY_D))
+        }
+        if (IsKeyPressed(KEY_F3))
             debugMode = !debugMode;
 
         // ===== UPDATE POR ESTADO =====
@@ -400,6 +425,14 @@ int main(void) {
             break;
 
         case STATE_STAGE1:
+            if (skipPhaseRequested) {
+                initStage2(&stage2);
+                int csw = GetScreenWidth();
+                player = createPlayer((Vector2){ csw * 0.18f, GROUND_LEVEL }, 150, 3);
+                gameState = STATE_STAGE2;
+                break;
+            }
+
             updateStage1(&stage1, &player, dt);
             updatePlayer(&player, dt);
             if (!stage1.stage1Complete) totalGameTime += dt;
@@ -415,7 +448,7 @@ int main(void) {
             break;
 
         case STATE_TRANSITION_12:
-            if (updateCutscene12(dt)) {
+            if (skipPhaseRequested || updateCutscene12(dt)) {
                 unloadCutscene12();
                 initStage2(&stage2);
                 int csw = GetScreenWidth();
@@ -425,6 +458,12 @@ int main(void) {
             break;
 
         case STATE_STAGE2:
+            if (skipPhaseRequested) {
+                initTransition("assets/img/imagem23.jpg", 1.0f, 3.0f);
+                gameState = STATE_TRANSITION_23;
+                break;
+            }
+
             updateStage2(&stage2, &player, dt);
             updatePlayer(&player, dt);
             if (!stage2.stage2Complete) totalGameTime += dt;
@@ -440,7 +479,7 @@ int main(void) {
             break;
 
         case STATE_TRANSITION_23:
-            if (updateTransition(dt)) {
+            if (skipPhaseRequested || updateTransition(dt)) {
                 // Prepara fase 3
                 int csw = GetScreenWidth();
                 player = createPlayer((Vector2){ csw * 0.18f, GROUND_LEVEL }, 150, 3);
@@ -451,8 +490,13 @@ int main(void) {
             break;
 
         case STATE_STAGE3:
+            if (skipPhaseRequested) {
+                stage3.state = STAGE3_FINISHED;
+                player.isClimbing = false;
+                break;
+            }
+
             updateStage3(&stage3, &player, dt);
-            updatePlayer(&player, dt);
             if (stage3.state != STAGE3_FINISHED) totalGameTime += dt;
 
             if (player.lives <= 0) {
@@ -498,7 +542,7 @@ int main(void) {
             drawGameHUD(&stage1, &player, totalGameTime, sW, sH);
             if (debugMode) {
                 drawPlayerDebug(player);
-                DrawText("DEBUG (D)", 10, 30, 14, RED);
+                DrawText("DEBUG (F3)", 10, 30, 14, RED);
                 DrawFPS(10, sH - 30);
             }
             // Tela de vitória fase 1 (aguardando transição)
@@ -523,7 +567,7 @@ int main(void) {
             drawStage2(&stage2, &player);
             if (debugMode) {
                 drawPlayerDebug(player);
-                DrawText("DEBUG (D)", 10, 30, 14, RED);
+                DrawText("DEBUG (F3)", 10, 30, 14, RED);
                 DrawFPS(10, sH - 30);
             }
             if (stage2.stage2Complete) {
@@ -539,7 +583,7 @@ int main(void) {
             drawStage3(&stage3, &player);
             if (debugMode) {
                 drawPlayerDebug(player);
-                DrawText("DEBUG (D)", 10, 30, 14, RED);
+                DrawText("DEBUG (F3)", 10, 30, 14, RED);
                 DrawFPS(10, sH - 30);
             }
             if (stage3.state == STAGE3_FINISHED) {
