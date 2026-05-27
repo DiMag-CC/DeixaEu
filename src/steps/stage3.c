@@ -418,9 +418,9 @@ static void drawStage3Background(Stage3 *stage, Player *player) {
 
     float sunX = left + width * 0.52f;
     float sunY = top + height * (0.68f - sunrise * 0.36f);
-    DrawCircleGradient((Vector2){ sunX, sunY }, 58.0f,
-                       (Color){ 226, 214, 128, 150 },
-                       (Color){ 226, 214, 128, 0 });
+    DrawCircleGradient((int)sunX, (int)sunY, 58.0f,
+                   (Color){ 226, 214, 128, 150 },
+                   (Color){ 226, 214, 128, 0 });
     DrawCircle((int)sunX, (int)sunY, 22, (Color){ 225, 214, 146, 235 });
 
     float cloudRoute = fmodf(time * 12.0f, WORLD_WIDTH);
@@ -496,7 +496,7 @@ static void drawTowerAura(Stage3 *stage) {
     Color beamTop = (Color){ 177, 247, 255, (unsigned char)(18 + pulse * 12.0f) };
     Color beamBottom = (Color){ 177, 247, 255, 0 };
 
-    DrawCircleGradient((Vector2){ centerX, midY }, 128.0f + pulse * 18.0f, auraCore, auraOuter);
+    DrawCircleGradient((int)centerX, (int)midY, 128.0f + pulse * 18.0f, auraCore, auraOuter);
     DrawRectangleGradientV((int)(centerX - 34.0f), (int)(stage->towerPosition.y + 72.0f), 68,
                            (int)(towerHeight - 80.0f), beamTop, beamBottom);
     DrawEllipse((int)centerX, (int)(baseY - 6.0f), 128.0f, 18.0f,

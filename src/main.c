@@ -2,227 +2,330 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "steps/stage1.h"
+#include "steps/stage2.h"
+
 #include "steps/stage3.h"
 #include "entities/player.h"
 #include "menu.h"
 #include "structure/stepList.h"
-#include <math.h>
 
-#define SCREEN_WIDTH 1920.0f
+#define SCREEN_WIDTH  1920.0f
 #define SCREEN_HEIGHT 1080.0f
-#define WORLD_WIDTH 800.0f
-#define WORLD_HEIGHT 450.0f
+#define WORLD_WIDTH   800.0f
+#define WORLD_HEIGHT  450.0f
 #define CAMERA_VERTICAL_LOOKAHEAD 150.0f
 #define FPS 60
 
-// Texturas exclusivas da introdução narrativa
+// ========== ESTADO GLOBAL DO JOGO ==========
+typedef enum {
+    STATE_INTRO = 0,
+    STATE_MENU,
+    STATE_STAGE1,
+    STATE_TRANSITION_12,   // imagem12.png
+    STATE_STAGE2,
+    STATE_TRANSITION_23,   // imagem23.jpg
+    STATE_STAGE3,
+    STATE_GAMEOVER
+} GameState;
+
+// ========== TEXTURAS DA INTRODUÇÃO ==========
 static Texture2D txIntroBg;
 static Texture2D txIntroPlayer;
 static int introTexturesLoaded = 0;
 
+// ========== HUD FASE 1 ==========
 void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenWidth, int screenHeight) {
-    const int HUD_Y_START = 12;
-    const int HUD_Y_STEP = 25;
-    const int HUD_MARGIN = 12;
-
-    // ===== FONTE DINÂMICA BASEADA EM RESOLUÇÃO =====
+    const int HUD_Y_START  = 12;
+    const int HUD_Y_STEP   = 25;
+    const int HUD_MARGIN   = 12;
     int fontSize = (screenWidth < 1024) ? 14 : 16;
 
-    // ===== VIDAS =====
-    char livesText[64];
-    sprintf(livesText, "Vidas: %d / 3", player->lives);
-    DrawText(livesText, HUD_MARGIN, HUD_Y_START, fontSize, BLACK);
+    char buf[128];
+    sprintf(buf, "Vidas: %d / 3", player->lives);
+    DrawText(buf, HUD_MARGIN, HUD_Y_START, fontSize, BLACK);
 
-    // ===== PONTOS =====
-    char scoreText[64];
-    sprintf(scoreText, "Pontos: %.0f", player->score);
-    DrawText(scoreText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP, fontSize, BLACK);
+    sprintf(buf, "Pontos: %.0f", player->score);
+    DrawText(buf, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP, fontSize, BLACK);
 
-    // ===== TEMPO =====
-    char timeText[64];
-    sprintf(timeText, "Tempo: %.1f s", totalGameTime);
-    DrawText(timeText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 2, fontSize, BLACK);
+    sprintf(buf, "Tempo: %.1f s", totalGameTime);
+    DrawText(buf, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 2, fontSize, BLACK);
 
-    // ===== DIFICULDADE =====
-    char diffText[64];
-    sprintf(diffText, "Dificuldade: x%.1f", stage->difficultyMultiplier);
-    DrawText(diffText, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 3, fontSize, DARKBLUE);
+    sprintf(buf, "Dificuldade: x%.1f", stage->difficultyMultiplier);
+    DrawText(buf, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 3, fontSize, DARKBLUE);
 
-    // ===== PROTEÇÃO DE GUARDA-CHUVA =====
     if (player->hasUmbrella > 0) {
-        char protectionText[64];
-        sprintf(protectionText, "Protecao: %.1f s", player->umbrellaTimer);
-        int protectionX = screenWidth - 250;
-        DrawText(protectionText, protectionX, HUD_Y_START, 16, GREEN);
-
-        int barWidth = 150;
-        float barProgress = player->umbrellaTimer / 5.0f;
-        if (barProgress > 1.0f) barProgress = 1.0f;
-
-        DrawRectangle(protectionX, HUD_Y_START + 25, barWidth, 10, LIGHTGRAY);
-        DrawRectangle(protectionX, HUD_Y_START + 25, (int)(barWidth * barProgress), 10, GREEN);
-        DrawRectangleLinesEx((Rectangle){(float)protectionX, (float)HUD_Y_START + 25, (float)barWidth, 10.0f}, 1, BLACK);
+        sprintf(buf, "Protecao: %.1f s", player->umbrellaTimer);
+        int px = screenWidth - 250;
+        DrawText(buf, px, HUD_Y_START, 16, GREEN);
+        int bw = 150;
+        float bp = player->umbrellaTimer / 5.0f;
+        if (bp > 1.0f) bp = 1.0f;
+        DrawRectangle(px, HUD_Y_START + 25, bw, 10, LIGHTGRAY);
+        DrawRectangle(px, HUD_Y_START + 25, (int)(bw * bp), 10, GREEN);
+        DrawRectangleLinesEx((Rectangle){(float)px, (float)HUD_Y_START + 25, (float)bw, 10.0f}, 1, BLACK);
     }
 
-    // ===== PROGRESSO DA FASE =====
-    float progressPercent = stage->distanceTraveled / STAGE1_TARGET_DISTANCE;
-    if (progressPercent > 1.0f) progressPercent = 1.0f;
-
-    int progressBarY = screenHeight - 40;
-    int progressBarWidth = screenWidth - 20;
-    int progressBarHeight = 20;
-
-    char progressText[64];
-    sprintf(progressText, "Progresso: %.0f / %.0f m", stage->distanceTraveled, STAGE1_TARGET_DISTANCE);
-    DrawText(progressText, HUD_MARGIN, progressBarY - 25, 14, BLACK);
-
-    DrawRectangle(HUD_MARGIN, progressBarY, progressBarWidth, progressBarHeight, LIGHTGRAY);
-    DrawRectangle(HUD_MARGIN, progressBarY, (int)(progressBarWidth * progressPercent), progressBarHeight, GREEN);
-    DrawRectangleLinesEx((Rectangle){(float)HUD_MARGIN, (float)progressBarY, (float)progressBarWidth, (float)progressBarHeight}, 2, BLACK);
+    float pp = stage->distanceTraveled / STAGE1_TARGET_DISTANCE;
+    if (pp > 1.0f) pp = 1.0f;
+    int pby = screenHeight - 40;
+    int pbw = screenWidth - 20;
+    sprintf(buf, "Progresso: %.0f / %.0f m", stage->distanceTraveled, STAGE1_TARGET_DISTANCE);
+    DrawText(buf, HUD_MARGIN, pby - 25, 14, BLACK);
+    DrawRectangle(HUD_MARGIN, pby, pbw, 20, LIGHTGRAY);
+    DrawRectangle(HUD_MARGIN, pby, (int)(pbw * pp), 20, GREEN);
+    DrawRectangleLinesEx((Rectangle){(float)HUD_MARGIN, (float)pby, (float)pbw, 20.0f}, 2, BLACK);
 }
 
+// ========== DEBUG PLAYER ==========
 void drawPlayerDebug(Player player) {
     DrawRectangleLinesEx(player.hitbox, 1, RED);
     DrawCircle((int)player.position.x, (int)player.position.y, 3, GREEN);
-
-    if (player.velocity.x != 0 || player.velocity.y != 0) {
-        Vector2 velocityEnd = {
-            player.position.x + player.velocity.x * 10,
-            player.position.y + player.velocity.y * 10
-        };
-        DrawLineEx(player.position, velocityEnd, 2, YELLOW);
-    }
-
-    char debugText[256];
-    sprintf(debugText,
-            "Player: (%.0f, %.0f) | Vel: (%.1f, %.1f) | Speed: %.0f | Lives: %d",
+    char dbg[256];
+    sprintf(dbg, "Player: (%.0f, %.0f) | Vel: (%.1f, %.1f) | Speed: %.0f | Lives: %d",
             player.position.x, player.position.y,
             player.velocity.x, player.velocity.y,
             player.speed, player.lives);
-    DrawText(debugText, 10, 80, 14, BLACK);
+    DrawText(dbg, 10, 80, 14, BLACK);
 }
 
-// =========================================================================
-// RENDERIZADOR DA CENA CINEMATOGRÁFICA DE INTRODUÇÃO (ABSOLUTO TELA CHEIA)
-// =========================================================================
+// ========== INTRO CINEMATOGRÁFICA ==========
 void drawStoryIntroScreen(float storyTime, int screenWidth, int screenHeight) {
     if (!introTexturesLoaded) {
-        txIntroBg = LoadTexture("assets/img/landscapeFase1New2.png");
+        txIntroBg     = LoadTexture("assets/img/landscapeFase1New2.png");
         txIntroPlayer = LoadTexture("assets/img/CharacterStandingR.png");
         introTexturesLoaded = 1;
     }
 
-    if (txIntroBg.id > 0) {
-        DrawTexturePro(txIntroBg, 
-                       (Rectangle){0, 0, (float)txIntroBg.width, (float)txIntroBg.height},
-                       (Rectangle){0, 0, (float)screenWidth, (float)screenHeight}, 
-                       (Vector2){0,0}, 0.0f, (Color){110, 110, 125, 255});
-    } else {
-        DrawRectangle(0, 0, screenWidth, screenHeight, (Color){15, 20, 35, 255});
-    }
+    if (txIntroBg.id > 0)
+        DrawTexturePro(txIntroBg,
+                       (Rectangle){0,0,(float)txIntroBg.width,(float)txIntroBg.height},
+                       (Rectangle){0,0,(float)screenWidth,(float)screenHeight},
+                       (Vector2){0,0}, 0.0f, (Color){110,110,125,255});
+    else
+        DrawRectangle(0, 0, screenWidth, screenHeight, (Color){15,20,35,255});
 
     if (txIntroPlayer.id > 0) {
-        float scaleStretch = sinf(storyTime * 3.5f) * 4.0f; 
-        float pWidth = 140.0f;
-        float pHeight = 175.0f + scaleStretch; 
-        Vector2 pPos = { 60.0f, (float)screenHeight * 0.86f - (pHeight / 2.0f) };
-        
+        float stretch = sinf(storyTime * 3.5f) * 4.0f;
+        float pw = 140.0f, ph = 175.0f + stretch;
         DrawTexturePro(txIntroPlayer,
-                       (Rectangle){0, 0, (float)txIntroPlayer.width, (float)txIntroPlayer.height},
-                       (Rectangle){pPos.x, pPos.y, pWidth, pHeight},
+                       (Rectangle){0,0,(float)txIntroPlayer.width,(float)txIntroPlayer.height},
+                       (Rectangle){60.0f, screenHeight * 0.86f - ph * 0.5f, pw, ph},
                        (Vector2){0,0}, 0.0f, WHITE);
     }
 
-    int boxX = 260; int boxWidth = screenWidth - 320; int boxHeight = 130;
-    int textPaddingX = 30; int textPaddingY = 25;
+    int bx = 260, bw = screenWidth - 320, bh = 130, px = 30, py = 25;
+    const char *tA[] = {
+        "Minha mãe sempre diz o que eu devo fazer, para onde devo ir...",
+        "Mas eu cansei de apenas assistir à vida passar pela janela.",
+        "Lá fora, a tempestade urbana está mais forte e poluída do que nunca.",
+        "Minha jornada me levará além do asfalto, cruzando as praias"
+    };
+    const char *tB[] = {
+        "\"Não saia na chuva\", \"A cidade é perigosa\".",
+        "Hoje eu vou descobrir o recife por conta própria. DEIXA EU!",
+        "Para conquistar minha liberdade, precisarei ser mais rápido que o trânsito.",
+        "e mergulhando nas profundezas de um oceano poluído. A aventura começa agora..."
+    };
+    Color borderColors[] = {
+        (Color){102,191,255,255}, (Color){253,249,0,255},
+        (Color){255,161,0,255},   (Color){0,228,48,255}
+    };
+    Color bgColors[] = {
+        (Color){40,55,75,220}, (Color){50,50,50,220},
+        (Color){70,45,30,220}, (Color){35,60,45,220}
+    };
+    float startTimes[] = { 0.0f, 4.0f, 9.0f, 14.0f };
+    int boxYs[] = { 60, 220, 380, 540 };
 
-    const char *txt1_A = "Minha mãe sempre diz o que eu devo fazer, para onde devo ir...";
-    const char *txt1_B = "\"Não saia na chuva\", \"A cidade é perigosa\".";
-    const char *txt2_A = "Mas eu cansei de apenas assistir à vida passar pela janela.";
-    const char *txt2_B = "Hoje eu vou descobrir o recife por conta própria. DEIXA EU!";
-    const char *txt3_A = "Lá fora, a tempestade urbana está mais forte e poluída do que nunca.";
-    const char *txt3_B = "Para conquistar minha liberdade, precisarei ser mais rápido que o trânsito.";
-    const char *txt4_A = "Minha jornada me levará além do asfalto, cruzando as praias";
-    const char *txt4_B = "e mergulhando nas profundezas de um oceano poluído. A aventura começa agora...";
-
-    char bufferA[256]; char bufferB[256];
-
-    if (storyTime >= 0.0f) {
-        float localTime = storyTime - 0.0f; float alphaProgress = localTime * 2.0f; 
-        if (alphaProgress > 1.0f) alphaProgress = 1.0f;
-        unsigned char alphaByte = (unsigned char)(alphaProgress * 220);
-        int boxY = 60 + (int)((1.0f - alphaProgress) * 15.0f);
-        DrawRectangleRounded((Rectangle){(float)boxX, (float)boxY, (float)boxWidth, (float)boxHeight}, 0.15f, 4, (Color){40, 55, 75, alphaByte});
-        DrawRectangleRoundedLinesEx((Rectangle){(float)boxX, (float)boxY, (float)boxWidth, (float)boxHeight}, 0.15f, 4, 3.0f, (Color){102, 191, 255, (unsigned char)(alphaProgress * 255)});
-        int charsToDrawA = (int)(localTime * 45.0f); int lenA = strlen(txt1_A); if (charsToDrawA > lenA) charsToDrawA = lenA;
-        strncpy(bufferA, txt1_A, charsToDrawA); bufferA[charsToDrawA] = '\0';
-        int charsToDrawB = (int)((localTime - 1.0f) * 45.0f); if (charsToDrawB < 0) charsToDrawB = 0;
-        int lenB = strlen(txt1_B); if (charsToDrawB > lenB) charsToDrawB = lenB;
-        strncpy(bufferB, txt1_B, charsToDrawB); bufferB[charsToDrawB] = '\0';
-        DrawText(bufferA, boxX + textPaddingX, boxY + textPaddingY, 26, (Color){255, 255, 255, (unsigned char)(alphaProgress * 255)});
-        if (charsToDrawB > 0) DrawText(bufferB, boxX + textPaddingX, boxY + textPaddingY + 40, 26, (Color){200, 200, 200, (unsigned char)(alphaProgress * 255)});
+    char bufA[256], bufB[256];
+    for (int i = 0; i < 4; i++) {
+        if (storyTime < startTimes[i]) break;
+        float lt = storyTime - startTimes[i];
+        float a  = lt * 2.0f; if (a > 1.0f) a = 1.0f;
+        int by = boxYs[i] + (int)((1.0f - a) * 15.0f);
+        DrawRectangleRounded((Rectangle){(float)bx,(float)by,(float)bw,(float)bh}, 0.15f, 4,
+                             (Color){bgColors[i].r,bgColors[i].g,bgColors[i].b,(unsigned char)(a*220)});
+        DrawRectangleRoundedLinesEx((Rectangle){(float)bx,(float)by,(float)bw,(float)bh}, 0.15f, 4, 3.0f,
+                                    (Color){borderColors[i].r,borderColors[i].g,borderColors[i].b,(unsigned char)(a*255)});
+        int cA = (int)(lt * 45.0f); int lA = strlen(tA[i]); if (cA > lA) cA = lA;
+        strncpy(bufA, tA[i], cA); bufA[cA] = '\0';
+        float ltB = lt - (i < 2 ? 1.0f : 1.2f);
+        int cB = (ltB > 0) ? (int)(ltB * 45.0f) : 0; int lB = strlen(tB[i]); if (cB > lB) cB = lB;
+        strncpy(bufB, tB[i], cB); bufB[cB] = '\0';
+        DrawText(bufA, bx+px, by+py, 26, (Color){255,255,255,(unsigned char)(a*255)});
+        if (cB > 0) DrawText(bufB, bx+px, by+py+40, 26, (Color){borderColors[i].r,borderColors[i].g,borderColors[i].b,(unsigned char)(a*255)});
     }
 
-    if (storyTime >= 4.0f) {
-        float localTime = storyTime - 4.0f; float alphaProgress = localTime * 2.0f;
-        if (alphaProgress > 1.0f) alphaProgress = 1.0f;
-        unsigned char alphaByte = (unsigned char)(alphaProgress * 220);
-        int boxY = 220 + (int)((1.0f - alphaProgress) * 15.0f);
-        DrawRectangleRounded((Rectangle){(float)boxX, (float)boxY, (float)boxWidth, (float)boxHeight}, 0.15f, 4, (Color){50, 50, 50, alphaByte});
-        DrawRectangleRoundedLinesEx((Rectangle){(float)boxX, (float)boxY, (float)boxWidth, (float)boxHeight}, 0.15f, 4, 3.0f, (Color){253, 249, 0, (unsigned char)(alphaProgress * 255)});
-        int charsToDrawA = (int)(localTime * 45.0f); int lenA = strlen(txt2_A); if (charsToDrawA > lenA) charsToDrawA = lenA;
-        strncpy(bufferA, txt2_A, charsToDrawA); bufferA[charsToDrawA] = '\0';
-        int charsToDrawB = (int)((localTime - 1.0f) * 45.0f); if (charsToDrawB < 0) charsToDrawB = 0;
-        int lenB = strlen(txt2_B); if (charsToDrawB > lenB) charsToDrawB = lenB;
-        strncpy(bufferB, txt2_B, charsToDrawB); bufferB[charsToDrawB] = '\0';
-        DrawText(bufferA, boxX + textPaddingX, boxY + textPaddingY, 26, (Color){255, 255, 255, (unsigned char)(alphaProgress * 255)});
-        if (charsToDrawB > 0) DrawText(bufferB, boxX + textPaddingX, boxY + textPaddingY + 40, 26, (Color){249, 215, 0, (unsigned char)(alphaProgress * 255)});
-    }
-
-    if (storyTime >= 9.0f) {
-        float localTime = storyTime - 9.0f; float alphaProgress = localTime * 2.0f;
-        if (alphaProgress > 1.0f) alphaProgress = 1.0f;
-        unsigned char alphaByte = (unsigned char)(alphaProgress * 220);
-        int boxY = 380 + (int)((1.0f - alphaProgress) * 15.0f);
-        DrawRectangleRounded((Rectangle){(float)boxX, (float)boxY, (float)boxWidth, (float)boxHeight}, 0.15f, 4, (Color){70, 45, 30, alphaByte});
-        DrawRectangleRoundedLinesEx((Rectangle){(float)boxX, (float)boxY, (float)boxWidth, (float)boxHeight}, 0.15f, 4, 3.0f, (Color){255, 161, 0, (unsigned char)(alphaProgress * 255)});
-        int charsToDrawA = (int)(localTime * 45.0f); int lenA = strlen(txt3_A); if (charsToDrawA > lenA) charsToDrawA = lenA;
-        strncpy(bufferA, txt3_A, charsToDrawA); bufferA[charsToDrawA] = '\0';
-        int charsToDrawB = (int)((localTime - 1.2f) * 45.0f); if (charsToDrawB < 0) charsToDrawB = 0;
-        int lenB = strlen(txt3_B); if (charsToDrawB > lenB) charsToDrawB = lenB;
-        strncpy(bufferB, txt3_B, charsToDrawB); bufferB[charsToDrawB] = '\0';
-        DrawText(bufferA, boxX + textPaddingX, boxY + textPaddingY, 26, (Color){255, 255, 255, (unsigned char)(alphaProgress * 255)});
-        if (charsToDrawB > 0) DrawText(bufferB, boxX + textPaddingX, boxY + textPaddingY + 40, 26, (Color){200, 200, 200, (unsigned char)(alphaProgress * 255)});
-    }
-
-    if (storyTime >= 14.0f) {
-        float localTime = storyTime - 14.0f; float alphaProgress = localTime * 2.0f;
-        if (alphaProgress > 1.0f) alphaProgress = 1.0f;
-        unsigned char alphaByte = (unsigned char)(alphaProgress * 220);
-        int boxY = 540 + (int)((1.0f - alphaProgress) * 15.0f);
-        DrawRectangleRounded((Rectangle){(float)boxX, (float)boxY, (float)boxWidth, (float)boxHeight}, 0.15f, 4, (Color){35, 60, 45, alphaByte});
-        DrawRectangleRoundedLinesEx((Rectangle){(float)boxX, (float)boxY, (float)boxWidth, (float)boxHeight}, 0.15f, 4, 3.0f, (Color){0, 228, 48, (unsigned char)(alphaProgress * 255)});
-        int charsToDrawA = (int)(localTime * 45.0f); int lenA = strlen(txt4_A); if (charsToDrawA > lenA) charsToDrawA = lenA;
-        strncpy(bufferA, txt4_A, charsToDrawA); bufferA[charsToDrawA] = '\0';
-        int charsToDrawB = (int)((localTime - 1.2f) * 45.0f); if (charsToDrawB < 0) charsToDrawB = 0;
-        int lenB = strlen(txt4_B); if (charsToDrawB > lenB) charsToDrawB = lenB;
-        strncpy(bufferB, txt4_B, charsToDrawB); bufferB[charsToDrawB] = '\0';
-        DrawText(bufferA, boxX + textPaddingX, boxY + textPaddingY, 26, (Color){255, 255, 255, (unsigned char)(alphaProgress * 255)});
-        if (charsToDrawB > 0) DrawText(bufferB, boxX + textPaddingX, boxY + textPaddingY + 40, 26, (Color){0, 228, 48, (unsigned char)(alphaProgress * 255)});
-    }
-
-    float pulseBtn = (sinf(storyTime * 4.0f) + 1.0f) / 2.0f;
-    DrawRectangleRounded((Rectangle){(float)(screenWidth - 280), 30, 250, 45}, 0.2f, 4, (Color){20, 20, 20, 180});
-    DrawText("Pular Cena (ENTER)", screenWidth - 240, 42, 18, (Color){255, 255, 255, (unsigned char)(200 + pulseBtn * 55)});
-
-    float timeProgress = storyTime / 20.0f; if (timeProgress > 1.0f) timeProgress = 1.0f;
-    DrawText("PROGRESSO DA INTRODUÇÃO:", screenWidth - 360, screenHeight - 95, 16, LIGHTGRAY);
-    DrawRectangle(screenWidth - 360, screenHeight - 70, 320, 20, DARKGRAY);
-    DrawRectangle(screenWidth - 360, screenHeight - 70, (int)(320 * timeProgress), 20, GREEN);
-    DrawRectangleLines(screenWidth - 360, screenHeight - 70, 320, 20, WHITE);
+    float pulse = (sinf(storyTime * 4.0f) + 1.0f) / 2.0f;
+    DrawRectangleRounded((Rectangle){(float)(screenWidth-280),30,250,45}, 0.2f, 4, (Color){20,20,20,180});
+    DrawText("Pular Cena (ENTER)", screenWidth-240, 42, 18,
+             (Color){255,255,255,(unsigned char)(200 + pulse * 55)});
+    float tp = storyTime / 20.0f; if (tp > 1.0f) tp = 1.0f;
+    DrawText("PROGRESSO DA INTRODUÇÃO:", screenWidth-360, screenHeight-95, 16, LIGHTGRAY);
+    DrawRectangle(screenWidth-360, screenHeight-70, 320, 20, DARKGRAY);
+    DrawRectangle(screenWidth-360, screenHeight-70, (int)(320*tp), 20, GREEN);
+    DrawRectangleLines(screenWidth-360, screenHeight-70, 320, 20, WHITE);
 }
 
+// ========== TRANSIÇÃO SIMPLES (fase 2→3) ==========
+typedef struct {
+    Texture2D image;
+    float     timer;
+    float     fadeDuration;
+    float     holdDuration;
+    int       loaded;
+} TransitionScreen;
+
+static TransitionScreen transition = {0};
+
+static void initTransition(const char *imagePath, float fade, float hold) {
+    if (transition.loaded) { UnloadTexture(transition.image); transition.loaded = 0; }
+    transition.image        = LoadTexture(imagePath);
+    transition.timer        = 0.0f;
+    transition.fadeDuration = fade;
+    transition.holdDuration = hold;
+    transition.loaded       = 1;
+}
+
+static int updateTransition(float deltaTime) {
+    transition.timer += deltaTime;
+    float total = transition.fadeDuration * 2.0f + transition.holdDuration;
+    return (transition.timer >= total) ? 1 : 0;
+}
+
+static void drawTransitionScreen(int screenWidth, int screenHeight) {
+    float fade = transition.fadeDuration, hold = transition.holdDuration, t = transition.timer;
+    float alpha = (t < fade) ? t/fade : (t < fade+hold) ? 1.0f : 1.0f-(t-fade-hold)/fade;
+    if (alpha < 0.0f) alpha = 0.0f;
+    if (alpha > 1.0f) alpha = 1.0f;
+    unsigned char a = (unsigned char)(alpha * 255.0f);
+    ClearBackground(BLACK);
+    if (transition.image.id > 0)
+        DrawTexturePro(transition.image,
+                       (Rectangle){0,0,(float)transition.image.width,(float)transition.image.height},
+                       (Rectangle){0,0,(float)screenWidth,(float)screenHeight},
+                       (Vector2){0,0}, 0.0f, (Color){255,255,255,a});
+}
+
+// ========== CUTSCENE ANIMADA: TRANSIÇÃO FASE 1 → FASE 2 ==========
+//
+// Tudo autocontido, sem depender do estado da fase 1.
+//
+// 0.0s – 0.4s : fade-in do fundo da praia (landscapeLevel2.png)
+// 0.4s – 1.6s : personagem faz arco parabólico de pulo (CharacterJumpingR.png)
+//               entra pela esquerda, pico no centro, aterra em 30% da tela
+// 1.6s – 4.2s : personagem corre de 30% até 18% (posição inicial fase 2)
+//               (characterMovingR1.png), desacelerando ao chegar
+// 4.2s         : fase 2 inicia
+
+#define CS12_FADE_END    0.4f
+#define CS12_JUMP_END    1.6f
+#define CS12_RUN_END     4.2f
+
+#define CS12_CHAR_W      140.0f
+#define CS12_CHAR_H      158.0f
+#define CS12_START_X_RATIO  0.30f   // onde o personagem aterra após o pulo
+#define CS12_TARGET_X_RATIO 1.05f   // sai pela direita da tela
+
+typedef struct {
+    Texture2D txBg;
+    Texture2D txJump;
+    Texture2D txRun;
+    float     timer;
+    int       loaded;
+} Cutscene12;
+
+static Cutscene12 cs12 = {0};
+
+static void initCutscene12(void) {
+    if (cs12.loaded) {
+        UnloadTexture(cs12.txBg);
+        UnloadTexture(cs12.txJump);
+        UnloadTexture(cs12.txRun);
+    }
+    cs12.txBg   = LoadTexture("assets/img/landscapeLevel2.png");
+    cs12.txJump = LoadTexture("assets/img/CharacterJumpingR.png");
+    cs12.txRun  = LoadTexture("assets/img/characterMovingR1.png");
+    cs12.timer  = 0.0f;
+    cs12.loaded = 1;
+}
+
+static void unloadCutscene12(void) {
+    if (!cs12.loaded) return;
+    UnloadTexture(cs12.txBg);
+    UnloadTexture(cs12.txJump);
+    UnloadTexture(cs12.txRun);
+    cs12.loaded = 0;
+}
+
+static int updateCutscene12(float deltaTime) {
+    cs12.timer += deltaTime;
+    return (cs12.timer >= CS12_RUN_END) ? 1 : 0;
+}
+
+static void drawCutscene12(int screenWidth, int screenHeight) {
+    float t       = cs12.timer;
+    float groundY = (float)screenHeight * 0.82f;
+
+    // --- alpha do fundo: fade-in rápido ---
+    float bgAlpha = (t < CS12_FADE_END) ? (t / CS12_FADE_END) : 1.0f;
+    unsigned char ba = (unsigned char)(bgAlpha * 255.0f);
+
+    ClearBackground(BLACK);
+
+    // fundo da praia
+    if (cs12.txBg.id > 0)
+        DrawTexturePro(cs12.txBg,
+                       (Rectangle){0, 0, (float)cs12.txBg.width, (float)cs12.txBg.height},
+                       (Rectangle){0, 0, (float)screenWidth, (float)screenHeight},
+                       (Vector2){0, 0}, 0.0f, (Color){255, 255, 255, ba});
+    else
+        DrawRectangleGradientV(0, 0, screenWidth, screenHeight,
+                               (Color){80, 160, 220, ba}, (Color){220, 200, 140, ba});
+
+    float charX = 0.0f, charY = 0.0f;
+    Texture2D *tx = NULL;
+
+    if (t < CS12_JUMP_END) {
+        // ---- PULO: arco parabólico entrando pela esquerda ----
+        float jumpStart = CS12_FADE_END;
+        float p = (t - jumpStart) / (CS12_JUMP_END - jumpStart);
+        if (p < 0.0f) p = 0.0f;
+        if (p > 1.0f) p = 1.0f;
+
+        float startX    = -(CS12_CHAR_W);                          // fora da tela à esquerda
+        float landX     = (float)screenWidth * CS12_START_X_RATIO; // onde aterra
+        charX = startX + (landX - startX) * p;
+
+        float jumpHeight = (float)screenHeight * 0.14f;
+        charY = groundY - CS12_CHAR_H - jumpHeight * 4.0f * p * (1.0f - p);
+        tx = &cs12.txJump;
+
+    } else {
+        // ---- CORRIDA: de 30% até 18%, desacelerando ----
+        float p = (t - CS12_JUMP_END) / (CS12_RUN_END - CS12_JUMP_END);
+        if (p > 1.0f) p = 1.0f;
+
+        // velocidade constante até sumir pela direita
+        float startX = (float)screenWidth * CS12_START_X_RATIO;
+        float endX   = (float)screenWidth * CS12_TARGET_X_RATIO;
+        charX = startX + (endX - startX) * p;
+
+        float bob = sinf(t * 18.0f) * 3.5f;
+        charY = groundY - CS12_CHAR_H + bob;
+        tx = &cs12.txRun;
+    }
+
+    if (tx && tx->id > 0)
+        DrawTexturePro(*tx,
+                       (Rectangle){0, 0, (float)tx->width, (float)tx->height},
+                       (Rectangle){charX, charY, CS12_CHAR_W, CS12_CHAR_H},
+                       (Vector2){0, 0}, 0.0f, (Color){255, 255, 255, ba});
+}
+
+// ========== MAIN ==========
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Deixa Eu");
@@ -230,209 +333,262 @@ int main(void) {
     ToggleFullscreen();
     SetTargetFPS(FPS);
 
-    // ========== INICIALIZAR STAGE 1 ==========
-    Stage1 stage1;
-    initStage1(&stage1);
+    // ===== FASES =====
+    Stage1 stage1; initStage1(&stage1);
+    Stage2 stage2;
+    Stage3 stage3;
 
-    // ========== INICIALIZAR PLAYER ==========
-    int screenWidth = GetScreenWidth();
-    Player player = createPlayer((Vector2){ screenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
+    // ===== PLAYER =====
+    int sw = GetScreenWidth();
+    Player player = createPlayer((Vector2){ sw * 0.18f, GROUND_LEVEL }, 150, 3);
 
-    // ========== ESTADOS DO JOGO ==========
-    int isGameOver = 0;
-    float gameOverTimer = 0.0f;
-    float totalGameTime = 0.0f;
-    int debugMode = 0;
+    // ===== ESTADO =====
+    GameState gameState    = STATE_INTRO;
+    int       debugMode    = 0;
+    float     totalGameTime = 0.0f;
+    float     storyTimer   = 0.0f;
+    float     gameOverTimer = 0.0f;
+    Menu      menu          = createMenu();
 
-    // ========== CONTROLE DA HISTÓRIA INICIAL BOLEANA ==========
-    Menu menu = createMenu();
-    int exibindoIntro = 1; 
-    int inMenu = 0;        
-    float storyTimer = 0.0f;
-
-    // ========== FASES (Lista Circular) ==========
+    // ===== LISTA DE FASES =====
     Phase *phaseList = NULL;
-    Phase *phase1 = createPhase(1, "Recife Chuvoso");
+    Phase *phase1    = createPhase(1, "Recife Chuvoso");
+    Phase *phase2    = createPhase(2, "Boa Viagem");
+    Phase *phase3    = createPhase(3, "Parque das Esculturas");
     insertPhase(&phaseList, phase1);
-
-    Phase *currentPhase = phase1;
-    printf("Fase atual: %s (numero %d)\n", currentPhase->phaseName, currentPhase->phaseNumber);
-    fflush(stdout);
+    insertPhase(&phaseList, phase2);
+    insertPhase(&phaseList, phase3);
 
     // ========== LOOP PRINCIPAL ==========
     while (!WindowShouldClose()) {
-        float deltaTime = GetFrameTime();
+        float dt = GetFrameTime();
 
-        if (IsKeyPressed(KEY_F11) || (IsKeyPressed(KEY_F) && IsKeyDown(KEY_LEFT_ALT))) {
+        if (IsKeyPressed(KEY_F11) || (IsKeyPressed(KEY_F) && IsKeyDown(KEY_LEFT_ALT)))
             ToggleFullscreen();
-        }
-
-        if (IsKeyPressed(KEY_D)) {
+        if (IsKeyPressed(KEY_D))
             debugMode = !debugMode;
-        }
 
-        // ===== ANIMAÇÃO INICIAL DA INTRODUÇÃO =====
-        if (exibindoIntro) {
-            storyTimer += deltaTime;
+        // ===== UPDATE POR ESTADO =====
+        switch (gameState) {
 
+        case STATE_INTRO:
+            storyTimer += dt;
             if (storyTimer >= 20.0f || IsKeyPressed(KEY_ENTER)) {
-                exibindoIntro = 0;
-                inMenu = 1; 
-
+                gameState = STATE_MENU;
                 if (introTexturesLoaded) {
                     UnloadTexture(txIntroBg);
                     UnloadTexture(txIntroPlayer);
                     introTexturesLoaded = 0;
                 }
             }
-        }
-        // ===== MENU PRINCIPAL =====
-        else if (inMenu) {
-            updateMenu(&menu);
+            break;
 
+        case STATE_MENU:
+            updateMenu(&menu);
             if (menu.screen == MENU_MAIN && IsKeyPressed(KEY_ENTER)) {
                 if (menu.selectedOption == 0) {
-                    inMenu = 0;
+                    // Iniciar jogo — começa na fase 1
+                    unloadStage1(&stage1); initStage1(&stage1);
+                    int csw = GetScreenWidth();
+                    player = createPlayer((Vector2){ csw * 0.18f, GROUND_LEVEL }, 150, 3);
                     totalGameTime = 0.0f;
-                    isGameOver = 0;
-
-                    unloadStage1(&stage1);
-                    initStage1(&stage1);
-                    int currentScreenWidth = GetScreenWidth();
-                    player = createPlayer((Vector2){ currentScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
-                }
-                else if (menu.selectedOption == 2) {
-                    break;
+                    gameState = STATE_STAGE1;
+                } else if (menu.selectedOption == 2) {
+                    goto cleanup;
                 }
             }
-        }
-        // ===== GAMEPLAY =====
-        else {
-            updateStage1(&stage1, &player, deltaTime);
-            updatePlayer(&player, deltaTime);
+            break;
 
-            if (player.lives <= 0 && !isGameOver) {
-                isGameOver = 1;
+        case STATE_STAGE1:
+            updateStage1(&stage1, &player, dt);
+            updatePlayer(&player, dt);
+            if (!stage1.stage1Complete) totalGameTime += dt;
+
+            if (player.lives <= 0) {
                 gameOverTimer = 3.0f;
+                gameState = STATE_GAMEOVER;
+            } else if (stage1.stage1Complete) {
+                // Inicia transição 1→2
+                initCutscene12();
+                gameState = STATE_TRANSITION_12;
             }
+            break;
 
-            if (isGameOver) {
-                gameOverTimer -= deltaTime;
-
-                if (IsKeyPressed(KEY_ENTER) || gameOverTimer <= 0) {
-                    int resetScreenWidth = GetScreenWidth();
-                    player = createPlayer((Vector2){ resetScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
-                    unloadStage1(&stage1);
-                    initStage1(&stage1);
-                    isGameOver = 0;
-                    totalGameTime = 0.0f;
-
-                    menu = createMenu();
-                    inMenu = 1;
-                }
+        case STATE_TRANSITION_12:
+            if (updateCutscene12(dt)) {
+                unloadCutscene12();
+                initStage2(&stage2);
+                int csw = GetScreenWidth();
+                player = createPlayer((Vector2){ csw * 0.18f, GROUND_LEVEL }, 150, 3);
+                gameState = STATE_STAGE2;
             }
+            break;
 
-            if (stage1.stage1Complete && !isGameOver) {
-                if (IsKeyPressed(KEY_ENTER)) {
-                    int victoryScreenWidth = GetScreenWidth();
-                    player = createPlayer((Vector2){ victoryScreenWidth * 0.18f, GROUND_LEVEL }, 150, 3);
-                    unloadStage1(&stage1);
-                    initStage1(&stage1);
-                    totalGameTime = 0.0f;
+        case STATE_STAGE2:
+            updateStage2(&stage2, &player, dt);
+            updatePlayer(&player, dt);
+            if (!stage2.stage2Complete) totalGameTime += dt;
 
-                    menu = createMenu();
-                    inMenu = 1;
-                }
+            if (player.lives <= 0) {
+                gameOverTimer = 3.0f;
+                gameState = STATE_GAMEOVER;
+            } else if (stage2.stage2Complete) {
+                // Inicia transição 2→3
+                initTransition("assets/img/imagem23.jpg", 1.0f, 3.0f);
+                gameState = STATE_TRANSITION_23;
             }
+            break;
 
-            if (!isGameOver && !stage1.stage1Complete) {
-                totalGameTime += deltaTime;
+        case STATE_TRANSITION_23:
+            if (updateTransition(dt)) {
+                // Prepara fase 3
+                int csw = GetScreenWidth();
+                player = createPlayer((Vector2){ csw * 0.18f, GROUND_LEVEL }, 150, 3);
+                initStage3(&stage3, &player);
+                if (transition.loaded) { UnloadTexture(transition.image); transition.loaded = 0; }
+                gameState = STATE_STAGE3;
             }
+            break;
+
+        case STATE_STAGE3:
+            updateStage3(&stage3, &player, dt);
+            updatePlayer(&player, dt);
+            if (stage3.state != STAGE3_FINISHED) totalGameTime += dt;
+
+            if (player.lives <= 0) {
+                gameOverTimer = 3.0f;
+                gameState = STATE_GAMEOVER;
+            }
+            // Vitória final: STAGE3_FINISHED (tratado no draw)
+            break;
+
+        case STATE_GAMEOVER:
+            gameOverTimer -= dt;
+            if (IsKeyPressed(KEY_ENTER) || gameOverTimer <= 0) {
+                unloadStage1(&stage1); initStage1(&stage1);
+                int csw = GetScreenWidth();
+                player = createPlayer((Vector2){ csw * 0.18f, GROUND_LEVEL }, 150, 3);
+                totalGameTime = 0.0f;
+                menu = createMenu();
+                gameState = STATE_MENU;
+            }
+            break;
         }
 
-        // ========== DESENHO GRAFICO ==========
+        // ========== DESENHO ==========
         BeginDrawing();
-        int sWidth = GetScreenWidth();
-        int sHeight = GetScreenHeight();
+        int sW = GetScreenWidth();
+        int sH = GetScreenHeight();
 
-        if (exibindoIntro) {
-            ClearBackground((Color){11, 16, 27, 255}); 
-        } else {
-            ClearBackground(SKYBLUE);
-        }
+        switch (gameState) {
 
-        if (exibindoIntro) {
-            drawStoryIntroScreen(storyTimer, sWidth, sHeight);
-        } 
-        else if (inMenu) {
+        case STATE_INTRO:
+            ClearBackground((Color){11,16,27,255});
+            drawStoryIntroScreen(storyTimer, sW, sH);
+            break;
+
+        case STATE_MENU:
+            ClearBackground(BLACK);
             drawMenu(menu);
-        }
-        else {
-            drawStage1(&stage1, &player);
-            drawGameHUD(&stage1, &player, totalGameTime, sWidth, sHeight);
+            break;
 
+        case STATE_STAGE1:
+            ClearBackground(SKYBLUE);
+            drawStage1(&stage1, &player);
+            drawGameHUD(&stage1, &player, totalGameTime, sW, sH);
             if (debugMode) {
                 drawPlayerDebug(player);
-                DrawText("DEBUG MODE (D para desativar)", 10, 30, 14, RED);
-                DrawFPS(10, sHeight - 30);
+                DrawText("DEBUG (D)", 10, 30, 14, RED);
+                DrawFPS(10, sH - 30);
             }
+            // Tela de vitória fase 1 (aguardando transição)
+            if (stage1.stage1Complete) {
+                DrawRectangle(0,0,sW,sH,(Color){0,0,0,160});
+                const char *vt = "FASE 1 COMPLETA!";
+                int vtw = MeasureText(vt, 60);
+                DrawText(vt, (sW-vtw)/2, sH/2-40, 60, GREEN);
+            }
+            break;
 
-            if (isGameOver) {
-                DrawRectangle(0, 0, sWidth, sHeight, (Color){0, 0, 0, 180});
+        case STATE_TRANSITION_12:
+            drawCutscene12(sW, sH);
+            break;
 
-                const char *gameOverText = "GAME OVER";
-                int textWidth = MeasureText(gameOverText, 60);
-                DrawText(gameOverText, (sWidth - textWidth) / 2, (int)(sHeight * 0.26f), 60, RED);
+        case STATE_TRANSITION_23:
+            drawTransitionScreen(sW, sH);
+            break;
 
-                char finalScoreText[128];
-                sprintf(finalScoreText, "Pontos: %.0f | Tempo: %.1f seg", player.score, totalGameTime);
-                textWidth = MeasureText(finalScoreText, 20);
-                DrawText(finalScoreText, (sWidth - textWidth) / 2, (int)(sHeight * 0.44f), 20, WHITE);
+        case STATE_STAGE2:
+            ClearBackground(SKYBLUE);
+            drawStage2(&stage2, &player);
+            if (debugMode) {
+                drawPlayerDebug(player);
+                DrawText("DEBUG (D)", 10, 30, 14, RED);
+                DrawFPS(10, sH - 30);
+            }
+            if (stage2.stage2Complete) {
+                DrawRectangle(0,0,sW,sH,(Color){0,0,0,160});
+                const char *vt = "FASE 2 COMPLETA!";
+                int vtw = MeasureText(vt, 60);
+                DrawText(vt, (sW-vtw)/2, sH/2-40, 60, GREEN);
+            }
+            break;
 
-                const char *restartText = "Pressione ENTER para voltar ao menu";
-                textWidth = MeasureText(restartText, 16);
-                DrawText(restartText, (sWidth - textWidth) / 2, (int)(sHeight * 0.56f), 16, WHITE);
+        case STATE_STAGE3:
+            ClearBackground(BLACK);
+            drawStage3(&stage3, &player);
+            if (debugMode) {
+                drawPlayerDebug(player);
+                DrawText("DEBUG (D)", 10, 30, 14, RED);
+                DrawFPS(10, sH - 30);
+            }
+            if (stage3.state == STAGE3_FINISHED) {
+                DrawRectangle(0,0,sW,sH,(Color){0,0,0,160});
+                const char *vt = "VALEU A PENA, MÃE.";
+                int vtw = MeasureText(vt, 60);
+                DrawText(vt, (sW-vtw)/2, sH/2-60, 60, YELLOW);
+                char sc[128];
+                sprintf(sc, "Pontos: %.0f | Tempo: %.1f seg", player.score, totalGameTime);
+                int scw = MeasureText(sc, 24);
+                DrawText(sc, (sW-scw)/2, sH/2+20, 24, WHITE);
+            }
+            break;
 
+        case STATE_GAMEOVER:
+            ClearBackground((Color){20,10,10,255});
+            {
+                const char *gt = "GAME OVER";
+                int gtw = MeasureText(gt, 60);
+                DrawText(gt, (sW-gtw)/2, (int)(sH*0.26f), 60, RED);
+                char sc[128];
+                sprintf(sc, "Pontos: %.0f | Tempo: %.1f seg", player.score, totalGameTime);
+                int scw = MeasureText(sc, 20);
+                DrawText(sc, (sW-scw)/2, (int)(sH*0.44f), 20, WHITE);
+                const char *rt = "Pressione ENTER para voltar ao menu";
+                int rtw = MeasureText(rt, 16);
+                DrawText(rt, (sW-rtw)/2, (int)(sH*0.56f), 16, WHITE);
                 if (gameOverTimer > 0) {
-                    char timerText[64];
-                    sprintf(timerText, "Reiniciando em %.1f segundos", gameOverTimer);
-                    textWidth = MeasureText(timerText, 14);
-                    DrawText(timerText, (sWidth - textWidth) / 2, (int)(sHeight * 0.67f), 14, YELLOW);
+                    char tt[64];
+                    sprintf(tt, "Reiniciando em %.1f s", gameOverTimer);
+                    int ttw = MeasureText(tt, 14);
+                    DrawText(tt, (sW-ttw)/2, (int)(sH*0.67f), 14, YELLOW);
                 }
             }
-
-            if (stage1.stage1Complete && !isGameOver) {
-                DrawRectangle(0, 0, sWidth, sHeight, (Color){0, 0, 0, 180});
-
-                const char *victoryText = "VITÓRIA!";
-                int textWidth = MeasureText(victoryText, 60);
-                DrawText(victoryText, (sWidth - textWidth) / 2, (int)(sHeight * 0.26f), 60, GREEN);
-
-                char finalScoreText[128];
-                sprintf(finalScoreText, "Pontos: %.0f | Tempo: %.1f seg", player.score, totalGameTime);
-                textWidth = MeasureText(finalScoreText, 20);
-                DrawText(finalScoreText, (sWidth - textWidth) / 2, (int)(sHeight * 0.44f), 20, WHITE);
-
-                const char *continueText = "Pressione ENTER para voltar ao menu";
-                textWidth = MeasureText(continueText, 16);
-                DrawText(continueText, (sWidth - textWidth) / 2, (int)(sHeight * 0.56f), 16, WHITE);
-            }
+            break;
         }
 
         EndDrawing();
     }
 
-    // ========== LIMPEZA RECURSOS ==========
-    if (introTexturesLoaded) {
-        UnloadTexture(txIntroBg);
-        UnloadTexture(txIntroPlayer);
-    }
+cleanup:
+    if (introTexturesLoaded) { UnloadTexture(txIntroBg); UnloadTexture(txIntroPlayer); }
+    if (transition.loaded)   UnloadTexture(transition.image);
+    unloadCutscene12();
     unloadStage1(&stage1);
+    unloadStage2(&stage2);
+    unloadStage3(&stage3);
     unloadPlayerResources(&player);
-    if (phaseList != NULL) {
-        freePhaseList(phaseList);
-    }
-
+    if (phaseList) freePhaseList(phaseList);
     CloseAudioDevice();
     CloseWindow();
     return 0;

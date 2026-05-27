@@ -588,12 +588,12 @@ static void updateTransition(Stage2 *stage, Player *player, float deltaTime) {
 
     stage->backgroundScroll += 300.0f * deltaTime;
 
-    if (player->position.x >= (float)GetScreenWidth()) {
+    if (stage->modeTimer >= STAGE2_TRANSITION_TIME) {
         stage->mode = STAGE2_MODE_SEA;
         stage->modeTimer = 0.0f;
         stage->obstacleSpawnTimer = 0.0f;
-        stage->spawnInterval = 1.2f; 
-        
+        stage->spawnInterval = 1.2f;
+
         player->position.x = 80.0f;
         player->position.y = (float)GetScreenHeight() * 0.5f;
     }
@@ -631,6 +631,11 @@ static void updateSea(Stage2 *stage, Player *player, float deltaTime) {
     }
 
     float velocidadAtualNado = S2_VELOCIDADE_NADO * mVelocidade;
+
+    // No mar o player nada livremente: desativa fisica do updatePlayer
+    player->movementControlledExternally = 1;
+    player->velocity.y = 0.0f;
+    player->grounded = 0;
 
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
         player->position.x += velocidadAtualNado * deltaTime;
