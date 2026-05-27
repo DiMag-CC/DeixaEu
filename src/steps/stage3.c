@@ -33,9 +33,6 @@
 #define STAGE3_JUMP_FORCE 470.0f
 #define FINAL_CLIMB_BACKGROUND_COUNT 5
 #define TOWER_STAGE3_VERTICAL_OFFSET -25.0f
-#define CHECKPOINT_TOWER_GAP 28.0f
-#define CHECKPOINT_WIDTH 86.0f
-#define CHECKPOINT_HEIGHT 86.0f
 #define STAGE3_CRAB_WIDTH 92.0f
 #define STAGE3_CRAB_HEIGHT 82.0f
 #define STAGE3_CRAB_TOWER_GAP 160.0f
@@ -57,6 +54,7 @@
 #define CLIMB_LIGHTNING_PLAYER_HITBOX_SCALE 0.45f
 #define CLIMB_HEART_START_SECTION 1
 #define CLIMB_HEART_SIZE 72.0f
+#define STAGE3_SCORE_PER_DISTANCE 1.0f
 #define STAGE3_DAMAGE_INVINCIBILITY_DURATION 1.0f
 #define STAGE3_DAMAGE_BLINK_PERIOD 0.5f
 #define FINAL_CLIMB_PLAYER_WIDTH 168.0f
@@ -92,7 +90,6 @@ static Texture2D stage3FloorTexture = {0};
 static Texture2D stage3PuddleTexture = {0};
 static Texture2D stage3BottleTexture = {0};
 static Texture2D stage3SkyTexture = {0};
-static Texture2D stage3CheckpointTexture = {0};
 static Texture2D stage3CrabTextures[2] = {0};
 static Texture2D climbLightningTexture = {0};
 static Texture2D climbWarningTexture = {0};
@@ -113,6 +110,7 @@ static char climbFallingDirection = 'R';
 static float climbFallingOffsetX = 0.0f;
 static float climbFallingOffsetY = 0.0f;
 static float climbFallingVelocityY = 0.0f;
+static float stage3BestScoreDistance = 0.0f;
 static float climbLightningTimer = 0.0f;
 static float climbLightningStateTimer = 0.0f;
 static int climbLightningState = 0;
@@ -150,6 +148,25 @@ static bool angleInArc(float angle, float start, float size) {
     }
 
     return angle >= start || angle <= end;
+}
+
+static float stage3ScoreDistance(Stage3 *stage, Player *player) {
+    float distance = stage->scrollX;
+
+    if (stage->state == STAGE3_CLIMBING || stage->state == STAGE3_FINISHED) {
+        distance += fmaxf(0.0f, TOWER_BASE_Y - player->height - player->position.y);
+    }
+
+    return distance;
+}
+
+static void updateStage3Score(Stage3 *stage, Player *player) {
+    float distance = stage3ScoreDistance(stage, player);
+
+    if (distance > stage3BestScoreDistance) {
+        player->score += (distance - stage3BestScoreDistance) * STAGE3_SCORE_PER_DISTANCE;
+        stage3BestScoreDistance = distance;
+    }
 }
 
 static void resetClimbChallenge(void) {
@@ -429,7 +446,7 @@ static float towerDrawWidth(Stage3 *stage) {
 }
 
 static float towerDrawHeight(Stage3 *stage) {
-    return stage->towerTexture.id > 0 ? 560.0f : 520.0f;
+    return stage->towerTexture.id > 0 ? 620.0f : 575.0f;
 }
 
 static Rectangle towerSourceRect(Stage3 *stage) {
@@ -452,8 +469,6 @@ static void applyHorizontalScroll(Stage3 *stage, float scrollDelta) {
 
     stage->scrollX += scrollDelta;
     stage->towerPosition.x -= scrollDelta;
-    stage->checkpointPosition.x -= scrollDelta;
-    stage->checkpointHitbox.x -= scrollDelta;
     stage->crabPosition.x -= scrollDelta;
     stage->crabHitbox.x -= scrollDelta;
     syncTowerHitbox(stage);
@@ -685,31 +700,6 @@ static void drawBottle(Puddle puddle) {
                  glassEdge);
     DrawRectangle((int)(x + 44), (int)(y + 25), 8, 4, glassLight);
     DrawRectangle((int)(x + 1), (int)(y + 27), 5, 4, glassEdge);
-}
-
-static void drawStage3Checkpoint(Stage3 *stage) {
-    Rectangle dest = {
-        stage->checkpointPosition.x,
-        stage->checkpointPosition.y,
-        CHECKPOINT_WIDTH,
-        CHECKPOINT_HEIGHT
-    };
-    Color tint = stage->checkpointActivated
-        ? (Color){ 150, 255, 188, 255 }
-        : WHITE;
-
-    if (stage3CheckpointTexture.id > 0) {
-        Rectangle source = { 0.0f, 0.0f, (float)stage3CheckpointTexture.width, (float)stage3CheckpointTexture.height };
-        DrawTexturePro(stage3CheckpointTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, tint);
-    } else {
-        DrawRectangleRec(dest, tint);
-    }
-
-    if (stage->checkpointActivated) {
-        DrawCircleV((Vector2){ dest.x + dest.width * 0.5f, dest.y + dest.height + 8.0f },
-                    6.0f + sinf((float)GetTime() * 6.0f) * 2.0f,
-                    (Color){ 85, 255, 140, 190 });
-    }
 }
 
 static void cleanCrabDialogText(char *text) {
@@ -1233,48 +1223,6 @@ static void damageStage3Player(Player *player, float knockback) {
     }
 }
 
-static int respawnStage3AtCheckpoint(Stage3 *stage, Player *player) {
-    if (!stage->checkpointActivated || stage->checkpointRespawnUsed) {
-        return 0;
-    }
-
-    stage->checkpointRespawnUsed = true;
-    if (stage->state == STAGE3_CLIMBING || stage->state == STAGE3_FINISHED) {
-        resetClimbChallenge();
-        stage->state = STAGE3_APPROACH;
-    }
-
-    float scrollDelta = stage->checkpointScrollX - stage->scrollX;
-    applyHorizontalScroll(stage, scrollDelta);
-
-    stage->ambientSpawningEnabled = true;
-    stage->puddleLockTimer = 0.0f;
-    stage->puddlePushVelocity = 0.0f;
-
-    for (int i = 0; i < STAGE3_MAX_BIRD_POOPS; i++) {
-        stage->poops[i].active = false;
-        stage->poops[i].landed = false;
-        stage->poops[i].speedY = 0.0f;
-        stage->poops[i].rotationZ = 0.0f;
-    }
-    for (int i = 0; i < STAGE3_MAX_BIRDS; i++) {
-        resetStage3ApproachBird(&stage->birds[i], i);
-    }
-
-    player->lives = 1;
-    player->state = PLAYER_STATE_IDLE;
-    player->isClimbing = false;
-    player->position = (Vector2){ PLAYER_CENTER_X, TOWER_BASE_Y - player->height };
-    player->velocity = (Vector2){ 0.0f, 0.0f };
-    player->grounded = true;
-    player->isGrounded = true;
-    player->direction = 'R';
-    player->invincibilityTimer = STAGE3_DAMAGE_INVINCIBILITY_DURATION;
-    syncStage3PlayerHitbox(player);
-
-    return 1;
-}
-
 static Color stage3PlayerDamageTint(Player *player) {
     if (player->invincibilityTimer <= 0.0f) {
         return WHITE;
@@ -1365,11 +1313,12 @@ static float finalClimbLocalProgress(Stage3 *stage, Player *player, int *backgro
 
 static Rectangle finalClimbTowerDest(float screenWidth, float screenHeight) {
     float towerWidth = clampFloat(screenWidth * 0.58f, 560.0f, 1100.0f);
+    float towerHeight = screenHeight * 1.06f;
     return (Rectangle){
         (screenWidth - towerWidth) * 0.5f,
-        0.0f,
+        (screenHeight - towerHeight) * 0.5f,
         towerWidth,
-        screenHeight
+        towerHeight
     };
 }
 
@@ -1796,9 +1745,6 @@ static void loadStage3MapTextures(void) {
     if (stage3SkyTexture.id == 0) {
         stage3SkyTexture = LoadTexture("assets/img/ceu.png");
     }
-    if (stage3CheckpointTexture.id == 0) {
-        stage3CheckpointTexture = LoadTexture("assets/img/KiteR.png");
-    }
     if (stage3CrabTextures[0].id == 0) {
         stage3CrabTextures[0] = LoadTexture("assets/img/crab1.png");
     }
@@ -1824,10 +1770,6 @@ static void unloadStage3MapTextures(void) {
         UnloadTexture(stage3SkyTexture);
         stage3SkyTexture = (Texture2D){0};
     }
-    if (stage3CheckpointTexture.id > 0) {
-        UnloadTexture(stage3CheckpointTexture);
-        stage3CheckpointTexture = (Texture2D){0};
-    }
     for (int i = 0; i < 2; i++) {
         if (stage3CrabTextures[i].id > 0) {
             UnloadTexture(stage3CrabTextures[i]);
@@ -1849,56 +1791,25 @@ static void drawFinalClimbSeaSkyBackground(int backgroundIndex, float screenWidt
 }
 
 static void drawStage3Hud(Player *player, bool showClimbErrors) {
+    (void)player;
+    if (!showClimbErrors) {
+        return;
+    }
+
     float scale = clampFloat(GetScreenHeight() / 1080.0f, 0.72f, 1.25f);
-    float heartSize = 38.0f * scale;
     float margin = 18.0f * scale;
-    float gap = 8.0f * scale;
-
-    DrawRectangleRounded((Rectangle){ margin - 8.0f, margin - 7.0f, 170.0f * scale, 54.0f * scale },
-                         0.18f, 6, (Color){ 6, 18, 31, 150 });
-
-    int visibleLives = player->lives;
-    if (visibleLives < 0) visibleLives = 0;
-    if (visibleLives > 3) visibleLives = 3;
-
-    for (int i = 0; i < 3; i++) {
-        Rectangle dest = {
-            margin + i * (heartSize + gap),
-            margin,
-            heartSize,
-            heartSize
-        };
-        Color tint = i < visibleLives ? WHITE : (Color){ 255, 255, 255, 65 };
-
-        if (climbHeartTexture.id > 0) {
-            Rectangle source = { 0.0f, 0.0f, (float)climbHeartTexture.width, (float)climbHeartTexture.height };
-            DrawTexturePro(climbHeartTexture, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, tint);
-        } else {
-            DrawCircle((int)(dest.x + dest.width * 0.30f), (int)(dest.y + dest.height * 0.34f), dest.width * 0.22f, RED);
-            DrawCircle((int)(dest.x + dest.width * 0.70f), (int)(dest.y + dest.height * 0.34f), dest.width * 0.22f, RED);
-            DrawTriangle(
-                (Vector2){ dest.x + dest.width * 0.10f, dest.y + dest.height * 0.42f },
-                (Vector2){ dest.x + dest.width * 0.90f, dest.y + dest.height * 0.42f },
-                (Vector2){ dest.x + dest.width * 0.50f, dest.y + dest.height * 0.96f },
-                RED
-            );
-        }
-    }
-
-    if (showClimbErrors) {
-        char text[48];
-        snprintf(text, sizeof(text), "Erros: %d / %d", climbMissCount, CLIMB_MAX_MISSES);
-        int fontSize = (int)(24.0f * scale);
-        int textWidth = MeasureText(text, fontSize);
-        Rectangle box = {
-            (float)GetScreenWidth() - textWidth - 34.0f * scale,
-            margin - 2.0f,
-            textWidth + 18.0f * scale,
-            38.0f * scale
-        };
-        DrawRectangleRounded(box, 0.18f, 6, (Color){ 6, 18, 31, 150 });
-        DrawText(text, (int)(box.x + 9.0f * scale), (int)(box.y + 7.0f * scale), fontSize, RAYWHITE);
-    }
+    char text[48];
+    snprintf(text, sizeof(text), "Erros: %d / %d", climbMissCount, CLIMB_MAX_MISSES);
+    int fontSize = (int)(24.0f * scale);
+    int textWidth = MeasureText(text, fontSize);
+    Rectangle box = {
+        (float)GetScreenWidth() - textWidth - 34.0f * scale,
+        margin - 2.0f,
+        textWidth + 18.0f * scale,
+        38.0f * scale
+    };
+    DrawRectangleRounded(box, 0.18f, 6, (Color){ 6, 18, 31, 150 });
+    DrawText(text, (int)(box.x + 9.0f * scale), (int)(box.y + 7.0f * scale), fontSize, RAYWHITE);
 }
 
 static void drawFinalClimbPeakMessage(bool peakReached, float screenWidth) {
@@ -2002,13 +1913,11 @@ void initStage3(Stage3 *stage, Player *player) {
     stage->puddleLockTimer = 0.0f;
     stage->puddlePushVelocity = 0.0f;
     stage->ambientSpawningEnabled = true;
-    stage->checkpointActivated = false;
-    stage->checkpointRespawnUsed = false;
-    stage->checkpointScrollX = 0.0f;
     stage->crabDialogOpen = false;
     stage->crabAIWaiting = false;
     stage->crabAIWaitTimer = 0.0f;
     stage->crabDialogText[0] = '\0';
+    stage3BestScoreDistance = 0.0f;
     resetClimbChallenge();
     
     stage->towerTexture = LoadTexture("assets/img/brenadFinalCropped.png");
@@ -2023,16 +1932,6 @@ void initStage3(Stage3 *stage, Player *player) {
     // Desenha apenas a area visivel do PNG para a base da torre ficar exatamente no chao.
     stage->towerPosition = (Vector2){ TOWER_START_X, TOWER_BASE_Y - towerDrawHeight(stage) + TOWER_STAGE3_VERTICAL_OFFSET };
     syncTowerHitbox(stage);
-    stage->checkpointPosition = (Vector2){
-        stage->towerPosition.x - CHECKPOINT_WIDTH - CHECKPOINT_TOWER_GAP,
-        TOWER_BASE_Y - CHECKPOINT_HEIGHT - 50.0f
-    };
-    stage->checkpointHitbox = (Rectangle){
-        stage->checkpointPosition.x + CHECKPOINT_WIDTH * 0.20f,
-        TOWER_BASE_Y - player->height,
-        CHECKPOINT_WIDTH * 0.60f,
-        player->height
-    };
     stage->crabPosition = (Vector2){
         stage->towerPosition.x + towerDrawWidth(stage) + STAGE3_CRAB_TOWER_GAP,
         TOWER_BASE_Y - STAGE3_CRAB_HEIGHT + 6.0f
@@ -2074,8 +1973,6 @@ void initStage3(Stage3 *stage, Player *player) {
     
     player->width = 84.0f;
     player->height = 105.0f;
-    stage->checkpointHitbox.y = TOWER_BASE_Y - player->height;
-    stage->checkpointHitbox.height = player->height;
     player->position = (Vector2){ PLAYER_CENTER_X, TOWER_BASE_Y - player->height };
     player->isClimbing = false;
     player->velocity = (Vector2){0, 0};
@@ -2109,9 +2006,6 @@ void initStage3(Stage3 *stage, Player *player) {
 
 void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
     if (player->lives <= 0) {
-        if (respawnStage3AtCheckpoint(stage, player)) {
-            return;
-        }
         return;
     }
 
@@ -2322,11 +2216,6 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
             8.0f
         };
 
-        if (!stage->checkpointActivated && CheckCollisionRecs(playerHitbox, stage->checkpointHitbox)) {
-            stage->checkpointActivated = true;
-            stage->checkpointScrollX = stage->scrollX;
-        }
-
         bool playerNearCrab = CheckCollisionRecs(playerHitbox, (Rectangle){
             stage->crabHitbox.x - 54.0f,
             stage->crabHitbox.y - 18.0f,
@@ -2379,7 +2268,6 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
         updateClimbLightning(stage, player, deltaTime);
         updateClimbMissSection(stage, player);
         if (player->lives <= 0) {
-            respawnStage3AtCheckpoint(stage, player);
             return;
         }
 
@@ -2479,6 +2367,12 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
             stage->state = STAGE3_FINISHED;
             player->isClimbing = false; // finalizou subida
         }
+    }
+
+    if (stage->state == STAGE3_APPROACH ||
+        stage->state == STAGE3_CLIMBING ||
+        stage->state == STAGE3_FINISHED) {
+        updateStage3Score(stage, player);
     }
     
     // ===== GERENCIAMENTO DE COCO DOS PASSAROS =====
@@ -2595,7 +2489,6 @@ void updateStage3(Stage3 *stage, Player *player, float deltaTime) {
 
     syncStage3PlayerHitbox(player);
     if (player->lives <= 0) {
-        respawnStage3AtCheckpoint(stage, player);
         return;
     }
     if (!climbFallingActive) {
@@ -2622,7 +2515,6 @@ void drawStage3(Stage3 *stage, Player *player) {
     float floorY = TOWER_BASE_Y;
     
     drawStage3Floor(stage, player, floorY);
-    drawStage3Checkpoint(stage);
 
     for (int i = 0; i < STAGE3_MAX_PUDDLES; i++) {
         drawPuddle(stage->puddles[i]);

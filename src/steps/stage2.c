@@ -239,9 +239,11 @@ static void handleCollisionsStage2(Stage2 *stage, Player *player) {
 
         if (o->active && CheckCollisionRecs(player->hitbox, o->hitbox)) {
             if (o->type == S2_OBS_CRAB) {
-                stage->breath = 0.0f;
-                playerHealth = 0; 
-                player->lives = 0; 
+                playerHealth -= 30;
+                if (playerHealth <= 0) {
+                    playerHealth = 0;
+                    player->lives = 0;
+                }
                 o->active = 0;
             }
             else if (o->type == S2_OBS_TRASH) {

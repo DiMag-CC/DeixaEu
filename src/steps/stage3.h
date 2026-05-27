@@ -63,14 +63,9 @@ typedef struct Stage3 {
     float puddleLockTimer;
     float puddlePushVelocity;
     bool ambientSpawningEnabled;
-    bool checkpointActivated;
-    bool checkpointRespawnUsed;
-    float checkpointScrollX;
     
     Rectangle towerHitbox;
     Vector2 towerPosition;
-    Rectangle checkpointHitbox;
-    Vector2 checkpointPosition;
     Rectangle crabHitbox;
     Vector2 crabPosition;
     bool crabDialogOpen;

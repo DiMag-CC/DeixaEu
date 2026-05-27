@@ -17,6 +17,9 @@
 #define WORLD_HEIGHT  450.0f
 #define CAMERA_VERTICAL_LOOKAHEAD 150.0f
 #define FPS 60
+#define MAX_RANKING_ENTRIES 10
+#define RANK_STAGE2_SAND_DISTANCE 1500.0f
+#define RANK_STAGE2_SEA_DISTANCE 600.0f
 
 // ========== ESTADO GLOBAL DO JOGO ==========
 typedef enum {
@@ -25,15 +28,203 @@ typedef enum {
     STATE_STAGE1,
     STATE_TRANSITION_12,   // imagem12.png
     STATE_STAGE2,
-    STATE_TRANSITION_23,   // imagem23.jpg
+    STATE_TRANSITION_23,   // tela raylib: fase final
     STATE_STAGE3,
     STATE_GAMEOVER
 } GameState;
 
+typedef enum {
+    MUSIC_NONE = -1,
+    MUSIC_STAGE1 = 0,
+    MUSIC_STAGE2_SAND,
+    MUSIC_STAGE2_SEA,
+    MUSIC_STAGE3,
+    MUSIC_WIN,
+    MUSIC_COUNT
+} MusicTrack;
+
+typedef struct {
+    char playerName[32];
+    float duration;
+    float distance;
+} RankingEntry;
+
 // ========== TEXTURAS DA INTRODUÇÃO ==========
 static Texture2D txIntroBg;
 static Texture2D txIntroPlayer;
+static Texture2D txFinalScreen;
+static Texture2D txHudHeart;
 static int introTexturesLoaded = 0;
+static int finalScreenLoaded = 0;
+static int hudHeartLoaded = 0;
+
+static Music musicTracks[MUSIC_COUNT];
+static int musicTracksLoaded = 0;
+static MusicTrack currentMusicTrack = MUSIC_NONE;
+static RankingEntry rankingEntries[MAX_RANKING_ENTRIES];
+static int rankingCount = 0;
+static int nextPlayerNumber = 1;
+
+static int rankingComesBefore(RankingEntry a, RankingEntry b) {
+    if (a.distance > b.distance) return 1;
+    if (a.distance < b.distance) return 0;
+    return a.duration < b.duration;
+}
+
+static void insertionSortRanking(void) {
+    for (int i = 1; i < rankingCount; i++) {
+        RankingEntry key = rankingEntries[i];
+        int j = i - 1;
+
+        while (j >= 0 && rankingComesBefore(key, rankingEntries[j])) {
+            rankingEntries[j + 1] = rankingEntries[j];
+            j--;
+        }
+
+        rankingEntries[j + 1] = key;
+    }
+}
+
+static void addRankingEntry(const char *playerName, float duration, float distance) {
+    RankingEntry entry = {0};
+    snprintf(entry.playerName, sizeof(entry.playerName), "%s", playerName);
+    entry.duration = duration;
+    entry.distance = distance;
+
+    if (rankingCount < MAX_RANKING_ENTRIES) {
+        rankingEntries[rankingCount++] = entry;
+    } else if (rankingComesBefore(entry, rankingEntries[MAX_RANKING_ENTRIES - 1])) {
+        rankingEntries[MAX_RANKING_ENTRIES - 1] = entry;
+    } else {
+        return;
+    }
+
+    insertionSortRanking();
+}
+
+static float calculateReachedDistance(GameState gameState, Stage1 *stage1, Stage2 *stage2, Stage3 *stage3, Player *player) {
+    float stage1Distance = stage1->distanceTraveled;
+    if (stage1Distance > STAGE1_TARGET_DISTANCE) stage1Distance = STAGE1_TARGET_DISTANCE;
+
+    switch (gameState) {
+    case STATE_STAGE1:
+        return stage1Distance;
+    case STATE_TRANSITION_12:
+        return STAGE1_TARGET_DISTANCE;
+    case STATE_STAGE2:
+        if (stage2->mode == STAGE2_MODE_SAND) {
+            return STAGE1_TARGET_DISTANCE + stage2->distanceTraveled;
+        }
+        if (stage2->mode == STAGE2_MODE_TRANSITION) {
+            return STAGE1_TARGET_DISTANCE + RANK_STAGE2_SAND_DISTANCE;
+        }
+        return STAGE1_TARGET_DISTANCE + RANK_STAGE2_SAND_DISTANCE + stage2->distanceTraveled;
+    case STATE_TRANSITION_23:
+        return STAGE1_TARGET_DISTANCE + RANK_STAGE2_SAND_DISTANCE + RANK_STAGE2_SEA_DISTANCE;
+    case STATE_STAGE3: {
+        float stage3Distance = stage3->scrollX;
+        if (stage3->state == STAGE3_CLIMBING || stage3->state == STAGE3_FINISHED) {
+            stage3Distance += fmaxf(0.0f, GetScreenHeight() * 0.82f - player->position.y);
+        }
+        return STAGE1_TARGET_DISTANCE + RANK_STAGE2_SAND_DISTANCE + RANK_STAGE2_SEA_DISTANCE + stage3Distance;
+    }
+    default:
+        return 0.0f;
+    }
+}
+
+static void drawRankingEntries(int screenWidth, int screenHeight) {
+    int fontSize = screenHeight < 720 ? 18 : 24;
+    int headerSize = screenHeight < 720 ? 20 : 26;
+    int tableWidth = (int)(screenWidth * 0.68f);
+    int startX = (screenWidth - tableWidth) / 2;
+    int startY = (int)(screenHeight * 0.24f);
+    int rowHeight = fontSize + 18;
+
+    DrawRectangleRounded((Rectangle){ (float)startX - 18.0f, (float)startY - 18.0f,
+                                      (float)tableWidth + 36.0f, (float)(rowHeight * 8 + 42) },
+                         0.08f, 6, (Color){ 8, 20, 34, 170 });
+    DrawText("#", startX, startY, headerSize, YELLOW);
+    DrawText("Jogador", startX + 70, startY, headerSize, YELLOW);
+    DrawText("Tempo", startX + tableWidth - 310, startY, headerSize, YELLOW);
+    DrawText("Distancia", startX + tableWidth - 155, startY, headerSize, YELLOW);
+
+    if (rankingCount == 0) {
+        const char *emptyText = "Nenhuma partida registrada";
+        int textWidth = MeasureText(emptyText, fontSize);
+        DrawText(emptyText, (screenWidth - textWidth) / 2, startY + rowHeight * 2, fontSize, LIGHTGRAY);
+        return;
+    }
+
+    int rows = rankingCount < 8 ? rankingCount : 8;
+    for (int i = 0; i < rows; i++) {
+        char rank[16];
+        char timeText[32];
+        char distanceText[32];
+        int y = startY + rowHeight * (i + 1);
+
+        snprintf(rank, sizeof(rank), "%d", i + 1);
+        snprintf(timeText, sizeof(timeText), "%.1fs", rankingEntries[i].duration);
+        snprintf(distanceText, sizeof(distanceText), "%.0fm", rankingEntries[i].distance);
+
+        Color rowColor = i == 0 ? (Color){ 255, 238, 122, 255 } : RAYWHITE;
+        DrawText(rank, startX, y, fontSize, rowColor);
+        DrawText(rankingEntries[i].playerName, startX + 70, y, fontSize, rowColor);
+        DrawText(timeText, startX + tableWidth - 310, y, fontSize, rowColor);
+        DrawText(distanceText, startX + tableWidth - 155, y, fontSize, rowColor);
+    }
+}
+
+static void loadGameMusic(void) {
+    if (musicTracksLoaded) return;
+
+    musicTracks[MUSIC_STAGE1] = LoadMusicStream("assets/music/sambaSongLevel1.wav");
+    musicTracks[MUSIC_STAGE2_SAND] = LoadMusicStream("assets/music/BossaNOva1.wav");
+    musicTracks[MUSIC_STAGE2_SEA] = LoadMusicStream("assets/music/BolhasFundodoMar.wav");
+    musicTracks[MUSIC_STAGE3] = LoadMusicStream("assets/music/DramaFrevo1.wav");
+    musicTracks[MUSIC_WIN] = LoadMusicStream("assets/music/Win1.mp3");
+
+    for (int i = 0; i < MUSIC_COUNT; i++) {
+        musicTracks[i].looping = true;
+        SetMusicVolume(musicTracks[i], 0.55f);
+    }
+
+    musicTracksLoaded = 1;
+}
+
+static void unloadGameMusic(void) {
+    if (!musicTracksLoaded) return;
+
+    if (currentMusicTrack != MUSIC_NONE) {
+        StopMusicStream(musicTracks[currentMusicTrack]);
+        currentMusicTrack = MUSIC_NONE;
+    }
+
+    for (int i = 0; i < MUSIC_COUNT; i++) {
+        UnloadMusicStream(musicTracks[i]);
+    }
+
+    musicTracksLoaded = 0;
+}
+
+static void playGameMusic(MusicTrack track) {
+    if (!musicTracksLoaded || track == currentMusicTrack) return;
+
+    if (currentMusicTrack != MUSIC_NONE) {
+        StopMusicStream(musicTracks[currentMusicTrack]);
+    }
+
+    currentMusicTrack = track;
+    if (currentMusicTrack != MUSIC_NONE) {
+        PlayMusicStream(musicTracks[currentMusicTrack]);
+    }
+}
+
+static void updateGameMusic(void) {
+    if (musicTracksLoaded && currentMusicTrack != MUSIC_NONE) {
+        UpdateMusicStream(musicTracks[currentMusicTrack]);
+    }
+}
 
 static void drawTextureCover(Texture2D texture, Rectangle dest, Color tint) {
     if (texture.id <= 0 || texture.width <= 0 || texture.height <= 0) return;
@@ -53,6 +244,100 @@ static void drawTextureCover(Texture2D texture, Rectangle dest, Color tint) {
     DrawTexturePro(texture, source, dest, (Vector2){0,0}, 0.0f, tint);
 }
 
+static void unloadFinalScreenTexture(void) {
+    if (finalScreenLoaded) {
+        UnloadTexture(txFinalScreen);
+        txFinalScreen = (Texture2D){0};
+        finalScreenLoaded = 0;
+    }
+}
+
+static void drawFinalVictoryScreen(int screenWidth, int screenHeight) {
+    if (!finalScreenLoaded) {
+        txFinalScreen = LoadTexture("assets/img/telafinal.png");
+        finalScreenLoaded = 1;
+    }
+
+    if (txFinalScreen.id > 0) {
+        drawTextureCover(txFinalScreen, (Rectangle){0, 0, (float)screenWidth, (float)screenHeight}, WHITE);
+    } else {
+        DrawRectangleGradientV(0, 0, screenWidth, screenHeight,
+                               (Color){ 247, 171, 73, 255 },
+                               (Color){ 29, 102, 137, 255 });
+    }
+
+    const char *message = "Valeu a pena, mãe";
+    int fontSize = screenHeight < 720 ? 42 : 64;
+    int textWidth = MeasureText(message, fontSize);
+    int x = (screenWidth - textWidth) / 2;
+    int y = (int)(screenHeight * 0.14f);
+
+    DrawText(message, x + 3, y + 3, fontSize, (Color){ 0, 37, 58, 165 });
+    DrawText(message, x, y, fontSize, (Color){ 255, 245, 174, 255 });
+}
+
+static void unloadHudHeartTexture(void) {
+    if (hudHeartLoaded) {
+        UnloadTexture(txHudHeart);
+        txHudHeart = (Texture2D){0};
+        hudHeartLoaded = 0;
+    }
+}
+
+static void drawSharedLifeScoreTimeHUD(Player *player, float totalGameTime, int screenWidth, int screenHeight) {
+    (void)screenWidth;
+
+    if (!hudHeartLoaded) {
+        txHudHeart = LoadTexture("assets/img/HealthHeart.png");
+        hudHeartLoaded = 1;
+    }
+
+    float scale = (float)screenHeight / 1080.0f;
+    if (scale < 0.72f) scale = 0.72f;
+    if (scale > 1.25f) scale = 1.25f;
+    float margin = 16.0f * scale;
+    float heartSize = 36.0f * scale;
+    float gap = 7.0f * scale;
+    int fontSize = (int)(22.0f * scale);
+    int lives = player->lives;
+    if (lives < 0) lives = 0;
+    if (lives > 3) lives = 3;
+
+    DrawRectangleRounded((Rectangle){ margin - 8.0f, margin - 8.0f, 360.0f * scale, 92.0f * scale },
+                         0.10f, 6, (Color){ 6, 18, 31, 145 });
+
+    for (int i = 0; i < 3; i++) {
+        Rectangle dest = {
+            margin + i * (heartSize + gap),
+            margin,
+            heartSize,
+            heartSize
+        };
+        Color tint = i < lives ? WHITE : (Color){ 255, 255, 255, 65 };
+
+        if (txHudHeart.id > 0) {
+            Rectangle source = { 0.0f, 0.0f, (float)txHudHeart.width, (float)txHudHeart.height };
+            DrawTexturePro(txHudHeart, source, dest, (Vector2){0.0f, 0.0f}, 0.0f, tint);
+        } else {
+            DrawCircle((int)(dest.x + dest.width * 0.30f), (int)(dest.y + dest.height * 0.34f), dest.width * 0.22f, RED);
+            DrawCircle((int)(dest.x + dest.width * 0.70f), (int)(dest.y + dest.height * 0.34f), dest.width * 0.22f, RED);
+            DrawTriangle(
+                (Vector2){ dest.x + dest.width * 0.10f, dest.y + dest.height * 0.42f },
+                (Vector2){ dest.x + dest.width * 0.90f, dest.y + dest.height * 0.42f },
+                (Vector2){ dest.x + dest.width * 0.50f, dest.y + dest.height * 0.96f },
+                RED
+            );
+        }
+    }
+
+    char pointsText[64];
+    char timeText[64];
+    snprintf(pointsText, sizeof(pointsText), "Pontos: %.0f", player->score);
+    snprintf(timeText, sizeof(timeText), "Tempo: %.1fs", totalGameTime);
+    DrawText(pointsText, (int)margin, (int)(margin + heartSize + 9.0f * scale), fontSize, RAYWHITE);
+    DrawText(timeText, (int)(margin + 170.0f * scale), (int)(margin + heartSize + 9.0f * scale), fontSize, RAYWHITE);
+}
+
 // ========== HUD FASE 1 ==========
 void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenWidth, int screenHeight) {
     const int HUD_Y_START  = 12;
@@ -60,18 +345,12 @@ void drawGameHUD(Stage1 *stage, Player *player, float totalGameTime, int screenW
     const int HUD_MARGIN   = 12;
     int fontSize = (screenWidth < 1024) ? 14 : 16;
 
+    drawSharedLifeScoreTimeHUD(player, totalGameTime, screenWidth, screenHeight);
+
     char buf[128];
-    sprintf(buf, "Vidas: %d / 3", player->lives);
-    DrawText(buf, HUD_MARGIN, HUD_Y_START, fontSize, BLACK);
-
-    sprintf(buf, "Pontos: %.0f", player->score);
-    DrawText(buf, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP, fontSize, BLACK);
-
-    sprintf(buf, "Tempo: %.1f s", totalGameTime);
-    DrawText(buf, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 2, fontSize, BLACK);
 
     sprintf(buf, "Dificuldade: x%.1f", stage->difficultyMultiplier);
-    DrawText(buf, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 3, fontSize, DARKBLUE);
+    DrawText(buf, HUD_MARGIN, HUD_Y_START + HUD_Y_STEP * 4, fontSize, DARKBLUE);
 
     if (player->hasUmbrella > 0) {
         sprintf(buf, "Protecao: %.1f s", player->umbrellaTimer);
@@ -199,8 +478,12 @@ typedef struct {
 static TransitionScreen transition = {0};
 
 static void initTransition(const char *imagePath, float fade, float hold) {
-    if (transition.loaded) { UnloadTexture(transition.image); transition.loaded = 0; }
-    transition.image        = LoadTexture(imagePath);
+    if (transition.loaded && transition.image.id > 0) { UnloadTexture(transition.image); }
+    transition.loaded = 0;
+    transition.image        = (Texture2D){0};
+    if (imagePath != NULL && imagePath[0] != '\0') {
+        transition.image = LoadTexture(imagePath);
+    }
     transition.timer        = 0.0f;
     transition.fadeDuration = fade;
     transition.holdDuration = hold;
@@ -219,11 +502,44 @@ static void drawTransitionScreen(int screenWidth, int screenHeight) {
     if (alpha < 0.0f) alpha = 0.0f;
     if (alpha > 1.0f) alpha = 1.0f;
     unsigned char a = (unsigned char)(alpha * 255.0f);
-    ClearBackground(BLACK);
-    if (transition.image.id > 0)
+    if (transition.image.id > 0) {
+        ClearBackground(BLACK);
         drawTextureCover(transition.image,
                          (Rectangle){0,0,(float)screenWidth,(float)screenHeight},
                          (Color){255,255,255,a});
+        DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 0, 0, 0, (unsigned char)(95.0f * alpha) });
+    } else {
+        DrawRectangleGradientV(0, 0, screenWidth, screenHeight,
+                               (Color){ 13, 47, 75, 255 },
+                               (Color){ 10, 21, 43, 255 });
+    }
+
+    const char *title = "Fase Final";
+    const char *subtitle = "O Parque das Esculturas";
+    int titleSize = screenHeight < 720 ? 54 : 78;
+    int subtitleSize = screenHeight < 720 ? 30 : 42;
+    int titleWidth = MeasureText(title, titleSize);
+    int subtitleWidth = MeasureText(subtitle, subtitleSize);
+    Color titleColor = (Color){ 255, 245, 166, a };
+    Color subtitleColor = (Color){ 236, 248, 255, a };
+    float panelWidth = fmaxf((float)titleWidth, (float)subtitleWidth) + screenWidth * 0.08f;
+    float panelHeight = (float)(titleSize + subtitleSize) + screenHeight * 0.10f;
+    float panelX = screenWidth * 0.5f - panelWidth * 0.5f;
+    float panelY = screenHeight * 0.34f - screenHeight * 0.035f;
+
+    DrawRectangleRounded((Rectangle){ panelX, panelY, panelWidth, panelHeight },
+                         0.10f, 8, (Color){ 2, 9, 20, (unsigned char)(178.0f * alpha) });
+    DrawRectangleRoundedLines((Rectangle){ panelX, panelY, panelWidth, panelHeight },
+                              0.10f, 8, (Color){ 255, 245, 166, (unsigned char)(95.0f * alpha) });
+
+    DrawText(title, (screenWidth - titleWidth) / 2 + 3, (int)(screenHeight * 0.34f) + 3,
+             titleSize, (Color){ 0, 0, 0, (unsigned char)(130.0f * alpha) });
+    DrawText(title, (screenWidth - titleWidth) / 2, (int)(screenHeight * 0.34f), titleSize, titleColor);
+    DrawText(subtitle, (screenWidth - subtitleWidth) / 2 + 2,
+             (int)(screenHeight * 0.34f) + titleSize + 20,
+             subtitleSize, (Color){ 0, 0, 0, (unsigned char)(135.0f * alpha) });
+    DrawText(subtitle, (screenWidth - subtitleWidth) / 2, (int)(screenHeight * 0.34f) + titleSize + 18,
+             subtitleSize, subtitleColor);
 }
 
 // ========== CUTSCENE ANIMADA: TRANSIÇÃO FASE 1 → FASE 2 ==========
@@ -347,6 +663,7 @@ int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Deixa Eu");
     InitAudioDevice();
+    loadGameMusic();
     int monitor = GetCurrentMonitor();
     SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
     ToggleFullscreen();
@@ -367,6 +684,9 @@ int main(void) {
     float     totalGameTime = 0.0f;
     float     storyTimer   = 0.0f;
     float     gameOverTimer = 0.0f;
+    float     finalReturnTimer = 0.0f;
+    int       matchRecorded = 0;
+    char      currentPlayerName[32] = "Jogador 1";
     Menu      menu          = createMenu();
 
     // ===== LISTA DE FASES =====
@@ -416,9 +736,12 @@ int main(void) {
                     unloadStage1(&stage1); initStage1(&stage1);
                     int csw = GetScreenWidth();
                     player = createPlayer((Vector2){ csw * 0.18f, GROUND_LEVEL }, 150, 3);
+                    snprintf(currentPlayerName, sizeof(currentPlayerName), "Jogador %d", nextPlayerNumber++);
+                    matchRecorded = 0;
+                    finalReturnTimer = 0.0f;
                     totalGameTime = 0.0f;
                     gameState = STATE_STAGE1;
-                } else if (menu.selectedOption == 2) {
+                } else if (menu.selectedOption == 3) {
                     goto cleanup;
                 }
             }
@@ -438,6 +761,11 @@ int main(void) {
             if (!stage1.stage1Complete) totalGameTime += dt;
 
             if (player.lives <= 0) {
+                if (!matchRecorded) {
+                    addRankingEntry(currentPlayerName, totalGameTime,
+                                    calculateReachedDistance(gameState, &stage1, &stage2, &stage3, &player));
+                    matchRecorded = 1;
+                }
                 gameOverTimer = 3.0f;
                 gameState = STATE_GAMEOVER;
             } else if (stage1.stage1Complete) {
@@ -459,7 +787,7 @@ int main(void) {
 
         case STATE_STAGE2:
             if (skipPhaseRequested) {
-                initTransition("assets/img/imagem23.jpg", 1.0f, 3.0f);
+                initTransition("assets/img/pika_de_brennand.png", 0.8f, 2.4f);
                 gameState = STATE_TRANSITION_23;
                 break;
             }
@@ -468,11 +796,16 @@ int main(void) {
             if (!stage2.stage2Complete) totalGameTime += dt;
 
             if (player.lives <= 0) {
+                if (!matchRecorded) {
+                    addRankingEntry(currentPlayerName, totalGameTime,
+                                    calculateReachedDistance(gameState, &stage1, &stage2, &stage3, &player));
+                    matchRecorded = 1;
+                }
                 gameOverTimer = 3.0f;
                 gameState = STATE_GAMEOVER;
             } else if (stage2.stage2Complete) {
                 // Inicia transição 2→3
-                initTransition("assets/img/imagem23.jpg", 1.0f, 3.0f);
+                initTransition("assets/img/pika_de_brennand.png", 0.8f, 2.4f);
                 gameState = STATE_TRANSITION_23;
             }
             break;
@@ -483,7 +816,8 @@ int main(void) {
                 int csw = GetScreenWidth();
                 player = createPlayer((Vector2){ csw * 0.18f, GROUND_LEVEL }, 150, 3);
                 initStage3(&stage3, &player);
-                if (transition.loaded) { UnloadTexture(transition.image); transition.loaded = 0; }
+                if (transition.loaded && transition.image.id > 0) { UnloadTexture(transition.image); }
+                transition.loaded = 0;
                 gameState = STATE_STAGE3;
             }
             break;
@@ -492,6 +826,26 @@ int main(void) {
             if (skipPhaseRequested) {
                 stage3.state = STAGE3_FINISHED;
                 player.isClimbing = false;
+                finalReturnTimer = 0.0f;
+                if (!matchRecorded) {
+                    addRankingEntry(currentPlayerName, totalGameTime,
+                                    calculateReachedDistance(gameState, &stage1, &stage2, &stage3, &player));
+                    matchRecorded = 1;
+                }
+                break;
+            }
+
+            if (stage3.state == STAGE3_FINISHED) {
+                finalReturnTimer += dt;
+                if (finalReturnTimer >= 10.0f) {
+                    unloadStage1(&stage1); initStage1(&stage1);
+                    int csw = GetScreenWidth();
+                    player = createPlayer((Vector2){ csw * 0.18f, GROUND_LEVEL }, 150, 3);
+                    totalGameTime = 0.0f;
+                    finalReturnTimer = 0.0f;
+                    menu = createMenu();
+                    gameState = STATE_MENU;
+                }
                 break;
             }
 
@@ -499,8 +853,19 @@ int main(void) {
             if (stage3.state != STAGE3_FINISHED) totalGameTime += dt;
 
             if (player.lives <= 0) {
+                if (!matchRecorded) {
+                    addRankingEntry(currentPlayerName, totalGameTime,
+                                    calculateReachedDistance(gameState, &stage1, &stage2, &stage3, &player));
+                    matchRecorded = 1;
+                }
                 gameOverTimer = 3.0f;
                 gameState = STATE_GAMEOVER;
+            }
+            if (stage3.state == STAGE3_FINISHED && !matchRecorded) {
+                addRankingEntry(currentPlayerName, totalGameTime,
+                                calculateReachedDistance(gameState, &stage1, &stage2, &stage3, &player));
+                matchRecorded = 1;
+                finalReturnTimer = 0.0f;
             }
             // Vitória final: STAGE3_FINISHED (tratado no draw)
             break;
@@ -512,11 +877,40 @@ int main(void) {
                 int csw = GetScreenWidth();
                 player = createPlayer((Vector2){ csw * 0.18f, GROUND_LEVEL }, 150, 3);
                 totalGameTime = 0.0f;
+                finalReturnTimer = 0.0f;
                 menu = createMenu();
                 gameState = STATE_MENU;
             }
             break;
         }
+
+        switch (gameState) {
+        case STATE_STAGE1:
+        case STATE_TRANSITION_12:
+            playGameMusic(MUSIC_STAGE1);
+            break;
+
+        case STATE_STAGE2:
+            if (stage2.mode == STAGE2_MODE_SAND) {
+                playGameMusic(MUSIC_STAGE2_SAND);
+            } else {
+                playGameMusic(MUSIC_STAGE2_SEA);
+            }
+            break;
+
+        case STATE_TRANSITION_23:
+            playGameMusic(MUSIC_STAGE2_SEA);
+            break;
+
+        case STATE_STAGE3:
+            playGameMusic(stage3.state == STAGE3_FINISHED ? MUSIC_WIN : MUSIC_STAGE3);
+            break;
+
+        default:
+            playGameMusic(MUSIC_NONE);
+            break;
+        }
+        updateGameMusic();
 
         // ========== DESENHO ==========
         BeginDrawing();
@@ -533,6 +927,9 @@ int main(void) {
         case STATE_MENU:
             ClearBackground(BLACK);
             drawMenu(menu);
+            if (menu.screen == MENU_RANKING) {
+                drawRankingEntries(sW, sH);
+            }
             break;
 
         case STATE_STAGE1:
@@ -579,21 +976,16 @@ int main(void) {
 
         case STATE_STAGE3:
             ClearBackground(BLACK);
-            drawStage3(&stage3, &player);
+            if (stage3.state == STAGE3_FINISHED) {
+                drawFinalVictoryScreen(sW, sH);
+            } else {
+                drawStage3(&stage3, &player);
+                drawSharedLifeScoreTimeHUD(&player, totalGameTime, sW, sH);
+            }
             if (debugMode) {
                 drawPlayerDebug(player);
                 DrawText("DEBUG (F3)", 10, 30, 14, RED);
                 DrawFPS(10, sH - 30);
-            }
-            if (stage3.state == STAGE3_FINISHED) {
-                DrawRectangle(0,0,sW,sH,(Color){0,0,0,160});
-                const char *vt = "VALEU A PENA, MÃE.";
-                int vtw = MeasureText(vt, 60);
-                DrawText(vt, (sW-vtw)/2, sH/2-60, 60, YELLOW);
-                char sc[128];
-                sprintf(sc, "Pontos: %.0f | Tempo: %.1f seg", player.score, totalGameTime);
-                int scw = MeasureText(sc, 24);
-                DrawText(sc, (sW-scw)/2, sH/2+20, 24, WHITE);
             }
             break;
 
@@ -625,12 +1017,16 @@ int main(void) {
 
 cleanup:
     if (introTexturesLoaded) { UnloadTexture(txIntroBg); UnloadTexture(txIntroPlayer); }
-    if (transition.loaded)   UnloadTexture(transition.image);
+    unloadFinalScreenTexture();
+    if (transition.loaded && transition.image.id > 0)   UnloadTexture(transition.image);
     unloadCutscene12();
     unloadStage1(&stage1);
     unloadStage2(&stage2);
     unloadStage3(&stage3);
     unloadPlayerResources(&player);
+    unloadGameMusic();
+    unloadHudHeartTexture();
+    unloadMenuResources();
     if (phaseList) freePhaseList(phaseList);
     CloseAudioDevice();
     CloseWindow();
