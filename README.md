@@ -300,13 +300,6 @@ make run
   </a>
 </p>
 
-<p align="center">
-  <a href="resources/DeixaEu.gif">
-    <img src="resources/DeixaEu.gif" alt="Preview da gameplay — DeixaEu" style="max-width:100%; height:auto; border:1px solid #ddd; border-radius:6px;">
-  </a>
-  <br>
-  <small>GIF de Gameplay — toque para melhor experiência</small>
-</p>
 ---
 
 # 📝 Apresentação de Slides
