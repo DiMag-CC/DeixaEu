@@ -10,7 +10,7 @@ endif
 
 CFLAGS = -Wall -Wextra $(RAYLIB_CFLAGS) -Isrc
 
-LDFLAGS = $(RAYLIB_LIBS)
+LDFLAGS = $(RAYLIB_LIBS) -lm
 
 BUILD_DIR = build
 

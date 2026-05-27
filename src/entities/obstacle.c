@@ -1,8 +1,6 @@
 #include "obstacle.h"
 #include "../utils/gameConstants.h"
 
-#define HOLE_VERTICAL_OFFSET 12.0f
-
 Obstacle createObstacle(Vector2 position, ObstacleType type) {
     Obstacle obs;
     obs.position = position;
@@ -16,8 +14,7 @@ Obstacle createObstacle(Vector2 position, ObstacleType type) {
         obs.spriteLoaded = 1;
     }
 
-    float holeY =
-    GLOBAL_GROUND_LEVEL - HOLE_HEIGHT / 2 + HOLE_VERTICAL_OFFSET;
+    float holeY = position.y;
 
     obs.hitbox = (Rectangle){
         obs.position.x - HOLE_WIDTH / 2,
@@ -38,7 +35,7 @@ void updateObstacle(Obstacle *obs, float scrollSpeed, float deltaTime) {
     // Atualizar hitbox
     obs->hitbox.x = obs->position.x - HOLE_WIDTH / 2;
     obs->hitbox.y =
-        GLOBAL_GROUND_LEVEL - HOLE_HEIGHT / 2 + HOLE_VERTICAL_OFFSET;
+        obs->position.y;
 
     // Deativar se sair da tela
     if (obs->position.x < -HOLE_WIDTH) {
@@ -57,7 +54,8 @@ void drawObstacle(Obstacle obs) {
     float scaledHeight = obs.texture.height * scaleY;
 
     if (obs.spriteLoaded && obs.texture.id != 0) {
-        float holeGroundY = GLOBAL_GROUND_LEVEL - scaledHeight / 2 + HOLE_VERTICAL_OFFSET;
+        float holeGroundY =
+            obs.position.y;
 
         Rectangle source = { 0, 0, (float)obs.texture.width, (float)obs.texture.height };
         Rectangle dest = {
