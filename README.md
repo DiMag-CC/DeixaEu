@@ -295,7 +295,7 @@ make run
 # &#x20;🎮 Demonstração do Jogo
 
 <p align="center">
-  <a href="linkvideo" target="_blank" rel="noopener">
+  <a href="https://youtu.be/5MpKjTCXPTE" target="_blank" rel="noopener">
     <strong>▶️ Assistir vídeo completo (abre em nova aba)</strong>
   </a>
 </p>
