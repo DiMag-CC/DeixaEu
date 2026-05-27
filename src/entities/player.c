@@ -1,531 +1,705 @@
 #include "player.h"
 #include "../gfx/animation.h"
 #include "../utils/gameConstants.h"
-#include <math.h>
 #include <stdlib.h>
+#include <math.h>
 
-#define GRAVITY 550.0f
-#define JUMP_FORCE 620.0f
+#define GRAVITY 1050.0f
+#define JUMP_FORCE 700.0f
 #define FRICTION 0.95f
 #define PLAYER_MAX_SPEED 450.0f
 #define KNOCKBACK_DURATION 1.2f
-#define DAMAGE_INVINCIBILITY_DURATION 2.0f
 #define TEXTURE_VALID(tex) ((tex).id > 0)
-#define GRAVITY_FALLING_MULT 1.8f
+#define GRAVITY_FALLING_MULT 2.35f
 #define AIR_ACCEL_MULT 0.6f
 #define COYOTE_TIME 0.1f
 #define JUMP_BUFFER_TIME 0.05f
-#define MAX_JUMP_HOLD_TIME 0.15f
+#define MAX_JUMP_HOLD_TIME 0.11f
+#define PLAYER_GROUND_OFFSET 112.0f
 
 Player createPlayer(Vector2 startPos, float startSpeed, int lives) {
-  Player player = {0};
+    Player player = {0};
 
-  player.position = startPos;
-  player.velocity = (Vector2){0, 0};
-  player.acceleration = (Vector2){0, 0};
+    player.position = startPos;
+    player.velocity = (Vector2){ 0, 0 };
+    player.acceleration = (Vector2){ 0, 0 };
 
-  player.speed = startSpeed;
-  player.maxSpeed = PLAYER_MAX_SPEED;
-  player.scale = 0.12f;
+    player.speed = startSpeed;
+    player.maxSpeed = PLAYER_MAX_SPEED;
 
-  player.lives = lives;
-  player.score = 0.0f;
+    // Escala GLOBAL do player
+    player.scale = 0.12f;
 
-  player.canDoubleJump = 1;
-  player.isGrounded = 1;
-  player.isJumping = 0;
-  player.isPerformingStunt = 0;
-  player.jumpPower = JUMP_FORCE;
-  player.fallSpeed = 0.0f;
+    player.lives = lives;
+    player.score = 0.0f;
 
-  player.coyoteTimer = 0.0f;
-  player.jumpBufferTimer = 0.0f;
-  player.jumpHoldTime = 0.0f;
-  player.airAccelerationMult = 1.0f;
+    player.canDoubleJump = 1;
+    player.isGrounded = 1;
+    player.isJumping = 0;
+    player.isPerformingStunt = 0;
+    player.jumpPower = JUMP_FORCE;
+    player.fallSpeed = 0.0f;
 
-  player.state = PLAYER_STATE_IDLE;
+    player.coyoteTimer = 0.0f;
+    player.jumpBufferTimer = 0.0f;
+    player.jumpHoldTime = 0.0f;
+    player.airAccelerationMult = 1.0f;
 
-  player.animationTimer = 0.0f;
-  player.animationFrame = 0;
+    player.state = PLAYER_STATE_IDLE;
 
-  player.hasUmbrella = 0;
-  player.umbrellaTimer = 0.0f;
+    player.animationTimer = 0.0f;
+    player.animationFrame = 0;
 
-  player.knockbackSpeed = 0.0f;
-  player.knockbackTimer = 0.0f;
-  player.invincibilityTimer = 0.0f;
+    player.hasUmbrella = 0;
+    player.umbrellaTimer = 0.0f;
 
-  player.slowEffectTimer = 0.0f;
-  player.slowEffectDuration = 0.0f;
-  player.speedMultiplier = 1.0f;
+    player.knockbackSpeed = 0.0f;
+    player.knockbackTimer = 0.0f;
 
-  player.isClimbing = 0;
-  player.movementControlledExternally = 0;
-  player.grounded = 1;
+    player.slowEffectTimer = 0.0f;
+    player.slowEffectDuration = 0.0f;
+    player.speedMultiplier = 1.0f;
 
-  player.direction = 'R';
-  player.on_bike = 1;
-  player.spritesLoaded = 0;
+    player.isClimbing = 0;
+    player.movementControlledExternally = 0;
+    player.grounded = 1;
 
-  player.spriteStandingR = LoadTexture("assets/img/CharacterStandingR.png");
-  player.spriteStandingL = LoadTexture("assets/img/CharacterStandingL.png");
+    player.direction = 'R';
 
-  player.spriteMovingR = LoadTexture("assets/img/characterMovingR1.png");
-  player.spriteMovingL = LoadTexture("assets/img/characterMovingL1.png");
+    player.on_bike = 1;
 
-  player.spriteJumpingR = LoadTexture("assets/img/CharacterJumpingR.png");
-  player.spriteJumpingL = LoadTexture("assets/img/CharacterJumpingL.png");
+    player.spritesLoaded = 0;
 
-  player.spriteBikeStandingR =
-      LoadTexture("assets/img/CharacterBikeStandingR.png");
-  player.spriteBikeStandingL =
-      LoadTexture("assets/img/CharacterBikeStandingL.png");
+    player.spriteStandingR =
+        LoadTexture("assets/img/CharacterStandingR.png");
 
-  player.spriteBikeMovingR = LoadTexture("assets/img/CharacterBikeMovingR.png");
-  player.spriteBikeMovingL = LoadTexture("assets/img/CharacterBikeMovingL.png");
+    player.spriteStandingL =
+        LoadTexture("assets/img/CharacterStandingL.png");
 
-  player.spriteBikeStuntR = LoadTexture("assets/img/CharacterBikeStuntR.png");
-  player.spriteBikeStuntL = LoadTexture("assets/img/CharacterBikeStuntL.png");
+    player.spriteMovingR =
+        LoadTexture("assets/img/characterMovingR1.png");
 
-  player.spriteBikeMovingUmbrellaR =
-      LoadTexture("assets/img/CharacterBikeMovingUmbrelaR.png");
+    player.spriteMovingL =
+        LoadTexture("assets/img/characterMovingL1.png");
 
-  player.spriteBikeMovingUmbrellaL =
-      LoadTexture("assets/img/CharacterBikeMovingUmbrelaL.png");
+    player.spriteJumpingR =
+        LoadTexture("assets/img/CharacterJumpingR.png");
 
-  player.spriteBikeStuntUmbrellaR =
-      LoadTexture("assets/img/CharacterBikeStuntUmbrelaR.png");
+    player.spriteJumpingL =
+        LoadTexture("assets/img/CharacterJumpingL.png");
 
-  player.spriteBikeStuntUmbrellaL =
-      LoadTexture("assets/img/CharacterBikeStuntUmbrelaL.png");
+    player.spriteBikeStandingR =
+        LoadTexture("assets/img/CharacterBikeStandingR.png");
 
-  SetTextureFilter(player.spriteStandingR, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteStandingL, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteMovingR, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteMovingL, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteJumpingR, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteJumpingL, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteBikeStandingR, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteBikeStandingL, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteBikeMovingR, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteBikeMovingL, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteBikeStuntR, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteBikeStuntL, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteBikeMovingUmbrellaR, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteBikeMovingUmbrellaL, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteBikeStuntUmbrellaR, TEXTURE_FILTER_POINT);
-  SetTextureFilter(player.spriteBikeStuntUmbrellaL, TEXTURE_FILTER_POINT);
+    player.spriteBikeStandingL =
+        LoadTexture("assets/img/CharacterBikeStandingL.png");
 
-  if (TEXTURE_VALID(player.spriteStandingR) &&
-      TEXTURE_VALID(player.spriteStandingL) &&
-      TEXTURE_VALID(player.spriteMovingR) &&
-      TEXTURE_VALID(player.spriteMovingL) &&
-      TEXTURE_VALID(player.spriteJumpingR) &&
-      TEXTURE_VALID(player.spriteJumpingL) &&
-      TEXTURE_VALID(player.spriteBikeStandingR) &&
-      TEXTURE_VALID(player.spriteBikeStandingL) &&
-      TEXTURE_VALID(player.spriteBikeMovingR) &&
-      TEXTURE_VALID(player.spriteBikeMovingL) &&
-      TEXTURE_VALID(player.spriteBikeStuntR) &&
-      TEXTURE_VALID(player.spriteBikeStuntL) &&
-      TEXTURE_VALID(player.spriteBikeMovingUmbrellaR) &&
-      TEXTURE_VALID(player.spriteBikeMovingUmbrellaL) &&
-      TEXTURE_VALID(player.spriteBikeStuntUmbrellaR) &&
-      TEXTURE_VALID(player.spriteBikeStuntUmbrellaL)) {
-    player.spritesLoaded = 1;
-  }
+    player.spriteBikeMovingR =
+        LoadTexture("assets/img/CharacterBikeMovingR.png");
 
-  player.width = player.spriteBikeMovingR.width * player.scale + 50.0f;
+    player.spriteBikeMovingL =
+        LoadTexture("assets/img/CharacterBikeMovingL.png");
 
-  player.height = player.spriteBikeMovingR.height * player.scale + 50.0f;
+    player.spriteBikeStuntR =
+        LoadTexture("assets/img/CharacterBikeStuntR.png");
 
-  player.hitbox = (Rectangle){player.position.x, player.position.y,
-                              player.width, player.height};
+    player.spriteBikeStuntL =
+        LoadTexture("assets/img/CharacterBikeStuntL.png");
 
-  return player;
+    player.spriteBikeStandingUmbrellaR =
+        LoadTexture("assets/img/CharacterBikeStandingUmbrelaR.png");
+
+    player.spriteBikeStandingUmbrellaL =
+        LoadTexture("assets/img/CharacterBikeStandingUmbrelaL.png");
+
+    player.spriteBikeMovingUmbrellaR =
+        LoadTexture("assets/img/CharacterBikeMovingUmbrelaR.png");
+
+    player.spriteBikeMovingUmbrellaL =
+        LoadTexture("assets/img/CharacterBikeMovingUmbrelaL.png");
+
+    player.spriteBikeStuntUmbrellaR =
+        LoadTexture("assets/img/CharacterBikeStuntUmbrelaR.png");
+
+    player.spriteBikeStuntUmbrellaL =
+        LoadTexture("assets/img/CharacterBikeStuntUmbrelaL.png");
+
+    SetTextureFilter(
+        player.spriteStandingR,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteStandingL,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteMovingR,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteMovingL,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteJumpingR,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteJumpingL,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeStandingR,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeStandingL,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeMovingR,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeMovingL,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeStuntR,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeStuntL,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeStandingUmbrellaR,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeStandingUmbrellaL,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeMovingUmbrellaR,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeMovingUmbrellaL,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeStuntUmbrellaR,
+        TEXTURE_FILTER_POINT
+    );
+
+    SetTextureFilter(
+        player.spriteBikeStuntUmbrellaL,
+        TEXTURE_FILTER_POINT
+    );
+
+    if (
+        TEXTURE_VALID(player.spriteStandingR) &&
+        TEXTURE_VALID(player.spriteStandingL) &&
+        TEXTURE_VALID(player.spriteMovingR) &&
+        TEXTURE_VALID(player.spriteMovingL) &&
+        TEXTURE_VALID(player.spriteJumpingR) &&
+        TEXTURE_VALID(player.spriteJumpingL) &&
+        TEXTURE_VALID(player.spriteBikeStandingR) &&
+        TEXTURE_VALID(player.spriteBikeStandingL) &&
+        TEXTURE_VALID(player.spriteBikeMovingR) &&
+        TEXTURE_VALID(player.spriteBikeMovingL) &&
+        TEXTURE_VALID(player.spriteBikeStuntR) &&
+        TEXTURE_VALID(player.spriteBikeStuntL) &&
+        TEXTURE_VALID(player.spriteBikeStandingUmbrellaR) &&
+        TEXTURE_VALID(player.spriteBikeStandingUmbrellaL) &&
+        TEXTURE_VALID(player.spriteBikeMovingUmbrellaR) &&
+        TEXTURE_VALID(player.spriteBikeMovingUmbrellaL) &&
+        TEXTURE_VALID(player.spriteBikeStuntUmbrellaR) &&
+        TEXTURE_VALID(player.spriteBikeStuntUmbrellaL)
+    ) {
+        player.spritesLoaded = 1;
+    }
+
+    player.width =
+        player.spriteBikeMovingR.width * player.scale + 50.0f;
+
+    player.height =
+        player.spriteBikeMovingR.height * player.scale + 50.0f;
+
+    player.hitbox = (Rectangle){
+        player.position.x,
+        player.position.y,
+        player.width,
+        player.height
+    };
+
+    return player;
 }
 
 void updatePlayer(Player *player, float deltaTime) {
-  if (player->lives <= 0) {
-    player->state = PLAYER_STATE_DEAD;
-    return;
-  }
 
-  if (player->isGrounded) {
-    player->canDoubleJump = 1;
-  }
-
-  float moveInput = 0.0f;
-
-  if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
-    moveInput = -1.0f;
-  }
-
-  if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
-    moveInput = 1.0f;
-  }
-
-  float baseAccel = 800.0f;
-  float accelAmount =
-      player->isGrounded ? baseAccel : (baseAccel * AIR_ACCEL_MULT);
-
-  player->acceleration.x = moveInput * accelAmount;
-  player->velocity.x += player->acceleration.x * deltaTime;
-
-  if (moveInput == 0.0f) {
-    player->velocity.x *= FRICTION;
-  }
-
-  if (player->slowEffectTimer > 0.0f) {
-    player->slowEffectTimer -= deltaTime;
-
-    if (player->slowEffectTimer <= 0.0f) {
-      player->slowEffectTimer = 0.0f;
-      player->speedMultiplier = 1.0f;
-    }
-  }
-
-  player->velocity.x *= player->speedMultiplier;
-
-  if (player->velocity.x > player->maxSpeed) {
-    player->velocity.x = player->maxSpeed;
-  }
-
-  if (player->velocity.x < -player->maxSpeed) {
-    player->velocity.x = -player->maxSpeed;
-  }
-
-  if (IsKeyDown(KEY_W)) {
-    player->isPerformingStunt = 1;
-  } else {
-    player->isPerformingStunt = 0;
-  }
-
-  if (IsKeyPressed(KEY_SPACE)) {
-    player->jumpBufferTimer = JUMP_BUFFER_TIME;
-    player->jumpHoldTime = 0.0f;
-  }
-
-  if (player->jumpBufferTimer > 0.0f) {
-    player->jumpBufferTimer -= deltaTime;
-  } else {
-    player->jumpBufferTimer = 0.0f;
-  }
-
-  if (player->isGrounded) {
-    player->coyoteTimer = COYOTE_TIME;
-  } else {
-    player->coyoteTimer -= deltaTime;
-  }
-
-  if (IsKeyDown(KEY_SPACE)) {
-    player->jumpHoldTime += deltaTime;
-
-    if (player->jumpHoldTime > MAX_JUMP_HOLD_TIME) {
-      player->jumpHoldTime = MAX_JUMP_HOLD_TIME;
-    }
-  } else {
-    player->jumpHoldTime = 0.0f;
-  }
-
-  int canJumpNormally = (player->isGrounded || player->coyoteTimer > 0.0f ||
-                         player->jumpBufferTimer > 0.0f) &&
-                        IsKeyPressed(KEY_SPACE);
-
-  int canDoubleJump =
-      (!player->isGrounded && player->canDoubleJump) && IsKeyPressed(KEY_SPACE);
-
-  if (canJumpNormally || canDoubleJump) {
-    float jumpMultiplier = player->jumpHoldTime / MAX_JUMP_HOLD_TIME;
-
-    if (jumpMultiplier < 0.8f) {
-      jumpMultiplier = 0.8f;
+    if (player->lives <= 0) {
+        player->state = PLAYER_STATE_DEAD;
+        return;
     }
 
-    player->velocity.y = -player->jumpPower * jumpMultiplier;
-
-    player->isJumping = 1;
-    player->isGrounded = 0;
-
-    if (canDoubleJump) {
-      player->canDoubleJump = 0;
+    // ===== RESET: Se está groundado, pode fazer double jump =====
+    if (player->isGrounded) {
+        player->canDoubleJump = 1;
     }
 
-    if (canJumpNormally) {
-      player->coyoteTimer = 0.0f;
-      player->jumpBufferTimer = 0.0f;
-      player->canDoubleJump = 1;
+    float moveInput = 0.0f;
+
+    if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
+        moveInput = -1.0f;
     }
 
-    player->jumpHoldTime = 0.0f;
-    player->state = PLAYER_STATE_JUMPING;
-  }
-
-  if (player->velocity.y > 0.0f) {
-    player->acceleration.y = GRAVITY * GRAVITY_FALLING_MULT;
-  } else {
-    player->acceleration.y = GRAVITY;
-  }
-
-  player->velocity.y += player->acceleration.y * deltaTime;
-
-  player->position.x += player->velocity.x * deltaTime;
-  player->position.y += player->velocity.y * deltaTime;
-
-  float groundY = GLOBAL_GROUND_LEVEL - player->height + 300.0f;
-
-  if (player->position.y >= groundY) {
-    player->position.y = groundY + 160.0f;
-    player->velocity.y = 0.0f;
-    player->isGrounded = 1;
-    player->grounded = 1;
-    player->isJumping = 0;
-  } else {
-    player->isGrounded = 0;
-    player->grounded = 0;
-  }
-
-  float zoom = player->on_bike ? STAGE1_CAMERA_ZOOM : 1.0f;
-
-  float visibleWidth = GetScreenWidth() / zoom;
-
-  float minX =
-      GetScreenWidth() * 0.5f - visibleWidth * 0.5f + player->width * 0.5f;
-
-  float maxX =
-      GetScreenWidth() * 0.5f + visibleWidth * 0.5f - player->width * 0.5f;
-
-  if (player->position.x < minX) {
-    player->position.x = minX;
-    player->velocity.x = 0.0f;
-  }
-
-  if (player->position.x > maxX) {
-    player->position.x = maxX;
-    player->velocity.x = 0.0f;
-  }
-
-  player->hitbox.x = player->position.x - player->width * 0.35f;
-
-  player->hitbox.y = player->position.y - player->height + 20.0f;
-
-  player->hitbox.width = player->width * 0.7f;
-
-  player->hitbox.height = player->height - 20.0f;
-
-  if (player->knockbackTimer > 0.0f) {
-    player->knockbackTimer -= deltaTime;
-
-    if (player->knockbackTimer <= 0.0f) {
-      player->knockbackTimer = 0.0f;
-      player->knockbackSpeed = 0.0f;
+    if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
+        moveInput = 1.0f;
     }
-  }
 
-  if (player->invincibilityTimer > 0.0f) {
-    player->invincibilityTimer -= deltaTime;
+    float baseAccel = 800.0f;
+    float accelAmount = player->isGrounded ? baseAccel : (baseAccel * AIR_ACCEL_MULT);
 
-    if (player->invincibilityTimer < 0.0f) {
-      player->invincibilityTimer = 0.0f;
+    player->acceleration.x = moveInput * accelAmount;
+    player->velocity.x += player->acceleration.x * deltaTime;
+
+    if (moveInput == 0.0f) {
+        player->velocity.x *= FRICTION;
     }
-  }
 
-  if (player->hasUmbrella) {
-    player->umbrellaTimer -= deltaTime;
+    if (player->slowEffectTimer > 0.0f) {
 
-    if (player->umbrellaTimer <= 0.0f) {
-      player->umbrellaTimer = 0.0f;
-      player->hasUmbrella = 0;
+        player->slowEffectTimer -= deltaTime;
+
+        if (player->slowEffectTimer <= 0.0f) {
+
+            player->slowEffectTimer = 0.0f;
+            player->speedMultiplier = 1.0f;
+        }
     }
-  }
 
-  if (player->knockbackTimer > 0.0f) {
-    player->state = PLAYER_STATE_HIT;
-  } else if (!player->isGrounded) {
-    if (player->velocity.y < 0.0f) {
-      player->state = PLAYER_STATE_JUMPING;
+    player->velocity.x *= player->speedMultiplier;
+
+    if (player->velocity.x > player->maxSpeed) {
+        player->velocity.x = player->maxSpeed;
+    }
+
+    if (player->velocity.x < -player->maxSpeed) {
+        player->velocity.x = -player->maxSpeed;
+    }
+
+    if (IsKeyDown(KEY_W)) {
+        player->isPerformingStunt = 1;
     } else {
-      player->state = PLAYER_STATE_FALLING;
+        player->isPerformingStunt = 0;
     }
-  } else {
-    if (fabs(player->velocity.x) > 10.0f) {
-      player->state = PLAYER_STATE_RUNNING;
+
+    if (IsKeyPressed(KEY_SPACE)) {
+        player->jumpBufferTimer = JUMP_BUFFER_TIME;
+        player->jumpHoldTime = 0.0f;
+    }
+
+    if (player->jumpBufferTimer > 0.0f) {
+        player->jumpBufferTimer -= deltaTime;
     } else {
-      player->state = PLAYER_STATE_IDLE;
+        player->jumpBufferTimer = 0.0f;
     }
-  }
 
-  if (player->velocity.x > 0.1f) {
-    player->direction = 'R';
-  }
+    if (player->isGrounded) {
+        player->coyoteTimer = COYOTE_TIME;
+    } else {
+        player->coyoteTimer -= deltaTime;
+    }
 
-  if (player->velocity.x < -0.1f) {
-    player->direction = 'L';
-  }
+    if (IsKeyDown(KEY_SPACE)) {
+        player->jumpHoldTime += deltaTime;
+        if (player->jumpHoldTime > MAX_JUMP_HOLD_TIME) {
+            player->jumpHoldTime = MAX_JUMP_HOLD_TIME;
+        }
+    } else {
+        player->jumpHoldTime = 0.0f;
+    }
 
-  player->score += fabs(player->velocity.x) * deltaTime;
+    // ===== SISTEMA DE PULO =====
+    int canJumpNormally =
+        (player->isGrounded || player->coyoteTimer > 0.0f) &&
+        player->jumpBufferTimer > 0.0f;
+
+    int canDoubleJump =
+        (!player->isGrounded && player->canDoubleJump) &&
+        player->jumpBufferTimer > 0.0f;
+
+    // ===== EXECUTAR PULO =====
+    if (canJumpNormally || canDoubleJump) {
+
+        float jumpMultiplier = player->jumpHoldTime / MAX_JUMP_HOLD_TIME;
+        if (jumpMultiplier < 0.68f) jumpMultiplier = 0.68f;
+
+        player->velocity.y = -player->jumpPower * jumpMultiplier;
+
+        player->isJumping = 1;
+        player->isGrounded = 0;
+
+        if (canDoubleJump) {
+            player->canDoubleJump = 0;
+        }
+
+        if (canJumpNormally) {
+            player->coyoteTimer = 0.0f;
+            player->jumpBufferTimer = 0.0f;
+            player->canDoubleJump = 1;
+        }
+
+        player->jumpBufferTimer = 0.0f;
+
+        player->jumpHoldTime = 0.0f;
+
+        player->state = PLAYER_STATE_JUMPING;
+    }
+
+    if (player->movementControlledExternally &&
+        !IsKeyDown(KEY_SPACE) &&
+        player->velocity.y >= 0.0f) {
+        player->position.x += player->velocity.x * deltaTime;
+        player->velocity.y = 0.0f;
+        player->isGrounded = 1;
+        player->grounded = 1;
+        player->isJumping = 0;
+    } else {
+        if (player->velocity.y > 0.0f) {
+            player->acceleration.y = GRAVITY * GRAVITY_FALLING_MULT;
+        } else {
+            player->acceleration.y = GRAVITY;
+        }
+
+        player->velocity.y += player->acceleration.y * deltaTime;
+
+        player->position.x += player->velocity.x * deltaTime;
+        player->position.y += player->velocity.y * deltaTime;
+
+        float groundY =
+            GLOBAL_GROUND_LEVEL - player->height + PLAYER_GROUND_OFFSET;
+
+        if (player->position.y >= groundY) {
+
+            player->position.y = groundY;
+
+            player->velocity.y = 0.0f;
+
+            player->isGrounded = 1;
+            player->grounded = 1;
+            player->isJumping = 0;
+
+        } else {
+
+            player->isGrounded = 0;
+            player->grounded = 0;
+        }
+    }
+
+    float minX = player->width * 0.5f;
+    float maxX = GetScreenWidth() - player->width * 0.5f;
+
+    if (player->position.x < minX) {
+
+        player->position.x = minX;
+        player->velocity.x = 0.0f;
+    }
+
+    if (player->position.x > maxX) {
+
+        player->position.x = maxX;
+        player->velocity.x = 0.0f;
+    }
+
+    // ===== ATUALIZAR HITBOX A CADA FRAME =====
+    player->hitbox.x =
+        player->position.x - player->width * 0.35f;
+
+    player->hitbox.y =
+        player->position.y - player->height + 20.0f;
+
+    player->hitbox.width =
+        player->width * 0.7f;
+
+    player->hitbox.height =
+        player->height - 20.0f;
+
+    if (player->knockbackTimer > 0.0f) {
+
+        player->knockbackTimer -= deltaTime;
+
+        if (player->knockbackTimer <= 0.0f) {
+
+            player->knockbackTimer = 0.0f;
+            player->knockbackSpeed = 0.0f;
+        }
+    }
+
+    if (player->hasUmbrella) {
+
+        player->umbrellaTimer -= deltaTime;
+
+        if (player->umbrellaTimer <= 0.0f) {
+
+            player->umbrellaTimer = 0.0f;
+            player->hasUmbrella = 0;
+        }
+    }
+
+    if (player->knockbackTimer > 0.0f) {
+
+        player->state = PLAYER_STATE_HIT;
+
+    } else if (!player->isGrounded) {
+
+        if (player->velocity.y < 0.0f) {
+            player->state = PLAYER_STATE_JUMPING;
+        } else {
+            player->state = PLAYER_STATE_FALLING;
+        }
+
+    } else {
+
+        if (fabs(player->velocity.x) > 10.0f) {
+            player->state = PLAYER_STATE_RUNNING;
+        } else {
+            player->state = PLAYER_STATE_IDLE;
+        }
+    }
+
+    if (player->velocity.x > 0.1f) {
+        player->direction = 'R';
+    }
+
+    if (player->velocity.x < -0.1f) {
+        player->direction = 'L';
+    }
+
+    player->score += fabs(player->velocity.x) * deltaTime;
 }
 
 void drawPlayer(Player player) {
-  Color drawColor = WHITE;
 
-  if (player.state == PLAYER_STATE_HIT || player.invincibilityTimer > 0.0f) {
-    float blink =
-        fmod((player.knockbackTimer + player.invincibilityTimer) * 20.0f, 1.0f);
+    Color drawColor = WHITE;
 
-    drawColor = (blink < 0.5f) ? WHITE : (Color){180, 180, 180, 255};
-  }
+    if (player.state == PLAYER_STATE_HIT) {
 
-  Texture2D currentSprite = {0};
+        float blink =
+            fmod(player.knockbackTimer * 20.0f, 1.0f);
 
-  if (player.on_bike) {
-    if (player.hasUmbrella) {
-      if (player.isPerformingStunt) {
-        currentSprite = (player.direction == 'R')
-                            ? player.spriteBikeStuntUmbrellaR
-                            : player.spriteBikeStuntUmbrellaL;
-      } else if (fabs(player.velocity.x) > 10.0f) {
-        currentSprite = (player.direction == 'R')
-                            ? player.spriteBikeMovingUmbrellaR
-                            : player.spriteBikeMovingUmbrellaL;
-      } else {
-        currentSprite = (player.direction == 'R')
-                            ? player.spriteBikeMovingUmbrellaR
-                            : player.spriteBikeMovingUmbrellaL;
-      }
-    } else {
-      if (player.isPerformingStunt) {
-        currentSprite = (player.direction == 'R') ? player.spriteBikeStuntR
-                                                  : player.spriteBikeStuntL;
-      } else if (fabs(player.velocity.x) > 10.0f) {
-        currentSprite = (player.direction == 'R') ? player.spriteBikeMovingR
-                                                  : player.spriteBikeMovingL;
-      } else {
-        currentSprite = (player.direction == 'R') ? player.spriteBikeStandingR
-                                                  : player.spriteBikeStandingL;
-      }
+        drawColor =
+            (blink < 0.5f)
+            ? WHITE
+            : (Color){180,180,180,255};
     }
-  } else {
-    if (player.state == PLAYER_STATE_JUMPING ||
-        player.state == PLAYER_STATE_FALLING || !player.isGrounded) {
-      currentSprite = (player.direction == 'R') ? player.spriteJumpingR
-                                                : player.spriteJumpingL;
-    } else if (fabs(player.velocity.x) > 10.0f) {
-      currentSprite = (player.direction == 'R') ? player.spriteMovingR
-                                                : player.spriteMovingL;
+
+    Texture2D currentSprite = {0};
+
+    if (player.on_bike) {
+        int useUmbrellaSprite = player.hasUmbrella &&
+                                TEXTURE_VALID(player.spriteBikeStandingUmbrellaR) &&
+                                TEXTURE_VALID(player.spriteBikeStandingUmbrellaL) &&
+                                TEXTURE_VALID(player.spriteBikeMovingUmbrellaR) &&
+                                TEXTURE_VALID(player.spriteBikeMovingUmbrellaL) &&
+                                TEXTURE_VALID(player.spriteBikeStuntUmbrellaR) &&
+                                TEXTURE_VALID(player.spriteBikeStuntUmbrellaL);
+
+        if (player.isPerformingStunt) {
+            if (useUmbrellaSprite) {
+                currentSprite = (player.direction == 'R')
+                    ? player.spriteBikeStuntUmbrellaR
+                    : player.spriteBikeStuntUmbrellaL;
+            } else {
+                currentSprite = (player.direction == 'R')
+                    ? player.spriteBikeStuntR
+                    : player.spriteBikeStuntL;
+            }
+        }
+        else if (fabs(player.velocity.x) > 10.0f) {
+            if (useUmbrellaSprite) {
+                currentSprite = (player.direction == 'R')
+                    ? player.spriteBikeMovingUmbrellaR
+                    : player.spriteBikeMovingUmbrellaL;
+            } else {
+                currentSprite = (player.direction == 'R')
+                    ? player.spriteBikeMovingR
+                    : player.spriteBikeMovingL;
+            }
+        }
+        else {
+            if (useUmbrellaSprite) {
+                currentSprite = (player.direction == 'R')
+                    ? player.spriteBikeStandingUmbrellaR
+                    : player.spriteBikeStandingUmbrellaL;
+            } else {
+                currentSprite = (player.direction == 'R')
+                    ? player.spriteBikeStandingR
+                    : player.spriteBikeStandingL;
+            }
+        }
+
     } else {
-      currentSprite = (player.direction == 'R') ? player.spriteStandingR
-                                                : player.spriteStandingL;
+
+        if (!player.isGrounded || player.state == PLAYER_STATE_JUMPING || player.state == PLAYER_STATE_FALLING) {
+            currentSprite =
+                (player.direction == 'R')
+                ? player.spriteJumpingR
+                : player.spriteJumpingL;
+
+        } else if (fabs(player.velocity.x) > 10.0f) {
+
+            currentSprite =
+                (player.direction == 'R')
+                ? player.spriteMovingR
+                : player.spriteMovingL;
+
+        } else {
+
+            currentSprite =
+                (player.direction == 'R')
+                ? player.spriteStandingR
+                : player.spriteStandingL;
+        }
     }
-  }
 
-  if (player.spritesLoaded && TEXTURE_VALID(currentSprite)) {
-    Rectangle sourceRect = {0, 0, (float)currentSprite.width,
-                            (float)currentSprite.height};
+    if (
+        player.spritesLoaded &&
+        TEXTURE_VALID(currentSprite)
+    ) {
 
-    Rectangle destRect = {player.position.x - player.width * 0.5f,
-                          player.position.y - player.height + 18.0f,
-                          player.width, player.height};
+        Rectangle sourceRect = {
+            0,
+            0,
+            (float) currentSprite.width,
+            (float) currentSprite.height
+        };
 
-    DrawTexturePro(currentSprite, sourceRect, destRect, (Vector2){0, 0}, 0.0f,
-                   drawColor);
-  } else {
-    DrawRectangleRec(player.hitbox, RED);
-  }
+        Rectangle destRect = {
+            player.position.x - player.width * 0.5f,
+            player.position.y - player.height + 18.0f,
+            player.width,
+            player.height
+        };
 
-#ifdef DEBUG_MODE
-  DrawRectangleLinesEx(player.hitbox, 2, GREEN);
-#endif
+        DrawTexturePro(
+            currentSprite,
+            sourceRect,
+            destRect,
+            (Vector2){0,0},
+            0.0f,
+            drawColor
+        );
+
+    } else {
+
+        DrawRectangleRec(
+            player.hitbox,
+            RED
+        );
+    }
+
+    if (player.hasUmbrella && !player.on_bike) {
+
+        float umbrellaX =
+            player.position.x +
+            player.width * 0.5f;
+
+        float umbrellaY =
+            player.position.y - 20.0f;
+
+        DrawCircle(
+            umbrellaX,
+            umbrellaY,
+            20.0f,
+            (Color){100,150,255,180}
+        );
+
+        DrawLine(
+            umbrellaX,
+            umbrellaY,
+            umbrellaX,
+            umbrellaY + 35,
+            DARKGRAY
+        );
+    }
 }
 
+
 void damagePlayer(Player *player, float knockback) {
-  if (player->lives <= 0)
-    return;
-  if (player->invincibilityTimer > 0.0f)
-    return;
+    if (player->lives <= 0) return;
 
-  player->lives--;
-  player->knockbackSpeed = knockback;
-  player->knockbackTimer = KNOCKBACK_DURATION;
-  player->invincibilityTimer = DAMAGE_INVINCIBILITY_DURATION;
+    player->lives--;
+    player->knockbackSpeed = knockback;
+    player->knockbackTimer = KNOCKBACK_DURATION;
 
-  if (player->lives <= 0) {
-    player->state = PLAYER_STATE_DEAD;
-  }
+    if (player->lives <= 0) {
+        player->state = PLAYER_STATE_DEAD;
+    }
 }
 
 void healPlayer(Player *player) {
-  if (player->lives < 3) {
-    player->lives++;
-  }
+    if (player->lives < 3) {
+        player->lives++;
+    }
 }
 
 void addUmbrellaShield(Player *player, float duration) {
-  player->hasUmbrella = 1;
-  player->umbrellaTimer = duration;
+    player->hasUmbrella = 1;
+    player->umbrellaTimer = duration;
 }
 
 void applySlowDown(Player *player, float amount, float duration) {
-  player->slowEffectTimer = duration;
-  player->slowEffectDuration = duration;
+    player->slowEffectTimer = duration;
+    player->slowEffectDuration = duration;
 
-  float multiplier = (100.0f - amount) / 100.0f;
+    float multiplier = (100.0f - amount) / 100.0f;
+    if (multiplier < 0.1f) multiplier = 0.1f;
 
-  if (multiplier < 0.1f) {
-    multiplier = 0.1f;
-  }
-
-  player->speedMultiplier = multiplier;
+    player->speedMultiplier = multiplier;
 }
 
 void unloadPlayerResources(Player *player) {
-  if (player->spritesLoaded) {
-    if (player->spriteStandingR.id != 0)
-      UnloadTexture(player->spriteStandingR);
-    if (player->spriteStandingL.id != 0)
-      UnloadTexture(player->spriteStandingL);
-    if (player->spriteMovingR.id != 0)
-      UnloadTexture(player->spriteMovingR);
-    if (player->spriteMovingL.id != 0)
-      UnloadTexture(player->spriteMovingL);
-    if (player->spriteJumpingR.id != 0)
-      UnloadTexture(player->spriteJumpingR);
-    if (player->spriteJumpingL.id != 0)
-      UnloadTexture(player->spriteJumpingL);
-    if (player->spriteBikeStandingR.id != 0)
-      UnloadTexture(player->spriteBikeStandingR);
-    if (player->spriteBikeStandingL.id != 0)
-      UnloadTexture(player->spriteBikeStandingL);
-    if (player->spriteBikeMovingR.id != 0)
-      UnloadTexture(player->spriteBikeMovingR);
-    if (player->spriteBikeMovingL.id != 0)
-      UnloadTexture(player->spriteBikeMovingL);
-    if (player->spriteBikeStuntR.id != 0)
-      UnloadTexture(player->spriteBikeStuntR);
-    if (player->spriteBikeStuntL.id != 0)
-      UnloadTexture(player->spriteBikeStuntL);
-
-    if (player->spriteBikeMovingUmbrellaR.id != 0) {
-      UnloadTexture(player->spriteBikeMovingUmbrellaR);
-    }
-
-    if (player->spriteBikeMovingUmbrellaL.id != 0) {
-      UnloadTexture(player->spriteBikeMovingUmbrellaL);
-    }
-
-    if (player->spriteBikeStuntUmbrellaR.id != 0) {
-      UnloadTexture(player->spriteBikeStuntUmbrellaR);
-    }
-
-    if (player->spriteBikeStuntUmbrellaL.id != 0) {
-      UnloadTexture(player->spriteBikeStuntUmbrellaL);
-    }
-
+    if (player->spriteStandingR.id != 0) UnloadTexture(player->spriteStandingR);
+    if (player->spriteStandingL.id != 0) UnloadTexture(player->spriteStandingL);
+    if (player->spriteMovingR.id != 0) UnloadTexture(player->spriteMovingR);
+    if (player->spriteMovingL.id != 0) UnloadTexture(player->spriteMovingL);
+    if (player->spriteJumpingR.id != 0) UnloadTexture(player->spriteJumpingR);
+    if (player->spriteJumpingL.id != 0) UnloadTexture(player->spriteJumpingL);
+    if (player->spriteBikeStandingR.id != 0) UnloadTexture(player->spriteBikeStandingR);
+    if (player->spriteBikeStandingL.id != 0) UnloadTexture(player->spriteBikeStandingL);
+    if (player->spriteBikeMovingR.id != 0) UnloadTexture(player->spriteBikeMovingR);
+    if (player->spriteBikeMovingL.id != 0) UnloadTexture(player->spriteBikeMovingL);
+    if (player->spriteBikeStuntR.id != 0) UnloadTexture(player->spriteBikeStuntR);
+    if (player->spriteBikeStuntL.id != 0) UnloadTexture(player->spriteBikeStuntL);
+    if (player->spriteBikeStandingUmbrellaR.id != 0) UnloadTexture(player->spriteBikeStandingUmbrellaR);
+    if (player->spriteBikeStandingUmbrellaL.id != 0) UnloadTexture(player->spriteBikeStandingUmbrellaL);
+    if (player->spriteBikeMovingUmbrellaR.id != 0) UnloadTexture(player->spriteBikeMovingUmbrellaR);
+    if (player->spriteBikeMovingUmbrellaL.id != 0) UnloadTexture(player->spriteBikeMovingUmbrellaL);
+    if (player->spriteBikeStuntUmbrellaR.id != 0) UnloadTexture(player->spriteBikeStuntUmbrellaR);
+    if (player->spriteBikeStuntUmbrellaL.id != 0) UnloadTexture(player->spriteBikeStuntUmbrellaL);
     player->spritesLoaded = 0;
-  }
 
-  directional_animation_unload(&player->anim_standing);
-  directional_animation_unload(&player->anim_moving);
-  directional_animation_unload(&player->anim_bike_standing);
-  directional_animation_unload(&player->anim_bike_moving);
+    directional_animation_unload(&player->anim_standing);
+    directional_animation_unload(&player->anim_moving);
+    directional_animation_unload(&player->anim_bike_standing);
+    directional_animation_unload(&player->anim_bike_moving);
 }

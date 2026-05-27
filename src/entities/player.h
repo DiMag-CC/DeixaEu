@@ -1,90 +1,96 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
-#include "../gfx/animation.h"
 #include <raylib.h>
+#include "../gfx/animation.h"
 
+// ========== CONSTANTES GLOBAIS ==========
 #define SCREEN_WIDTH 1920.0f
 #define SCREEN_HEIGHT 1080.0f
 #define PLAYER_WIDTH 30.0f
 #define PLAYER_HEIGHT 40.0f
 
+// ========== ESTADOS DO JOGADOR ==========
 typedef enum {
-  PLAYER_STATE_IDLE = 0,
-  PLAYER_STATE_RUNNING = 1,
-  PLAYER_STATE_JUMPING = 2,
-  PLAYER_STATE_FALLING = 3,
-  PLAYER_STATE_HIT = 4,
-  PLAYER_STATE_UMBRELLA_BUFF = 5,
-  PLAYER_STATE_DEAD = 6
+    PLAYER_STATE_IDLE             = 0,
+    PLAYER_STATE_RUNNING          = 1,
+    PLAYER_STATE_JUMPING          = 2,
+    PLAYER_STATE_FALLING          = 3,
+    PLAYER_STATE_HIT              = 4,
+    PLAYER_STATE_UMBRELLA_BUFF    = 5,
+    PLAYER_STATE_DEAD             = 6
 } PlayerState;
 
+// ========== ESTRUTURA DO JOGADOR ==========
 typedef struct {
-  Vector2 position;
-  Vector2 velocity;
-  Vector2 acceleration;
-  Rectangle hitbox;
+    Vector2 position;           // Posição (x, y)
+    Vector2 velocity;           // Velocidade (vx, vy)
+    Vector2 acceleration;       // Aceleração (ax, ay)
+    Rectangle hitbox;           // Hitbox pra colisão
 
-  float speed;
-  float maxSpeed;
-  float width;
-  float height;
-  float scale;
-  float coyoteTimer;
-  float jumpBufferTimer;
-  float jumpHoldTime;
-  float airAccelerationMult;
+    float speed;                // Velocidade atual (m/s)
+    float maxSpeed;             // Velocidade máxima
+    float width;                // Largura
+    float height;               // Altura
+    float scale;                // Escala do sprite (multiplicador)
+    float coyoteTimer;
+    float jumpBufferTimer;
+    float jumpHoldTime;
+    float airAccelerationMult;
 
-  int lives;
-  float score;
+    int lives;
+    float score;
 
-  int isGrounded;
-  int isJumping;
-  int isPerformingStunt;
-  int canDoubleJump;
+    int isGrounded;
+    int isJumping;
+    int isPerformingStunt;
+    int canDoubleJump;
+    float jumpPower;
+    float fallSpeed;
 
-  float jumpPower;
-  float fallSpeed;
+    PlayerState state;          // Estado atual
+    float animationTimer;       // Timer de animação
+    int animationFrame;         // Frame de animação
 
-  PlayerState state;
-  float animationTimer;
-  int animationFrame;
+    // Power-ups
+    int hasUmbrella;            // 1 = tem guarda-chuva
+    float umbrellaTimer;        // Tempo restante de proteção
 
-  int hasUmbrella;
-  float umbrellaTimer;
+    // Knockback
+    float knockbackSpeed;       // Velocidade de knockback
+    float knockbackTimer;       // Timer de knockback
+    float invincibilityTimer;   // Timer de invencibilidade após dano
 
-  float knockbackSpeed;
-  float knockbackTimer;
-  float invincibilityTimer;
+    // Debuffs
+    float slowEffectTimer;      // Timer de efeito de lentidão
+    float slowEffectDuration;   // Duração total do efeito
+    float speedMultiplier;      // Multiplicador de velocidade (0.5 = metade)
 
-  float slowEffectTimer;
-  float slowEffectDuration;
-  float speedMultiplier;
+    // Stage3 específico
+    int isClimbing;             // 1 = escalando, 0 = não
+    int movementControlledExternally;  // 1 = stage controla, 0 = player controla
+    int grounded;               // Alias para isGrounded (compatibilidade stage3)
 
-  int isClimbing;
-  int movementControlledExternally;
-  int grounded;
+    // Sprites e texturas — sprites únicos diretos (não multi-frame)
+    Texture2D spriteStandingR, spriteStandingL;
+    Texture2D spriteMovingR, spriteMovingL;
+    Texture2D spriteJumpingR, spriteJumpingL;
+    Texture2D spriteBikeStandingR, spriteBikeStandingL;
+    Texture2D spriteBikeMovingR, spriteBikeMovingL;
+    Texture2D spriteBikeStuntL, spriteBikeStuntR;
+    Texture2D spriteBikeStandingUmbrellaR, spriteBikeStandingUmbrellaL;
+    Texture2D spriteBikeMovingUmbrellaR, spriteBikeMovingUmbrellaL;
+    Texture2D spriteBikeStuntUmbrellaR, spriteBikeStuntUmbrellaL;
+    int spritesLoaded;          // 1 = texturas carregaram
 
-  Texture2D spriteStandingR, spriteStandingL;
-  Texture2D spriteMovingR, spriteMovingL;
-  Texture2D spriteJumpingR, spriteJumpingL;
-  Texture2D spriteBikeStandingR, spriteBikeStandingL;
-  Texture2D spriteBikeMovingR, spriteBikeMovingL;
-  Texture2D spriteBikeStuntL, spriteBikeStuntR;
+    // Animações direcionais (fallback, podem estar vazias)
+    DirectionalAnimationSet anim_standing;
+    DirectionalAnimationSet anim_moving;
+    DirectionalAnimationSet anim_bike_standing;
+    DirectionalAnimationSet anim_bike_moving;
 
-  Texture2D spriteBikeStandingUmbrellaR, spriteBikeStandingUmbrellaL;
-  Texture2D spriteBikeMovingUmbrellaR, spriteBikeMovingUmbrellaL;
-  Texture2D spriteBikeStuntUmbrellaR, spriteBikeStuntUmbrellaL;
-
-  int spritesLoaded;
-
-  DirectionalAnimationSet anim_standing;
-  DirectionalAnimationSet anim_moving;
-  DirectionalAnimationSet anim_bike_standing;
-  DirectionalAnimationSet anim_bike_moving;
-
-  char direction;
-  int on_bike;
+    char direction; // 'L' ou 'R' - direção atual
+    int on_bike;    // 1 = na bike, 0 = a pé
 
 } Player;
 
